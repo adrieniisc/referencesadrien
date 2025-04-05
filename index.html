@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dark Apple-Style Gallery with Unified Scale</title>
+  <style>
+    /* --------------------------------------------------
+       Apple-Inspired Dark Mode Variables
+    -------------------------------------------------- */
+    :root {
+      --primary-bg: #1c1c1e;       /* Main background */
+      --secondary-bg: #2c2c2e;     /* Top bar and sidebar background */
+      --border-color: #3a3a3c;     /* Border color */
+      --text-color: #f2f2f7;       /* Light text */
+      --highlight-color: #0a84ff;  /* Accent color */
+      --thumbnail-size: 150px;     /* Default thumbnail size */
+    }
+
+    /* --------------------------------------------------
+       Base Reset & Body
+    -------------------------------------------------- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+                   Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      background-color: var(--primary-bg);
+      color: var(--text-color);
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* --------------------------------------------------
+       Top Bar (New Folder, Add Image)
+    -------------------------------------------------- */
+    .top-bar {
+      background-color: var(--secondary-bg);
+      padding: 0.4rem 0.8rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .top-bar button {
+      background-color: var(--highlight-color);
+      color: #fff;
+      border: none;
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .top-bar button:hover { opacity: 0.9; }
+
+    /* --------------------------------------------------
+       Main Container (Sidebar + Content)
+    -------------------------------------------------- */
+    .main-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* --------------------------------------------------
+       Sidebar (Folders, Search & Filter)
+    -------------------------------------------------- */
+    .sidebar {
+      width: 220px;
+      background-color: var(--secondary-bg);
+      border-right: 1px solid var(--border-color);
+      padding: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    /* Container for search bar and filter icon */
+    .search-bar-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.6rem;
+    }
+    #imageSearch {
+      flex: 1;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: #1c1c1e;
+      color: var(--text-color);
+      font-size: 0.75rem;
+    }
+    /* Filter icon container for centering */
+    .filter-icon-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      margin-left: 0.4rem;
+    }
+    .filter-button {
+      width: 28px;
+      height: 28px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .filter-button:hover { background-color: #3a3a3c; }
+    .filter-button svg {
+      width: 18px;
+      height: 18px;
+      fill: var(--text-color);
+    }
+    /* Filter dropdown positioned outside the sidebar */
+    .filter-menu {
+      position: fixed;
+      top: 50px;
+      left: 240px;
+      background-color: #2c2c2e;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.2rem 0;
+      display: none;
+      z-index: 1000;
+      min-width: 120px;
+      font-size: 0.75rem;
+    }
+    .filter-menu .filter-option {
+      padding: 0.3rem 0.8rem;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      color: var(--text-color);
+    }
+    .filter-menu .filter-option:hover { background-color: #3a3a3c; }
+
+    /* Folder list with compact styling */
+    .folder-list {
+      list-style: none;
+      flex: 1;
+      margin: 0;
+      padding: 0;
+      font-size: 0.75rem;
+    }
+    .folder-list > li {
+      margin: 0.1rem 0;
+      padding: 0.3rem 0.4rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      text-align: left;
+    }
+    .folder-list > li.all {
+      font-weight: 600;
+    }
+    .folder-list li:hover { background-color: #3a3a3c; }
+    .folder-list li.selected {
+      background-color: var(--highlight-color);
+      color: #fff;
+    }
+    /* Subfolder list with reduced spacing */
+    ul.subfolder-list {
+      list-style: none;
+      padding-left: 1rem;
+      margin: 0.1rem 0;
+      border-left: 1px solid rgba(255,255,255,0.08);
+      display: none;
+      font-size: 0.75rem;
+    }
+    ul.subfolder-list li {
+      margin: 0.1rem 0;
+      padding: 0.3rem 0.4rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    ul.subfolder-list li:hover { background-color: #3a3a3c; }
+    ul.subfolder-list li.selected {
+      background-color: var(--highlight-color);
+      color: #fff;
+    }
+
+    /* Sidebar Footer: Rename and Delete Folder buttons */
+    .sidebar-footer {
+      display: flex;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-top: auto;
+      padding-top: 0.4rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-footer button {
+      background-color: #444;
+      color: #ddd;
+      border: none;
+      padding: 0.3rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .sidebar-footer button:hover { opacity: 0.9; }
+
+    /* --------------------------------------------------
+       Main Content (Gallery)
+    -------------------------------------------------- */
+    .main-content {
+      flex: 1;
+      padding: 0.8rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+    .image-container {
+      position: relative;
+      width: var(--thumbnail-size);
+      min-width: var(--thumbnail-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .image-container img {
+      width: 100%;
+      height: auto;
+      border: 1px solid #444;
+      border-radius: 6px;
+      transition: transform 0.3s ease;
+      cursor: pointer;
+    }
+    .image-container img:hover {
+      transform: scale(1.02);
+    }
+    .download-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background-color: var(--highlight-color);
+      color: #fff;
+      border: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      display: none;
+      text-decoration: none;
+      line-height: 1.4;
+    }
+    .image-container:hover .download-btn {
+      display: block;
+    }
+    .hidden { display: none; }
+
+    /* --------------------------------------------------
+       Floating Size Panel (Thumbnail Size Icons)
+    -------------------------------------------------- */
+    .floating-size-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(44,44,46,0.9);
+      padding: 0.3rem 0.5rem;
+      border-radius: 10px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .size-icon-container { display: inline-flex; gap: 0.3rem; }
+    .size-icon {
+      width: 30px;
+      height: 30px;
+      background-color: #1c1c1e;
+      border: 1px solid #555;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.6rem;
+      color: var(--text-color);
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+    .size-icon span { pointer-events: none; }
+    .size-icon:hover { border-color: var(--highlight-color); }
+    .size-icon.selected {
+      background-color: var(--highlight-color);
+      border-color: var(--highlight-color);
+      color: #fff;
+    }
+
+    /* --------------------------------------------------
+       Modals (Folder, Image, Rename)
+    -------------------------------------------------- */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.3);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .modal-backdrop.active { opacity: 1; visibility: visible; }
+    .modal-content {
+      background: #2c2c2e;
+      border-radius: 12px;
+      padding: 0.8rem 1.2rem;
+      max-width: 400px;
+      width: 90%;
+      position: relative;
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      font-size: 0.8rem;
+    }
+    .modal-content h3 {
+      margin-bottom: 0.8rem;
+      font-weight: 600;
+    }
+    .modal-content label {
+      display: inline-block;
+      margin-right: 0.4rem;
+      font-weight: 500;
+      margin-top: 0.5rem;
+    }
+    .modal-content input,
+    .modal-content select {
+      margin-bottom: 0.8rem;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid #555;
+      border-radius: 6px;
+      width: 100%;
+      margin-top: 0.3rem;
+      background-color: #1c1c1e;
+      color: #fff;
+    }
+    .modal-content button {
+      background-color: var(--highlight-color);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.3rem 0.5rem;
+      cursor: pointer;
+      margin-right: 0.4rem;
+    }
+    .modal-content button:hover { opacity: 0.9; }
+    .close-modal-btn {
+      background: none;
+      color: #fff;
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      border: none;
+    }
+    .close-modal-btn:hover { color: #bbb; }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <button id="openFolderModalBtn">New Folder</button>
+    <button id="openImageModalBtn">Add Image</button>
+  </div>
+
+  <!-- MAIN CONTAINER (Sidebar + Main Content) -->
+  <div class="main-container">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="search-bar-container">
+        <input type="search" id="imageSearch" placeholder="Search images...">
+        <div class="filter-icon-container">
+          <button class="filter-button" id="filterButton" title="Sort Options">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 6h18M3 12h18M3 18h18"
+                    stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <!-- Filter menu positioned outside the sidebar -->
+      <div class="filter-menu" id="filterMenu">
+        <div class="filter-option" data-sort="alphabetical">Alphabetical</div>
+        <div class="filter-option" data-sort="recent">Recent Add</div>
+      </div>
+
+      <ul class="folder-list" id="folderList">
+        <!-- Dynamically generated folder items -->
+      </ul>
+
+      <div class="sidebar-footer">
+        <button id="renameFolderBtn">Rename Folder</button>
+        <button id="deleteFolderBtn">Delete Folder</button>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+      <div class="gallery" id="gallery"></div>
+    </div>
+  </div>
+
+  <!-- FLOATING SIZE PANEL -->
+  <div class="floating-size-panel">
+    <div class="size-icon-container">
+      <div class="size-icon" data-size="60"><span>XS</span></div>
+      <div class="size-icon" data-size="100"><span>S</span></div>
+      <div class="size-icon selected" data-size="150"><span>M</span></div>
+      <div class="size-icon" data-size="200"><span>L</span></div>
+      <div class="size-icon" data-size="300"><span>XL</span></div>
+    </div>
+  </div>
+
+  <!-- MODAL: New Folder -->
+  <div class="modal-backdrop" id="folderModal">
+    <div class="modal-content">
+      <button class="close-modal-btn" id="closeFolderModalBtn">&times;</button>
+      <h3>Create New</h3>
+      <label for="newFolderName">Name:</label>
+      <input type="text" id="newFolderName" placeholder="e.g., My Textures">
+      <label for="parentFolderSelect">Parent (optional):</label>
+      <select id="parentFolderSelect">
+        <option value="">No Parent</option>
+      </select>
+      <div style="margin-top:0.8rem;">
+        <button id="addFolderBtn">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Add Image -->
+  <div class="modal-backdrop" id="imageModal">
+    <div class="modal-content">
+      <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
+      <h3>Add Image</h3>
+      <label for="fileInput">Select Image:</label>
+      <input type="file" id="fileInput" accept="image/*">
+      <label for="folderSelect">Location:</label>
+      <select id="folderSelect"></select>
+      <label for="imageKeywords">Keywords:</label>
+      <input type="text" id="imageKeywords" placeholder="e.g., red, green">
+      <div style="margin-top:0.8rem;">
+        <button id="confirmAddImageBtn">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Rename Folder -->
+  <div class="modal-backdrop" id="renameFolderModal">
+    <div class="modal-content">
+      <button class="close-modal-btn" id="closeRenameFolderModalBtn">&times;</button>
+      <h3>Rename Folder</h3>
+      <label for="renameFolderInput">New Name:</label>
+      <input type="text" id="renameFolderInput" placeholder="Enter new folder name">
+      <div style="margin-top:0.8rem;">
+        <button id="confirmRenameFolderBtn">Rename</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /********************************************************
+     * Data Structures
+     ********************************************************/
+    let folders = [
+      "angle",
+      "brick-roof-tile",
+      "cobblestone",
+      "concrete",
+      "concrete/patterns",
+      "construction",
+      "creature",
+      "ground-tile",
+      "paint",
+      "rock",
+      "wood"
+    ];
+    let currentFolderFilter = "all"; // Track current folder filter
+
+    /********************************************************
+     * DOM Elements
+     ********************************************************/
+    const folderList          = document.getElementById("folderList");
+    const newFolderName       = document.getElementById("newFolderName");
+    const parentFolderSelect  = document.getElementById("parentFolderSelect");
+    const addFolderBtn        = document.getElementById("addFolderBtn");
+
+    const openFolderModalBtn  = document.getElementById("openFolderModalBtn");
+    const folderModal         = document.getElementById("folderModal");
+    const closeFolderModalBtn = document.getElementById("closeFolderModalBtn");
+
+    const openImageModalBtn   = document.getElementById("openImageModalBtn");
+    const imageModal          = document.getElementById("imageModal");
+    const closeImageModalBtn  = document.getElementById("closeImageModalBtn");
+    const confirmAddImageBtn  = document.getElementById("confirmAddImageBtn");
+    const fileInput           = document.getElementById("fileInput");
+    const folderSelect        = document.getElementById("folderSelect");
+    const imageKeywords       = document.getElementById("imageKeywords");
+
+    const gallery             = document.getElementById("gallery");
+    const sizeIcons           = document.querySelectorAll(".size-icon");
+
+    const imageSearch         = document.getElementById("imageSearch");
+
+    const renameFolderBtn     = document.getElementById("renameFolderBtn");
+    const renameFolderModal   = document.getElementById("renameFolderModal");
+    const closeRenameFolderModalBtn = document.getElementById("closeRenameFolderModalBtn");
+    const renameFolderInput   = document.getElementById("renameFolderInput");
+    const confirmRenameFolderBtn = document.getElementById("confirmRenameFolderBtn");
+
+    const filterButton        = document.getElementById("filterButton");
+    const filterMenu          = document.getElementById("filterMenu");
+
+    const deleteFolderBtn     = document.getElementById("deleteFolderBtn");
+
+    /********************************************************
+     * Modal Handling
+     ********************************************************/
+    openFolderModalBtn.addEventListener("click", () => {
+      folderModal.classList.add("active");
+    });
+    closeFolderModalBtn.addEventListener("click", () => {
+      folderModal.classList.remove("active");
+    });
+    folderModal.addEventListener("click", (e) => {
+      if (e.target === folderModal) folderModal.classList.remove("active");
+    });
+
+    openImageModalBtn.addEventListener("click", () => {
+      imageModal.classList.add("active");
+    });
+    closeImageModalBtn.addEventListener("click", () => {
+      imageModal.classList.remove("active");
+    });
+    imageModal.addEventListener("click", (e) => {
+      if (e.target === imageModal) imageModal.classList.remove("active");
+    });
+
+    renameFolderBtn.addEventListener("click", () => {
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) {
+        alert("Please select a folder to rename.");
+        return;
+      }
+      if (selectedEl.getAttribute("data-filter") === "all") {
+        alert("Cannot rename 'All'.");
+        return;
+      }
+      renameFolderInput.value = selectedEl.textContent;
+      renameFolderModal.classList.add("active");
+    });
+    closeRenameFolderModalBtn.addEventListener("click", () => {
+      renameFolderModal.classList.remove("active");
+    });
+    renameFolderModal.addEventListener("click", (e) => {
+      if (e.target === renameFolderModal) renameFolderModal.classList.remove("active");
+    });
+
+    deleteFolderBtn.addEventListener("click", () => {
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) {
+        alert("Please select a folder to delete.");
+        return;
+      }
+      const currentFullName = selectedEl.getAttribute("data-filter");
+      if (currentFullName === "all") {
+        alert("Cannot delete 'All'.");
+        return;
+      }
+      if (!confirm(`Are you sure you want to delete folder "${currentFullName}"?`)) {
+        return;
+      }
+      // If top-level, remove it and subfolders. If subfolder, remove exact match.
+      if (!currentFullName.includes("/")) {
+        folders = folders.filter(f => f !== currentFullName && !f.startsWith(currentFullName + "/"));
+      } else {
+        folders = folders.filter(f => f !== currentFullName);
+      }
+      renderFolders();
+    });
+
+    /********************************************************
+     * Build Folder Structure
+     ********************************************************/
+    function buildFolderStructure() {
+      const structure = {};
+      folders.forEach(folder => {
+        const parts = folder.split("/");
+        if (parts.length === 1) {
+          if (!structure[parts[0]]) {
+            structure[parts[0]] = [];
+          }
+        } else {
+          const parent = parts[0];
+          const child = parts[1];
+          if (!structure[parent]) {
+            structure[parent] = [];
+          }
+          structure[parent].push(child);
+        }
+      });
+      return structure;
+    }
+
+    /********************************************************
+     * Render Folders in Sidebar & "Location" Select
+     ********************************************************/
+    function renderFolders() {
+      folderList.innerHTML = "";
+      folderSelect.innerHTML = "";
+      parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
+
+      // "All" item
+      const allItem = document.createElement("li");
+      allItem.textContent = "All";
+      allItem.classList.add("all");
+      allItem.setAttribute("data-filter", "all");
+      allItem.addEventListener("click", () => {
+        highlightSelected(allItem);
+        hideAllSubfolders();
+        currentFolderFilter = "all";
+        filterImages("all");
+      });
+      folderList.appendChild(allItem);
+
+      const structure = buildFolderStructure();
+      const parents = Object.keys(structure).sort();
+
+      parents.forEach(parent => {
+        const parentLi = document.createElement("li");
+        parentLi.textContent = parent;
+        parentLi.setAttribute("data-filter", parent);
+
+        const subUl = document.createElement("ul");
+        subUl.classList.add("subfolder-list");
+
+        structure[parent].sort().forEach(child => {
+          const childLi = document.createElement("li");
+          childLi.textContent = child;
+          childLi.setAttribute("data-filter", parent + "/" + child);
+          childLi.addEventListener("click", (e) => {
+            e.stopPropagation();
+            highlightSelected(childLi);
+            currentFolderFilter = parent + "/" + child;
+            filterImages(parent + "/" + child);
+          });
+          subUl.appendChild(childLi);
+        });
+
+        parentLi.addEventListener("click", () => {
+          highlightSelected(parentLi);
+          toggleSubfolders(subUl);
+          currentFolderFilter = parent;
+          filterImages(parent);
+        });
+
+        folderList.appendChild(parentLi);
+        folderList.appendChild(subUl);
+      });
+
+      // Populate "Location" select (in Image Modal)
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        folderSelect.appendChild(parentOpt);
+
+        structure[parent].forEach(child => {
+          const childOpt = document.createElement("option");
+          childOpt.value = parent + "/" + child;
+          childOpt.textContent = "— " + child;
+          folderSelect.appendChild(childOpt);
+        });
+      });
+
+      // Populate "Parent (optional)" select (in Folder Modal)
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        parentFolderSelect.appendChild(parentOpt);
+      });
+    }
+
+    /********************************************************
+     * Hide & Toggle Subfolders
+     ********************************************************/
+    function hideAllSubfolders() {
+      const allSubUls = folderList.querySelectorAll(".subfolder-list");
+      allSubUls.forEach(ul => { ul.style.display = "none"; });
+    }
+    function toggleSubfolders(currentUl) {
+      const allSubUls = folderList.querySelectorAll(".subfolder-list");
+      allSubUls.forEach(ul => {
+        if (ul !== currentUl) {
+          ul.style.display = "none";
+        }
+      });
+      currentUl.style.display = (currentUl.style.display === "none") ? "block" : "none";
+    }
+
+    /********************************************************
+     * Highlight & Filter
+     ********************************************************/
+    function highlightSelected(li) {
+      const allItems = folderList.querySelectorAll("li");
+      allItems.forEach(item => item.classList.remove("selected"));
+      li.classList.add("selected");
+    }
+    function filterImages(filterValue) {
+      const allImages = document.querySelectorAll(".image-container");
+      allImages.forEach(container => {
+        const category = container.getAttribute("data-category");
+        if (filterValue === "all" || category === filterValue) {
+          container.classList.remove("hidden");
+        } else {
+          container.classList.add("hidden");
+        }
+      });
+    }
+
+    /********************************************************
+     * Search Images by Keywords and Filename
+     ********************************************************/
+    imageSearch.addEventListener("input", () => { searchImages(); });
+    function searchImages() {
+      const query = imageSearch.value.trim().toLowerCase();
+      const allImages = document.querySelectorAll(".image-container");
+      if (query !== "") {
+        allImages.forEach(container => {
+          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+          const imgAlt = container.querySelector("img").alt.toLowerCase();
+          if (keywords.indexOf(query) !== -1 || imgAlt.indexOf(query) !== -1) {
+            container.classList.remove("hidden");
+          } else {
+            container.classList.add("hidden");
+          }
+        });
+      } else {
+        filterImages(currentFolderFilter);
+      }
+    }
+
+    /********************************************************
+     * Folder Modal: Add Folder/Subfolder
+     ********************************************************/
+    addFolderBtn.addEventListener("click", () => {
+      const folderName = newFolderName.value.trim();
+      const parentName = parentFolderSelect.value;
+      if (!folderName) {
+        alert("Please enter a name.");
+        return;
+      }
+      let fullName = folderName;
+      if (parentName) {
+        fullName = parentName + "/" + folderName;
+      }
+      if (folders.includes(fullName)) {
+        alert("This already exists.");
+        return;
+      }
+      folders.push(fullName);
+      newFolderName.value = "";
+      parentFolderSelect.value = "";
+      folderModal.classList.remove("active");
+      renderFolders();
+    });
+
+    /********************************************************
+     * Image Modal: Add Image
+     ********************************************************/
+    confirmAddImageBtn.addEventListener("click", () => {
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select an image file first.");
+        return;
+      }
+      const folderValue = folderSelect.value;
+      if (!folderValue) {
+        alert("Please select a location.");
+        return;
+      }
+      const keywords = imageKeywords.value.trim().toLowerCase();
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const container = document.createElement("div");
+        container.classList.add("image-container");
+        container.setAttribute("data-category", folderValue);
+        container.setAttribute("data-keywords", keywords);
+        container.setAttribute("data-add-time", Date.now());
+        const img = document.createElement("img");
+        img.src = e.target.result;
+        img.alt = file.name;
+        const downloadLink = document.createElement("a");
+        downloadLink.classList.add("download-btn");
+        downloadLink.textContent = "Download";
+        downloadLink.href = e.target.result;
+        downloadLink.download = file.name;
+        container.appendChild(img);
+        container.appendChild(downloadLink);
+        gallery.appendChild(container);
+      }
+      reader.readAsDataURL(file);
+      fileInput.value = "";
+      folderSelect.value = "";
+      imageKeywords.value = "";
+      imageModal.classList.remove("active");
+    });
+
+    /********************************************************
+     * Rename Folder
+     ********************************************************/
+    confirmRenameFolderBtn.addEventListener("click", () => {
+      const newName = renameFolderInput.value.trim();
+      if (!newName) {
+        alert("Please enter a new name.");
+        return;
+      }
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) {
+        alert("No folder selected.");
+        return;
+      }
+      const currentFullName = selectedEl.getAttribute("data-filter");
+      if (currentFullName === "all") {
+        alert("Cannot rename 'All'.");
+        return;
+      }
+      if (!currentFullName.includes("/")) {
+        folders = folders.map(f => {
+          if (f === currentFullName) return newName;
+          else if (f.startsWith(currentFullName + "/")) return newName + f.substring(currentFullName.length);
+          return f;
+        });
+      } else {
+        folders = folders.map(f => (f === currentFullName ? f.split("/")[0] + "/" + newName : f));
+      }
+      renameFolderModal.classList.remove("active");
+      renderFolders();
+    });
+
+    /********************************************************
+     * Thumbnail Size Icons
+     ********************************************************/
+    sizeIcons.forEach(icon => {
+      icon.addEventListener("click", () => {
+        sizeIcons.forEach(i => i.classList.remove("selected"));
+        icon.classList.add("selected");
+        const newSize = icon.getAttribute("data-size");
+        document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
+      });
+    });
+
+    /********************************************************
+     * Filter Icon & Sorting
+     ********************************************************/
+    filterButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
+    });
+    document.addEventListener("click", (e) => {
+      if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) {
+        filterMenu.style.display = "none";
+      }
+    });
+    const filterOptions = document.querySelectorAll(".filter-option");
+    filterOptions.forEach(opt => {
+      opt.addEventListener("click", () => {
+        const sortType = opt.getAttribute("data-sort");
+        sortGallery(sortType);
+        filterMenu.style.display = "none";
+      });
+    });
+    function sortGallery(type) {
+      const imagesArray = [...gallery.children];
+      if (type === "alphabetical") {
+        imagesArray.sort((a, b) => {
+          let altA = a.querySelector("img").alt.toLowerCase();
+          let altB = b.querySelector("img").alt.toLowerCase();
+          return altA.localeCompare(altB);
+        });
+      } else if (type === "recent") {
+        imagesArray.sort((a, b) => {
+          let timeA = parseInt(a.getAttribute("data-add-time")) || 0;
+          let timeB = parseInt(b.getAttribute("data-add-time")) || 0;
+          return timeB - timeA;
+        });
+      }
+      imagesArray.forEach(img => gallery.appendChild(img));
+    }
+
+    /********************************************************
+     * Initial Setup
+     ********************************************************/
+    renderFolders();
+  </script>
+</body>
+</html>
