@@ -1,0 +1,24 @@
+{
+  "name": "referencesadrien",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adrieniisc/referencesadrien.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/adrieniisc/referencesadrien/issues"
+  },
+  "homepage": "https://github.com/adrieniisc/referencesadrien#readme",
+  "description": "",
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "cloudinary": "^2.6.0"
+  }
+}
