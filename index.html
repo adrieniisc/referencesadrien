@@ -979,5 +979,126 @@
     }
   });
 </script>
+
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
+    authDomain: "referencesadrien.firebaseapp.com",
+    projectId: "referencesadrien",
+    storageBucket: "referencesadrien.firebasestorage.app",
+    messagingSenderId: "954877853554",
+    appId: "1:954877853554:web:4492547898026cf1afe7eb",
+    measurementId: "G-320QBV2HC3"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+
+<!-- Place this near the end of your HTML, just before </body> -->
+
+<!-- File input elements for image upload -->
+<h2>Upload an Image</h2>
+<input type="file" id="fileInput" accept="image/*">
+<button id="uploadBtn">Upload</button>
+<div id="result"></div>
+
+<!-- Gallery container -->
+<div id="gallery"></div>
+
+<script>
+  // Function to upload the image via your Netlify function
+  async function uploadImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/.netlify/functions/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    console.log('Upload response:', data);
+    return data.url;
+  }
+
+  // Function to add an image element to the gallery
+  function addImageToGallery(url) {
+    const gallery = document.getElementById('gallery');
+    const container = document.createElement('div');
+    container.classList.add('image-container');
+    
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = "Uploaded Image";
+
+    const downloadLink = document.createElement('a');
+    downloadLink.classList.add('download-btn');
+    downloadLink.textContent = "Download";
+    downloadLink.href = url;
+    downloadLink.download = "image";
+
+    container.appendChild(img);
+    container.appendChild(downloadLink);
+    gallery.appendChild(container);
+  }
+
+  // Save uploaded image URL to Firestore
+  async function saveImageUrl(url) {
+    try {
+      await db.collection('images').add({
+        url: url,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error saving image URL:', error);
+    }
+  }
+
+  // Upload button event listener
+  const fileInput = document.getElementById('fileInput');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const resultDiv = document.getElementById('result');
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!fileInput.files[0]) {
+      alert('No file selected!');
+      return;
+    }
+    try {
+      const imageUrl = await uploadImage(fileInput.files[0]);
+      resultDiv.innerHTML = `
+        <p>Uploaded image URL: <a href="${imageUrl}" target="_blank">${imageUrl}</a></p>
+      `;
+      // Add image to gallery and save URL to Firestore
+      addImageToGallery(imageUrl);
+      await saveImageUrl(imageUrl);
+    } catch (error) {
+      console.error('Upload failed', error);
+      resultDiv.innerText = 'Upload failed.';
+    }
+  });
+
+  // On page load, fetch all image URLs from Firestore and display them
+  document.addEventListener('DOMContentLoaded', () => {
+    db.collection('images').orderBy('timestamp', 'desc').get().then(snapshot => {
+      snapshot.forEach(doc => {
+        addImageToGallery(doc.data().url);
+      });
+    }).catch(error => {
+      console.error('Error fetching images from Firestore:', error);
+    });
+  });
+</script>
+
+
 </body>
 </html>
