@@ -1,9 +1,9 @@
 // netlify/functions/upload.js
 
 const cloudinary = require('cloudinary').v2;
-const { Busboy } = require('busboy'); // Use destructuring for Busboy
+const Busboy = require('busboy'); // <-- Classic require
 
-// Configure Cloudinary using environment variables (set these in your Netlify site settings)
+// Configure Cloudinary using environment variables
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -19,11 +19,13 @@ exports.handler = (event, context, callback) => {
     });
   }
 
-  // Initialize Busboy to parse the form data using the headers from the event
-  const busboy = new Busboy({ headers: event.headers });
+  // Initialize Busboy (classic usage)
+  const busboy = Busboy({ headers: event.headers });
+
   let fileBuffer = null;
   let fileName = '';
 
+  // When Busboy finds a file
   busboy.on('file', (fieldname, file, filename) => {
     fileName = filename;
     const chunks = [];
@@ -35,8 +37,9 @@ exports.handler = (event, context, callback) => {
     });
   });
 
+  // When Busboy is done parsing
   busboy.on('finish', () => {
-    // Upload the file buffer to Cloudinary
+    // Upload to Cloudinary
     const uploadStream = cloudinary.uploader.upload_stream(
       { resource_type: 'auto', public_id: fileName },
       (error, result) => {
@@ -47,16 +50,17 @@ exports.handler = (event, context, callback) => {
             body: JSON.stringify({ error: 'Upload failed', details: error }),
           });
         }
-        // Return the Cloudinary secure URL in the response
+        // Return the secure URL
         return callback(null, {
           statusCode: 200,
           body: JSON.stringify({ url: result.secure_url }),
         });
       }
     );
+    // Pipe the file buffer into Cloudinary
     uploadStream.end(fileBuffer);
   });
 
-  // End the busboy stream. If the body is base64 encoded, decode it.
+  // Parse the request body with Busboy
   busboy.end(Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8'));
 };
