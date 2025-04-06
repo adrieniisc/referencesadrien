@@ -917,6 +917,17 @@
 
 <!-- ... other parts of your <body> ... -->
 
+<h2>Upload an Image</h2>
+
+<!-- The file input (accepts images) -->
+<input type="file" id="uploadfileInput" accept="image/*">
+
+<!-- A button to trigger the upload -->
+<button id="uploadBtn">Upload</button>
+
+<!-- A place to show the uploaded image URL or preview -->
+<div id="result"></div>
+
 <script>
   // 1. The function that sends the file to your Netlify Function
   async function uploadImage(file) {
