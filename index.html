@@ -22,8 +22,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-                   Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
       background-color: var(--primary-bg);
       color: var(--text-color);
     }
@@ -408,7 +407,7 @@
       </div>
     </div>
   </div>
-  <!-- MODAL: Add Image -->
+  <!-- MODAL: Add Image (This is the only upload interface) -->
   <div class="modal-backdrop" id="imageModal">
     <div class="modal-content">
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
@@ -515,7 +514,7 @@
       });
       const data = await response.json();
       console.log('Upload response:', data);
-      return data.url; // Expect this to be the Cloudinary URL
+      return data.url; // Cloudinary URL expected
     }
 
     /********************************************************
@@ -765,7 +764,6 @@
       const keywords = imageKeywords.value.trim().toLowerCase();
       try {
         const imageUrl = await uploadImage(fileInput.files[0]);
-        // Create and add image container to gallery
         const container = document.createElement("div");
         container.classList.add("image-container");
         container.setAttribute("data-category", folderValue);
@@ -782,9 +780,7 @@
         container.appendChild(img);
         container.appendChild(downloadLink);
         gallery.appendChild(container);
-        // Save image URL to Firestore
         await saveImageUrl(imageUrl);
-        // Reset fields and close modal
         fileInput.value = "";
         folderSelect.value = "";
         imageKeywords.value = "";
@@ -878,7 +874,7 @@
      ********************************************************/
     document.addEventListener("DOMContentLoaded", () => {
       renderFolders();
-      // Fetch images from Firestore and display them in the gallery
+      // Fetch images from Firestore and display them
       db.collection('images').orderBy('timestamp', 'desc').get()
         .then(snapshot => {
           snapshot.forEach(doc => {
