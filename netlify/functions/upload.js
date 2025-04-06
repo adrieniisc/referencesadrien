@@ -1,8 +1,9 @@
 // netlify/functions/upload.js
-const cloudinary = require('cloudinary').v2;
-const Busboy = require('busboy');
 
-// Configure Cloudinary using environment variables (set these in Netlify dashboard)
+const cloudinary = require('cloudinary').v2;
+const { Busboy } = require('busboy'); // Use destructuring for Busboy
+
+// Configure Cloudinary using environment variables (set these in your Netlify site settings)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -10,6 +11,7 @@ cloudinary.config({
 });
 
 exports.handler = (event, context, callback) => {
+  // Only accept POST requests
   if (event.httpMethod !== 'POST') {
     return callback(null, {
       statusCode: 405,
@@ -17,16 +19,13 @@ exports.handler = (event, context, callback) => {
     });
   }
 
-  // Initialize Busboy with headers from the request
+  // Initialize Busboy to parse the form data using the headers from the event
   const busboy = new Busboy({ headers: event.headers });
   let fileBuffer = null;
   let fileName = '';
-  let fileMimeType = '';
 
-  // Listen for file data
-  busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+  busboy.on('file', (fieldname, file, filename) => {
     fileName = filename;
-    fileMimeType = mimetype;
     const chunks = [];
     file.on('data', (data) => {
       chunks.push(data);
@@ -36,9 +35,8 @@ exports.handler = (event, context, callback) => {
     });
   });
 
-  // When parsing is finished, upload the file to Cloudinary
   busboy.on('finish', () => {
-    // Use Cloudinary's upload_stream to upload the file buffer
+    // Upload the file buffer to Cloudinary
     const uploadStream = cloudinary.uploader.upload_stream(
       { resource_type: 'auto', public_id: fileName },
       (error, result) => {
@@ -49,8 +47,8 @@ exports.handler = (event, context, callback) => {
             body: JSON.stringify({ error: 'Upload failed', details: error }),
           });
         }
-        // Return the secure URL of the uploaded image
-        callback(null, {
+        // Return the Cloudinary secure URL in the response
+        return callback(null, {
           statusCode: 200,
           body: JSON.stringify({ url: result.secure_url }),
         });
@@ -59,8 +57,6 @@ exports.handler = (event, context, callback) => {
     uploadStream.end(fileBuffer);
   });
 
-  // End busboy processing
-  busboy.end(
-    Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8')
-  );
+  // End the busboy stream. If the body is base64 encoded, decode it.
+  busboy.end(Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8'));
 };
