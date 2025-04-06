@@ -19,11 +19,7 @@
     /* --------------------------------------------------
        Base Reset & Body
     -------------------------------------------------- */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
@@ -31,12 +27,9 @@
       background-color: var(--primary-bg);
       color: var(--text-color);
     }
-    body {
-      display: flex;
-      flex-direction: column;
-    }
+    body { display: flex; flex-direction: column; }
     /* --------------------------------------------------
-       Top Bar (New Folder, Add Image)
+       Top Bar
     -------------------------------------------------- */
     .top-bar {
       background-color: var(--secondary-bg);
@@ -114,6 +107,7 @@
       height: 18px;
       fill: var(--text-color);
     }
+    /* Filter menu positioned outside the sidebar */
     .filter-menu {
       position: fixed;
       top: 50px;
@@ -134,6 +128,7 @@
       color: var(--text-color);
     }
     .filter-menu .filter-option:hover { background-color: #3a3a3c; }
+    /* Folder list */
     .folder-list {
       list-style: none;
       flex: 1;
@@ -241,12 +236,10 @@
       text-decoration: none;
       line-height: 1.4;
     }
-    .image-container:hover .download-btn {
-      display: block;
-    }
+    .image-container:hover .download-btn { display: block; }
     .hidden { display: none; }
     /* --------------------------------------------------
-       Floating Size Panel (Thumbnail Size Icons)
+       Floating Size Panel
     -------------------------------------------------- */
     .floating-size-panel {
       position: fixed;
@@ -370,9 +363,7 @@
         <div class="filter-icon-container">
           <button class="filter-button" id="filterButton" title="Sort Options">
             <svg viewBox="0 0 24 24">
-              <path d="M3 6h18M3 12h18M3 18h18"
-                    stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
             </svg>
           </button>
         </div>
@@ -383,7 +374,7 @@
         <div class="filter-option" data-sort="recent">Recent Add</div>
       </div>
       <ul class="folder-list" id="folderList">
-        <!-- Dynamically generated folder items -->
+        <!-- Folder items are dynamically generated -->
       </ul>
       <div class="sidebar-footer">
         <button id="renameFolderBtn">Rename Folder</button>
@@ -421,7 +412,7 @@
       </div>
     </div>
   </div>
-  <!-- MODAL: Add Image (Upload Modal) -->
+  <!-- MODAL: Add Image -->
   <div class="modal-backdrop" id="imageModal">
     <div class="modal-content">
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
@@ -453,7 +444,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
   <script type="module">
-    // Firebase configuration (replace with your own values)
+    // Firebase configuration (replace with your actual values)
     const firebaseConfig = {
       apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
       authDomain: "referencesadrien.firebaseapp.com",
@@ -467,75 +458,347 @@
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
   </script>
-  <!-- Upload Functionality & Firestore Integration -->
+  <!-- Combined JavaScript for Folder Management, Upload, and Firestore Integration -->
   <script>
-    // Get DOM references for upload modal
-    const fileInput = document.getElementById('fileInput');
-    const confirmAddImageBtn = document.getElementById('confirmAddImageBtn');
-    const gallery = document.getElementById('gallery');
+    /********************************************************
+     * DOM Elements & Variables
+     ********************************************************/
+    const folderList = document.getElementById("folderList");
+    const newFolderName = document.getElementById("newFolderName");
+    const parentFolderSelect = document.getElementById("parentFolderSelect");
+    const addFolderBtn = document.getElementById("addFolderBtn");
 
-    // Function to upload the image via the Netlify Function
-    async function uploadImage(file) {
-      const formData = new FormData();
-      formData.append('file', file);
-      const response = await fetch('/.netlify/functions/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      console.log('Upload response:', data);
-      return data.url;
-    }
+    const openFolderModalBtn = document.getElementById("openFolderModalBtn");
+    const folderModal = document.getElementById("folderModal");
+    const closeFolderModalBtn = document.getElementById("closeFolderModalBtn");
 
-    // Function to add an image element to the gallery
-    function addImageToGallery(url) {
-      const container = document.createElement('div');
-      container.classList.add('image-container');
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = 'Uploaded Image';
-      const downloadLink = document.createElement('a');
-      downloadLink.classList.add('download-btn');
-      downloadLink.textContent = 'Download';
-      downloadLink.href = url;
-      downloadLink.download = 'image';
-      container.appendChild(img);
-      container.appendChild(downloadLink);
-      gallery.appendChild(container);
-    }
+    const openImageModalBtn = document.getElementById("openImageModalBtn");
+    const imageModal = document.getElementById("imageModal");
+    const closeImageModalBtn = document.getElementById("closeImageModalBtn");
+    const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
+    const fileInput = document.getElementById("fileInput");
+    const folderSelect = document.getElementById("folderSelect");
+    const imageKeywords = document.getElementById("imageKeywords");
 
-    // Function to save uploaded image URL to Firestore
-    async function saveImageUrl(url) {
-      try {
-        await db.collection('images').add({
-          url: url,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (error) {
-        console.error('Error saving image URL:', error);
+    const gallery = document.getElementById("gallery");
+    const sizeIcons = document.querySelectorAll(".size-icon");
+    const imageSearch = document.getElementById("imageSearch");
+
+    const renameFolderBtn = document.getElementById("renameFolderBtn");
+    const renameFolderModal = document.getElementById("renameFolderModal");
+    const closeRenameFolderModalBtn = document.getElementById("closeRenameFolderModalBtn");
+    const renameFolderInput = document.getElementById("renameFolderInput");
+    const confirmRenameFolderBtn = document.getElementById("confirmRenameFolderBtn");
+
+    const filterButton = document.getElementById("filterButton");
+    const filterMenu = document.getElementById("filterMenu");
+
+    const deleteFolderBtn = document.getElementById("deleteFolderBtn");
+
+    let folders = [
+      "angle",
+      "brick-roof-tile",
+      "cobblestone",
+      "concrete",
+      "concrete/patterns",
+      "construction",
+      "creature",
+      "ground-tile",
+      "paint",
+      "rock",
+      "wood"
+    ];
+    let currentFolderFilter = "all";
+
+    /********************************************************
+     * Modal Handling
+     ********************************************************/
+    openFolderModalBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
+    closeFolderModalBtn.addEventListener("click", () => { folderModal.classList.remove("active"); });
+    folderModal.addEventListener("click", (e) => { if(e.target === folderModal) folderModal.classList.remove("active"); });
+
+    openImageModalBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
+    closeImageModalBtn.addEventListener("click", () => { imageModal.classList.remove("active"); });
+    imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
+
+    renameFolderBtn.addEventListener("click", () => {
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) { alert("Please select a folder to rename."); return; }
+      if (selectedEl.getAttribute("data-filter") === "all") { alert("Cannot rename 'All'."); return; }
+      renameFolderInput.value = selectedEl.textContent;
+      renameFolderModal.classList.add("active");
+    });
+    closeRenameFolderModalBtn.addEventListener("click", () => { renameFolderModal.classList.remove("active"); });
+    renameFolderModal.addEventListener("click", (e) => { if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); });
+
+    deleteFolderBtn.addEventListener("click", () => {
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) { alert("Please select a folder to delete."); return; }
+      const currentFullName = selectedEl.getAttribute("data-filter");
+      if (currentFullName === "all") { alert("Cannot delete 'All'."); return; }
+      if (!confirm(`Are you sure you want to delete folder "${currentFullName}"?`)) return;
+      if (!currentFullName.includes("/")) {
+        folders = folders.filter(f => f !== currentFullName && !f.startsWith(currentFullName + "/"));
+      } else {
+        folders = folders.filter(f => f !== currentFullName);
       }
-    }
-
-    // Event listener for the "Add" button in the image modal
-    confirmAddImageBtn.addEventListener('click', async () => {
-      if (!fileInput.files[0]) {
-        alert('No file selected!');
-        return;
-      }
-      try {
-        const imageUrl = await uploadImage(fileInput.files[0]);
-        console.log('Uploaded image URL:', imageUrl);
-        addImageToGallery(imageUrl);
-        await saveImageUrl(imageUrl);
-        // Close the modal after successful upload
-        document.getElementById('imageModal').classList.remove('active');
-      } catch (error) {
-        console.error('Upload failed', error);
-      }
+      renderFolders();
     });
 
-    // On page load, fetch all image URLs from Firestore and display them in the gallery
-    document.addEventListener('DOMContentLoaded', () => {
+    /********************************************************
+     * Build & Render Folder Structure
+     ********************************************************/
+    function buildFolderStructure() {
+      const structure = {};
+      folders.forEach(folder => {
+        const parts = folder.split("/");
+        if (parts.length === 1) {
+          if (!structure[parts[0]]) structure[parts[0]] = [];
+        } else {
+          const parent = parts[0], child = parts[1];
+          if (!structure[parent]) structure[parent] = [];
+          structure[parent].push(child);
+        }
+      });
+      return structure;
+    }
+    function renderFolders() {
+      folderList.innerHTML = "";
+      folderSelect.innerHTML = "";
+      parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
+
+      const allItem = document.createElement("li");
+      allItem.textContent = "All";
+      allItem.classList.add("all");
+      allItem.setAttribute("data-filter", "all");
+      allItem.addEventListener("click", () => {
+        highlightSelected(allItem);
+        hideAllSubfolders();
+        currentFolderFilter = "all";
+        filterImages("all");
+      });
+      folderList.appendChild(allItem);
+
+      const structure = buildFolderStructure();
+      const parents = Object.keys(structure).sort();
+      parents.forEach(parent => {
+        const parentLi = document.createElement("li");
+        parentLi.textContent = parent;
+        parentLi.setAttribute("data-filter", parent);
+
+        const subUl = document.createElement("ul");
+        subUl.classList.add("subfolder-list");
+        structure[parent].sort().forEach(child => {
+          const childLi = document.createElement("li");
+          childLi.textContent = child;
+          childLi.setAttribute("data-filter", parent + "/" + child);
+          childLi.addEventListener("click", (e) => {
+            e.stopPropagation();
+            highlightSelected(childLi);
+            currentFolderFilter = parent + "/" + child;
+            filterImages(parent + "/" + child);
+          });
+          subUl.appendChild(childLi);
+        });
+        parentLi.addEventListener("click", () => {
+          highlightSelected(parentLi);
+          toggleSubfolders(subUl);
+          currentFolderFilter = parent;
+          filterImages(parent);
+        });
+        folderList.appendChild(parentLi);
+        folderList.appendChild(subUl);
+      });
+
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        folderSelect.appendChild(parentOpt);
+        structure[parent].forEach(child => {
+          const childOpt = document.createElement("option");
+          childOpt.value = parent + "/" + child;
+          childOpt.textContent = "— " + child;
+          folderSelect.appendChild(childOpt);
+        });
+      });
+
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        parentFolderSelect.appendChild(parentOpt);
+      });
+    }
+    function hideAllSubfolders() {
+      const allSubUls = folderList.querySelectorAll(".subfolder-list");
+      allSubUls.forEach(ul => { ul.style.display = "none"; });
+    }
+    function toggleSubfolders(currentUl) {
+      const allSubUls = folderList.querySelectorAll(".subfolder-list");
+      allSubUls.forEach(ul => {
+        if (ul !== currentUl) ul.style.display = "none";
+      });
+      currentUl.style.display = (currentUl.style.display === "none") ? "block" : "none";
+    }
+    function highlightSelected(li) {
+      const allItems = folderList.querySelectorAll("li");
+      allItems.forEach(item => item.classList.remove("selected"));
+      li.classList.add("selected");
+    }
+    function filterImages(filterValue) {
+      const allImages = document.querySelectorAll(".image-container");
+      allImages.forEach(container => {
+        const category = container.getAttribute("data-category");
+        if (filterValue === "all" || category === filterValue)
+          container.classList.remove("hidden");
+        else container.classList.add("hidden");
+      });
+    }
+    imageSearch.addEventListener("input", () => { searchImages(); });
+    function searchImages() {
+      const query = imageSearch.value.trim().toLowerCase();
+      const allImages = document.querySelectorAll(".image-container");
+      if (query !== "") {
+        allImages.forEach(container => {
+          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+          const imgAlt = container.querySelector("img").alt.toLowerCase();
+          if (keywords.indexOf(query) !== -1 || imgAlt.indexOf(query) !== -1)
+            container.classList.remove("hidden");
+          else container.classList.add("hidden");
+        });
+      } else {
+        filterImages(currentFolderFilter);
+      }
+    }
+    addFolderBtn.addEventListener("click", () => {
+      const folderName = newFolderName.value.trim();
+      const parentName = parentFolderSelect.value;
+      if (!folderName) {
+        alert("Please enter a name.");
+        return;
+      }
+      let fullName = folderName;
+      if (parentName) fullName = parentName + "/" + folderName;
+      if (folders.includes(fullName)) {
+        alert("This already exists.");
+        return;
+      }
+      folders.push(fullName);
+      newFolderName.value = "";
+      parentFolderSelect.value = "";
+      folderModal.classList.remove("active");
+      renderFolders();
+    });
+    confirmAddImageBtn.addEventListener("click", () => {
+      if (!fileInput.files[0]) {
+        alert("Please select an image file first.");
+        return;
+      }
+      const folderValue = folderSelect.value;
+      if (!folderValue) {
+        alert("Please select a location.");
+        return;
+      }
+      const keywords = imageKeywords.value.trim().toLowerCase();
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const container = document.createElement("div");
+        container.classList.add("image-container");
+        container.setAttribute("data-category", folderValue);
+        container.setAttribute("data-keywords", keywords);
+        container.setAttribute("data-add-time", Date.now());
+        const img = document.createElement("img");
+        img.src = e.target.result;
+        img.alt = fileInput.files[0].name;
+        const downloadLink = document.createElement("a");
+        downloadLink.classList.add("download-btn");
+        downloadLink.textContent = "Download";
+        downloadLink.href = e.target.result;
+        downloadLink.download = fileInput.files[0].name;
+        container.appendChild(img);
+        container.appendChild(downloadLink);
+        gallery.appendChild(container);
+      }
+      reader.readAsDataURL(fileInput.files[0]);
+      fileInput.value = "";
+      folderSelect.value = "";
+      imageKeywords.value = "";
+      imageModal.classList.remove("active");
+    });
+    confirmRenameFolderBtn.addEventListener("click", () => {
+      const newName = renameFolderInput.value.trim();
+      if (!newName) {
+        alert("Please enter a new name.");
+        return;
+      }
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) {
+        alert("No folder selected.");
+        return;
+      }
+      const currentFullName = selectedEl.getAttribute("data-filter");
+      if (currentFullName === "all") {
+        alert("Cannot rename 'All'.");
+        return;
+      }
+      if (!currentFullName.includes("/")) {
+        folders = folders.map(f => {
+          if (f === currentFullName) return newName;
+          else if (f.startsWith(currentFullName + "/")) return newName + f.substring(currentFullName.length);
+          return f;
+        });
+      } else {
+        folders = folders.map(f => (f === currentFullName ? f.split("/")[0] + "/" + newName : f));
+      }
+      renameFolderModal.classList.remove("active");
+      renderFolders();
+    });
+    sizeIcons.forEach(icon => {
+      icon.addEventListener("click", () => {
+        sizeIcons.forEach(i => i.classList.remove("selected"));
+        icon.classList.add("selected");
+        const newSize = icon.getAttribute("data-size");
+        document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
+      });
+    });
+    filterButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
+    });
+    document.addEventListener("click", (e) => {
+      if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) {
+        filterMenu.style.display = "none";
+      }
+    });
+    const filterOptions = document.querySelectorAll(".filter-option");
+    filterOptions.forEach(opt => {
+      opt.addEventListener("click", () => {
+        const sortType = opt.getAttribute("data-sort");
+        sortGallery(sortType);
+        filterMenu.style.display = "none";
+      });
+    });
+    function sortGallery(type) {
+      const imagesArray = [...gallery.children];
+      if (type === "alphabetical") {
+        imagesArray.sort((a, b) => {
+          let altA = a.querySelector("img").alt.toLowerCase();
+          let altB = b.querySelector("img").alt.toLowerCase();
+          return altA.localeCompare(altB);
+        });
+      } else if (type === "recent") {
+        imagesArray.sort((a, b) => {
+          let timeA = parseInt(a.getAttribute("data-add-time")) || 0;
+          let timeB = parseInt(b.getAttribute("data-add-time")) || 0;
+          return timeB - timeA;
+        });
+      }
+      imagesArray.forEach(img => gallery.appendChild(img));
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+      renderFolders();
+      // Fetch images from Firestore and display them in the gallery
       db.collection('images').orderBy('timestamp', 'desc').get()
         .then(snapshot => {
           snapshot.forEach(doc => {
