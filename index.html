@@ -22,7 +22,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+                   Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
       background-color: var(--primary-bg);
       color: var(--text-color);
     }
@@ -407,7 +408,7 @@
       </div>
     </div>
   </div>
-  <!-- MODAL: Add Image (This is the only upload interface) -->
+  <!-- MODAL: Add Image (Only Upload Interface) -->
   <div class="modal-backdrop" id="imageModal">
     <div class="modal-content">
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
@@ -874,7 +875,7 @@
      ********************************************************/
     document.addEventListener("DOMContentLoaded", () => {
       renderFolders();
-      // Fetch images from Firestore and display them
+      // Fetch images from Firestore and display them in the gallery
       db.collection('images').orderBy('timestamp', 'desc').get()
         .then(snapshot => {
           snapshot.forEach(doc => {
