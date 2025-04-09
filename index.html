@@ -342,6 +342,71 @@
       border: none;
     }
     .close-modal-btn:hover { color: #bbb; }
+
+/* --------------------------------------------------
+   Delete Image Feature
+-------------------------------------------------- */
+.sidebar-footer button.delete-btn {
+  background-color: #ff9a9a; /* Pastel red */
+  color: #333;
+}
+
+.image-container.selectable {
+  position: relative;
+}
+
+.image-container.selectable::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 154, 154, 0.2);
+  border: 2px dashed #ff9a9a;
+  border-radius: 6px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.image-container.selected::before {
+  background-color: rgba(255, 154, 154, 0.5);
+  border: 2px solid #ff5555;
+}
+
+.delete-controls {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(44,44,46,0.9);
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.delete-controls.active {
+  display: flex;
+}
+
+.delete-controls button {
+  background-color: #ff5555;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.delete-controls button.cancel {
+  background-color: #555;
+}
+
   </style>
 </head>
 <body>
@@ -375,6 +440,7 @@
       <div class="sidebar-footer">
         <button id="renameFolderBtn">Rename Folder</button>
         <button id="deleteFolderBtn">Delete Folder</button>
+        <button id="deleteImageBtn" class="delete-btn">Delete Image</button>
       </div>
     </div>
     <!-- MAIN CONTENT -->
@@ -761,6 +827,126 @@ sizeIcons.forEach(icon => {
  ********************************************************/
 // Your existing variable declarations (no changes)
 
+// Delete Image Mode Elements
+const deleteImageBtn = document.getElementById("deleteImageBtn");
+const deleteControls = document.getElementById("deleteControls");
+const selectedCount = document.getElementById("selectedCount");
+const confirmDeleteImagesBtn = document.getElementById("confirmDeleteImagesBtn");
+const cancelDeleteImagesBtn = document.getElementById("cancelDeleteImagesBtn");
+let isDeleteMode = false;
+let selectedImages = [];
+
+// Delete Image Mode Functions
+function toggleDeleteMode() {
+  isDeleteMode = !isDeleteMode;
+  
+  if (isDeleteMode) {
+    // Enter delete mode
+    const allImages = document.querySelectorAll(".image-container");
+    allImages.forEach(container => {
+      container.classList.add("selectable");
+      container.addEventListener("click", toggleImageSelection);
+    });
+    deleteControls.classList.add("active");
+    updateSelectedCount();
+  } else {
+    // Exit delete mode
+    const allImages = document.querySelectorAll(".image-container");
+    allImages.forEach(container => {
+      container.classList.remove("selectable");
+      container.classList.remove("selected");
+      container.removeEventListener("click", toggleImageSelection);
+    });
+    deleteControls.classList.remove("active");
+    selectedImages = [];
+  }
+}
+
+function toggleImageSelection(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const container = e.currentTarget;
+  
+  if (!isDeleteMode) return;
+  
+  if (container.classList.contains("selected")) {
+    container.classList.remove("selected");
+    const index = selectedImages.findIndex(img => img === container);
+    if (index !== -1) {
+      selectedImages.splice(index, 1);
+    }
+  } else {
+    container.classList.add("selected");
+    selectedImages.push(container);
+  }
+  
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  selectedCount.textContent = `${selectedImages.length} selected`;
+}
+
+async function deleteSelectedImages() {
+  if (selectedImages.length === 0) return;
+  
+  if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) {
+    return;
+  }
+  
+  try {
+    const deletePromises = selectedImages.map(async (container) => {
+      const imageUrl = container.querySelector("img").src;
+      const imageId = await findImageIdByUrl(imageUrl);
+      
+      if (imageId) {
+        await db.collection('images').doc(imageId).delete();
+        
+        // Optional: You could also delete from Cloudinary here if you want
+        // but that would require server-side code in your Netlify function
+        
+        container.remove();
+        return true;
+      }
+      return false;
+    });
+    
+    const results = await Promise.all(deletePromises);
+    const deletedCount = results.filter(result => result).length;
+    
+    alert(`Successfully deleted ${deletedCount} image(s)`);
+    toggleDeleteMode(); // Exit delete mode
+    
+  } catch (error) {
+    console.error('Error deleting images:', error);
+    alert(`Error deleting images: ${error.message}`);
+  }
+}
+
+async function findImageIdByUrl(url) {
+  try {
+    const querySnapshot = await db.collection('images')
+      .where('url', '==', url)
+      .limit(1)
+      .get();
+    
+    if (!querySnapshot.empty) {
+      return querySnapshot.docs[0].id;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error finding image by URL:', error);
+    return null;
+  }
+}
+
+// Delete Image Mode Event Listeners
+deleteImageBtn.addEventListener("click", toggleDeleteMode);
+confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
+cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
+
+
 /********************************************************
  * Firebase Data Syncing
  ********************************************************/
@@ -1097,5 +1283,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
   </script>
+
+<div class="delete-controls" id="deleteControls">
+  <span id="selectedCount">0 selected</span>
+  <button id="confirmDeleteImagesBtn">Delete Selected</button>
+  <button id="cancelDeleteImagesBtn" class="cancel">Cancel</button>
+</div>
+
 </body>
 </html>
