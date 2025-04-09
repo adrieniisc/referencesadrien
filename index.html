@@ -1045,7 +1045,7 @@ async function deleteSelectedImages() {
     const results = await Promise.all(deletePromises);
     const deletedCount = results.filter(result => result).length;
     
-    alert(`Successfully deleted ${deletedCount} image(s)`);
+    
     toggleDeleteMode(); // Exit delete mode
     
   } catch (error) {
