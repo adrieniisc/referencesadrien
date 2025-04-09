@@ -407,6 +407,70 @@
   background-color: #555;
 }
 
+/* --------------------------------------------------
+   Move Image Feature
+-------------------------------------------------- */
+.sidebar-footer button.move-btn {
+  background-color: #90caf9; /* Pastel blue */
+  color: #333;
+}
+
+.image-container.move-selectable {
+  position: relative;
+}
+
+.image-container.move-selectable::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(144, 202, 249, 0.2);
+  border: 2px dashed #90caf9;
+  border-radius: 6px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.image-container.move-selected::before {
+  background-color: rgba(144, 202, 249, 0.5);
+  border: 2px solid #2196f3;
+}
+
+.move-controls {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(44,44,46,0.9);
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.move-controls.active {
+  display: flex;
+}
+
+.move-controls button {
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.move-controls button.cancel {
+  background-color: #555;
+}
+
   </style>
 </head>
 <body>
@@ -441,8 +505,16 @@
         <button id="renameFolderBtn">Rename Folder</button>
         <button id="deleteFolderBtn">Delete Folder</button>
         <button id="deleteImageBtn" class="delete-btn">Delete Image</button>
+        <button id="moveImageBtn" class="move-btn">Move Images</button>
       </div>
     </div>
+
+<div class="move-controls" id="moveControls">
+  <span id="moveSelectedCount">0 selected</span>
+  <button id="confirmMoveImagesBtn">Select Destination</button>
+  <button id="cancelMoveImagesBtn" class="cancel">Cancel</button>
+</div>
+
     <!-- MAIN CONTENT -->
     <div class="main-content">
       <div class="gallery" id="gallery"></div>
@@ -502,6 +574,19 @@
       </div>
     </div>
   </div>
+<div class="modal-backdrop" id="moveDestinationModal">
+  <div class="modal-content">
+    <button class="close-modal-btn" id="closeMoveDestinationModalBtn">&times;</button>
+    <h3>Move Images</h3>
+    <p style="margin-bottom: 0.8rem;">Select destination folder:</p>
+    <select id="moveDestinationSelect" style="margin-bottom: 1rem;">
+      <!-- Folders will be populated dynamically -->
+    </select>
+    <div style="margin-top:0.8rem;">
+      <button id="confirmMoveDestinationBtn">Move</button>
+    </div>
+  </div>
+</div>
 <div class="delete-controls" id="deleteControls">
   <span id="selectedCount">0 selected</span>
   <button id="confirmDeleteImagesBtn">Delete Selected</button>
@@ -551,6 +636,9 @@ let folders = [
 let currentFolderFilter = "all";
 let isDeleteMode = false;
 let selectedImages = [];
+let isMoveMode = false;
+let selectedImagesForMove = [];
+
 
 // DOM Elements (just once)
 const folderList = document.getElementById("folderList");
@@ -590,6 +678,20 @@ const deleteControls = document.getElementById("deleteControls");
 const selectedCount = document.getElementById("selectedCount");
 const confirmDeleteImagesBtn = document.getElementById("confirmDeleteImagesBtn");
 const cancelDeleteImagesBtn = document.getElementById("cancelDeleteImagesBtn");
+
+// Move Image Elements
+
+const moveImageBtn = document.getElementById("moveImageBtn");
+const moveControls = document.getElementById("moveControls");
+const moveSelectedCount = document.getElementById("moveSelectedCount");
+const confirmMoveImagesBtn = document.getElementById("confirmMoveImagesBtn");
+const cancelMoveImagesBtn = document.getElementById("cancelMoveImagesBtn");
+const moveDestinationModal = document.getElementById("moveDestinationModal");
+const closeMoveDestinationModalBtn = document.getElementById("closeMoveDestinationModalBtn");
+const moveDestinationSelect = document.getElementById("moveDestinationSelect");
+const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
+
+
 
 /********************************************************
  * Netlify Upload Function
@@ -1055,6 +1157,156 @@ async function deleteSelectedImages() {
 }
 
 /********************************************************
+ * Move Image Functions
+ ********************************************************/
+// Toggle move mode
+function toggleMoveMode() {
+  isMoveMode = !isMoveMode;
+  
+  if (isMoveMode) {
+    // Enter move mode
+    const allImages = document.querySelectorAll(".image-container");
+    allImages.forEach(container => {
+      container.classList.add("move-selectable");
+      container.addEventListener("click", toggleImageMoveSelection);
+    });
+    moveControls.classList.add("active");
+    updateMoveSelectedCount();
+  } else {
+    // Exit move mode
+    const allImages = document.querySelectorAll(".image-container");
+    allImages.forEach(container => {
+      container.classList.remove("move-selectable");
+      container.classList.remove("move-selected");
+      container.removeEventListener("click", toggleImageMoveSelection);
+    });
+    moveControls.classList.remove("active");
+    selectedImagesForMove = [];
+  }
+}
+
+// Toggle image selection for moving
+function toggleImageMoveSelection(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const container = e.currentTarget;
+  
+  if (!isMoveMode) return;
+  
+  if (container.classList.contains("move-selected")) {
+    container.classList.remove("move-selected");
+    const index = selectedImagesForMove.findIndex(img => img === container);
+    if (index !== -1) {
+      selectedImagesForMove.splice(index, 1);
+    }
+  } else {
+    container.classList.add("move-selected");
+    selectedImagesForMove.push(container);
+  }
+  
+  updateMoveSelectedCount();
+}
+
+// Update move selected count display
+function updateMoveSelectedCount() {
+  moveSelectedCount.textContent = `${selectedImagesForMove.length} selected`;
+}
+
+// Show move destination modal
+function showMoveDestinationModal() {
+  if (selectedImagesForMove.length === 0) {
+    alert("Please select at least one image to move.");
+    return;
+  }
+  
+  // Populate the destination select
+  populateMoveDestinationSelect();
+  
+  // Show the modal
+  moveDestinationModal.classList.add("active");
+}
+
+// Populate move destination select with folders
+function populateMoveDestinationSelect() {
+  moveDestinationSelect.innerHTML = "";
+  
+  // Add "All" option
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "All";
+  moveDestinationSelect.appendChild(allOption);
+  
+  // Add other folders
+  const structure = buildFolderStructure();
+  const parents = Object.keys(structure).sort();
+  
+  parents.forEach(parent => {
+    const parentOpt = document.createElement("option");
+    parentOpt.value = parent;
+    parentOpt.textContent = parent;
+    moveDestinationSelect.appendChild(parentOpt);
+    
+    if (structure[parent] && structure[parent].length > 0) {
+      structure[parent].forEach(child => {
+        const childOpt = document.createElement("option");
+        childOpt.value = parent + "/" + child;
+        childOpt.textContent = "— " + child;
+        moveDestinationSelect.appendChild(childOpt);
+      });
+    }
+  });
+}
+
+// Move images to selected destination
+async function moveImagesToDestination() {
+  if (selectedImagesForMove.length === 0) return;
+  
+  const destinationFolder = moveDestinationSelect.value;
+  
+  if (!destinationFolder) {
+    alert("Please select a destination folder.");
+    return;
+  }
+  
+  try {
+    const movePromises = selectedImagesForMove.map(async (container) => {
+      const imageUrl = container.querySelector("img").src;
+      const imageId = await findImageIdByUrl(imageUrl);
+      
+      if (imageId) {
+        // Update the image's folder in Firestore
+        await db.collection('images').doc(imageId).update({
+          folder: destinationFolder
+        });
+        
+        // Update the data attribute on the container
+        container.setAttribute('data-category', destinationFolder);
+        
+        return true;
+      }
+      return false;
+    });
+    
+    const results = await Promise.all(movePromises);
+    const movedCount = results.filter(result => result).length;
+    
+    alert(`Successfully moved ${movedCount} image(s) to ${destinationFolder}`);
+    
+    // Close the modal and exit move mode
+    moveDestinationModal.classList.remove("active");
+    toggleMoveMode();
+    
+    // Filter images again to update the view
+    filterImages(currentFolderFilter);
+    
+  } catch (error) {
+    console.error('Error moving images:', error);
+    alert(`Error moving images: ${error.message}`);
+  }
+}
+
+/********************************************************
  * Event Listeners
  ********************************************************/
 // Modal handling
@@ -1110,6 +1362,24 @@ renameFolderModal.addEventListener("click", (e) => {
 deleteImageBtn.addEventListener("click", toggleDeleteMode);
 confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
 cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
+
+// Move Image functionality
+moveImageBtn.addEventListener("click", toggleMoveMode);
+confirmMoveImagesBtn.addEventListener("click", showMoveDestinationModal);
+cancelMoveImagesBtn.addEventListener("click", toggleMoveMode);
+
+// Move Destination Modal
+closeMoveDestinationModalBtn.addEventListener("click", () => {
+  moveDestinationModal.classList.remove("active");
+});
+
+moveDestinationModal.addEventListener("click", (e) => {
+  if (e.target === moveDestinationModal) {
+    moveDestinationModal.classList.remove("active");
+  }
+});
+
+confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
 
 // Search and filtering
 imageSearch.addEventListener("input", searchImages);
