@@ -37,7 +37,10 @@
       display: flex;
       align-items: center;
     }
-    /* This spacer pushes the admin button to the right */
+    .top-bar .logo {
+      font-size: 1rem;
+      font-weight: bold;
+    }
     .spacer { flex: 1; }
     .top-bar button {
       background-color: var(--highlight-color);
@@ -477,8 +480,9 @@
   </style>
 </head>
 <body>
-  <!-- TOP BAR with ADMIN button on the right -->
+  <!-- TOP BAR -->
   <div class="top-bar">
+    <span class="logo">References Photo</span>
     <div class="spacer"></div>
     <button id="adminBtn">ADMIN</button>
   </div>
@@ -512,12 +516,12 @@
           <button id="addImageAdminBtn">Add Image</button>
         </div>
         <hr class="separator">
-        <!-- Bottom group: Existing edit buttons -->
+        <!-- Bottom group: Move Images, Rename Folder, then Delete Images & Delete Folder -->
         <div class="admin-bottom-buttons">
           <button id="moveImageBtn" class="move-btn">Move Images</button>
-          <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="renameFolderBtn">Rename Folder</button>
-          <button id="deleteFolderBtn">Delete Folder</button>
+          <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
+          <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
         </div>
       </div>
     </div>
@@ -592,8 +596,7 @@
       <button class="close-modal-btn" id="closeMoveDestinationModalBtn">&times;</button>
       <h3>Move Images</h3>
       <p style="margin-bottom: 0.8rem;">Select destination folder:</p>
-      <select id="moveDestinationSelect" style="margin-bottom: 1rem;">
-      </select>
+      <select id="moveDestinationSelect" style="margin-bottom: 1rem;"></select>
       <div style="margin-top:0.8rem;">
         <button id="confirmMoveDestinationBtn">Move</button>
       </div>
@@ -661,7 +664,7 @@
     const parentFolderSelect = document.getElementById("parentFolderSelect");
     const addFolderBtn = document.getElementById("addFolderBtn");
 
-    // Removed the original top bar buttons for new folder and add image
+    // Removed original top bar buttons for new folder and add image
     const imageModal = document.getElementById("imageModal");
     const closeImageModalBtn = document.getElementById("closeImageModalBtn");
     const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
@@ -713,11 +716,15 @@
     const adminPasswordInput = document.getElementById("adminPassword");
     // All editing buttons in the sidebar footer
     const editButtons = document.querySelectorAll(".sidebar-footer button");
+    const separators = document.querySelectorAll(".separator");
 
-    // Hide edit buttons by default (including the new ones)
+    // Hide edit buttons and separators by default
     document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => {
         button.style.display = "none";
+      });
+      separators.forEach(separator => {
+        separator.style.display = "none";
       });
     });
 
@@ -1423,13 +1430,15 @@
       adminModal.classList.remove("active");
     });
     confirmAdminBtn.addEventListener("click", () => {
-      const correctPassword = "admin123"; // Change this to your password
+      const correctPassword = "admin123"; // Change this to your desired password
       if (adminPasswordInput.value === correctPassword) {
         editButtons.forEach(button => {
           button.style.display = "block";
         });
+        separators.forEach(separator => {
+          separator.style.display = "block";
+        });
         adminModal.classList.remove("active");
-        alert("Admin mode enabled!");
       } else {
         alert("Incorrect password. Please try again.");
       }
