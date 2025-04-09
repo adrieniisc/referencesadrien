@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <!-- Increase the base font size by 10% -->
   <style>
-    html {
-      font-size: 105%;
-    }
+    html { font-size: 110%; }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ReferencesAdrien</title>
@@ -14,13 +12,13 @@
     /* --------------------------------------------------
        Inverted Color Variables
        - Main area: lighter background (#ffffff) and dark text (#1c1c1e)
-       - Sidebar: dark background (#1c1c1e) with light text (#f2f2f7)
+       - Sidebar: dark background (#000000) with light text (#f2f2f7)
     -------------------------------------------------- */
     :root {
-      --main-bg: #242426;      /* main area */
-      --main-text: #f2f2f7;      /* text for main area */
-      --side-bg:    #1c1c1e;     /* sidebar */
-      --side-text:  #f2f2f7;     /* text for sidebar */
+      --main-bg: #ffffff;      /* Lighter main background */
+      --main-text: #1c1c1e;      /* Dark text for main area */
+      --side-bg:    #000000;     /* Pure black sidebar */
+      --side-text:  #f2f2f7;     /* Light text for sidebar */
       --border-color: #3a3a3c;
       --highlight-color: #0a84ff;
       --thumbnail-size: 360px;
@@ -40,7 +38,7 @@
     body { display: flex; flex-direction: column; }
 
     /* --------------------------------------------------
-       Fixed ADMIN Button in Top Right Corner
+       Fixed ADMIN Button in Top-Right Corner
     -------------------------------------------------- */
     #adminBtn {
       position: fixed;
@@ -70,7 +68,6 @@
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
     .sidebar {
-      /* Let the sidebar fit its content while ensuring a minimum width */
       width: fit-content;
       min-width: 220px;
       background-color: var(--side-bg);
@@ -86,7 +83,7 @@
       align-items: center;
       margin-bottom: 0.6rem;
     }
-    /* Sidebar search input with dark background and light text */
+    /* Sidebar search input */
     #imageSearch {
       flex: 1;
       padding: 0.3rem 0.5rem;
@@ -121,7 +118,7 @@
       height: 18px;
       fill: var(--side-text);
     }
-    /* The filter menu uses the sidebar colors */
+    /* Filter menu in sidebar colors */
     .filter-menu {
       position: fixed;
       top: 50px;
@@ -206,17 +203,17 @@
       margin-bottom: 0.4rem;
     }
     .sidebar-footer button:hover { opacity: 0.9; }
-    /* Admin top group buttons: style them in blue */
+    /* Admin top group buttons in blue */
     .admin-top-buttons button {
       background-color: var(--highlight-color);
       color: #fff;
     }
-    /* Admin bottom group: move images should be grey */
+    /* Admin bottom group: move images buttons in grey */
     .sidebar-footer button.move-btn {
       background-color: #444;
       color: #ddd;
     }
-    /* Thin separator; hidden when not in admin mode */
+    /* Thin separator */
     .separator {
       border: 0;
       height: 1px;
@@ -315,7 +312,7 @@
     }
 
     /* --------------------------------------------------
-       Modals (Folder, Image, Rename, Admin)
+       Modal for Folder, Image, Rename, Admin
     -------------------------------------------------- */
     .modal-backdrop {
       position: fixed;
@@ -393,9 +390,7 @@
       background-color: #ff3b30;
       color: #fff;
     }
-    .image-container.selectable {
-      position: relative;
-    }
+    .image-container.selectable { position: relative; }
     .image-container.selectable::before {
       content: "";
       position: absolute;
@@ -403,14 +398,14 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(255, 154, 154, 0.2);
+      background-color: rgba(255,154,154,0.2);
       border: 2px dashed #ff9a9a;
       border-radius: 6px;
       z-index: 1;
       pointer-events: none;
     }
     .image-container.selected::before {
-      background-color: rgba(255, 154, 154, 0.5);
+      background-color: rgba(255,154,154,0.5);
       border: 2px solid #ff5555;
     }
     .delete-controls {
@@ -428,9 +423,7 @@
       justify-content: center;
       gap: 0.5rem;
     }
-    .delete-controls.active {
-      display: flex;
-    }
+    .delete-controls.active { display: flex; }
     .delete-controls button {
       background-color: #ff3b30;
       color: white;
@@ -440,9 +433,7 @@
       font-size: 0.9rem;
       cursor: pointer;
     }
-    .delete-controls button.cancel {
-      background-color: #555;
-    }
+    .delete-controls button.cancel { background-color: #555; }
 
     /* --------------------------------------------------
        Move Image Feature
@@ -451,9 +442,7 @@
       background-color: #444;
       color: #ddd;
     }
-    .image-container.move-selectable {
-      position: relative;
-    }
+    .image-container.move-selectable { position: relative; }
     .image-container.move-selectable::before {
       content: "";
       position: absolute;
@@ -461,14 +450,14 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(144, 202, 249, 0.2);
+      background-color: rgba(144,202,249,0.2);
       border: 2px dashed #90caf9;
       border-radius: 6px;
       z-index: 1;
       pointer-events: none;
     }
     .image-container.move-selected::before {
-      background-color: rgba(144, 202, 249, 0.5);
+      background-color: rgba(144,202,249,0.5);
       border: 2px solid #2196f3;
     }
     .move-controls {
@@ -485,9 +474,7 @@
       justify-content: center;
       gap: 0.5rem;
     }
-    .move-controls.active {
-      display: flex;
-    }
+    .move-controls.active { display: flex; }
     .move-controls button {
       background-color: #2196f3;
       color: white;
@@ -497,17 +484,37 @@
       font-size: 0.9rem;
       cursor: pointer;
     }
-    .move-controls button.cancel {
-      background-color: #555;
-    }
+    .move-controls button.cancel { background-color: #555; }
     #moveDestinationSelect {
       font-size: 1.2em;
       padding: 0.6rem 0.7rem;
       margin-bottom: 1.2rem;
     }
+
+    /* --------------------------------------------------
+       Enlarge Image Modal (Lightbox)
+    -------------------------------------------------- */
+    #enlargeImageModal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 15000;
+    }
+    #enlargeImageModal img {
+      max-width: 90%;
+      max-height: 90%;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
   </style>
 </head>
 <body>
+  <!-- ADMIN Button (fixed top-right) -->
+  <button id="adminBtn">ADMIN</button>
+
   <!-- MAIN CONTAINER (Sidebar + Main Content) -->
   <div class="main-container">
     <!-- SIDEBAR -->
@@ -522,23 +529,21 @@
           </button>
         </div>
       </div>
-      <!-- Filter menu positioned outside the sidebar -->
+      <!-- Filter Menu -->
       <div class="filter-menu" id="filterMenu">
         <div class="filter-option" data-sort="alphabetical">Alphabetical</div>
         <div class="filter-option" data-sort="recent">Recent Add</div>
       </div>
       <ul class="folder-list" id="folderList">
-        <!-- Dynamically generated folder items will appear here -->
+        <!-- Folder items will be generated dynamically -->
       </ul>
       <!-- SIDEBAR FOOTER: Admin Editing Controls -->
       <div class="sidebar-footer">
-        <!-- Top group: Blue buttons for adding -->
         <div class="admin-top-buttons">
           <button id="newFolderAdminBtn">Add Folder</button>
           <button id="addImageAdminBtn">Add Image</button>
         </div>
         <hr class="separator">
-        <!-- Bottom group: Move, Rename, then Delete buttons -->
         <div class="admin-bottom-buttons">
           <button id="moveImageBtn" class="move-btn">Move Images</button>
           <button id="renameFolderBtn">Rename Folder</button>
@@ -567,6 +572,10 @@
       <div class="size-icon" data-size="750"><span>L</span></div>
       <div class="size-icon" data-size="950"><span>XL</span></div>
     </div>
+  </div>
+  <!-- Enlarge Image Modal -->
+  <div id="enlargeImageModal">
+    <img id="enlargeImage" src="" alt="">
   </div>
   <!-- MODAL: New Folder -->
   <div class="modal-backdrop" id="folderModal">
@@ -742,12 +751,17 @@
 
     // Hide edit buttons and separators by default
     document.addEventListener("DOMContentLoaded", () => {
-      editButtons.forEach(button => {
-        button.style.display = "none";
-      });
-      separators.forEach(separator => {
-        separator.style.display = "none";
-      });
+      editButtons.forEach(button => { button.style.display = "none"; });
+      separators.forEach(separator => { separator.style.display = "none"; });
+    });
+
+    /********************************************************
+     * Enlarge Image Modal Functionality
+     ********************************************************/
+    document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
+      if (e.target.id === "enlargeImageModal") {
+        this.style.display = "none";
+      }
     });
 
     /********************************************************
@@ -781,9 +795,7 @@
           });
         } else {
           folders = [];
-          foldersSnapshot.forEach(doc => {
-            folders.push(doc.data().name);
-          });
+          foldersSnapshot.forEach(doc => { folders.push(doc.data().name); });
         }
         renderFolders();
       } catch (error) {
@@ -805,20 +817,14 @@
 
     async function deleteFolderFromFirebase(folderName) {
       try {
-        const querySnapshot = await db.collection('folders')
-          .where('name', '==', folderName)
-          .get();
-        querySnapshot.forEach(doc => {
-          doc.ref.delete();
-        });
+        const querySnapshot = await db.collection('folders').where('name', '==', folderName).get();
+        querySnapshot.forEach(doc => { doc.ref.delete(); });
         if (!folderName.includes('/')) {
           const childSnapshot = await db.collection('folders')
             .where('name', '>=', folderName + '/')
             .where('name', '<', folderName + '0')
             .get();
-          childSnapshot.forEach(doc => {
-            doc.ref.delete();
-          });
+          childSnapshot.forEach(doc => { doc.ref.delete(); });
         }
         console.log('Folder deleted from Firestore:', folderName);
       } catch (error) {
@@ -828,13 +834,9 @@
 
     async function renameFolderInFirebase(oldName, newName) {
       try {
-        const folderSnapshot = await db.collection('folders')
-          .where('name', '==', oldName)
-          .get();
+        const folderSnapshot = await db.collection('folders').where('name', '==', oldName).get();
         if (!folderSnapshot.empty) {
-          folderSnapshot.forEach(doc => {
-            doc.ref.update({ name: newName });
-          });
+          folderSnapshot.forEach(doc => { doc.ref.update({ name: newName }); });
         }
         if (!oldName.includes('/')) {
           const subfolderSnapshot = await db.collection('folders')
@@ -871,9 +873,7 @@
 
     async function loadImagesFromFirebase() {
       try {
-        const imagesSnapshot = await db.collection('images')
-          .orderBy('timestamp', 'desc')
-          .get();
+        const imagesSnapshot = await db.collection('images').orderBy('timestamp', 'desc').get();
         gallery.innerHTML = '';
         imagesSnapshot.forEach(doc => {
           const imageData = doc.data();
@@ -893,13 +893,8 @@
 
     async function findImageIdByUrl(url) {
       try {
-        const querySnapshot = await db.collection('images')
-          .where('url', '==', url)
-          .limit(1)
-          .get();
-        if (!querySnapshot.empty) {
-          return querySnapshot.docs[0].id;
-        }
+        const querySnapshot = await db.collection('images').where('url', '==', url).limit(1).get();
+        if (!querySnapshot.empty) { return querySnapshot.docs[0].id; }
         return null;
       } catch (error) {
         console.error('Error finding image by URL:', error);
@@ -920,13 +915,26 @@
       const img = document.createElement('img');
       img.src = url;
       img.alt = filename;
+      // Enlarge image on click
+      img.addEventListener("click", function(e) {
+          e.stopPropagation();
+          const enlargeModal = document.getElementById("enlargeImageModal");
+          const enlargeImg = document.getElementById("enlargeImage");
+          enlargeImg.src = url;
+          enlargeModal.style.display = "flex";
+      });
       
       const downloadLink = document.createElement('a');
       downloadLink.classList.add('download-btn');
       downloadLink.textContent = 'Download';
       downloadLink.href = url;
       downloadLink.download = filename;
-      
+      downloadLink.target = "_self";
+      // Prevent propagation so the image does not enlarge when clicking download.
+      downloadLink.addEventListener("click", function(e) {
+          e.stopPropagation();
+      });
+
       container.appendChild(img);
       container.appendChild(downloadLink);
       gallery.appendChild(container);
@@ -1121,9 +1129,7 @@
       if (container.classList.contains("selected")) {
         container.classList.remove("selected");
         const index = selectedImages.findIndex(img => img === container);
-        if (index !== -1) {
-          selectedImages.splice(index, 1);
-        }
+        if (index !== -1) { selectedImages.splice(index, 1); }
       } else {
         container.classList.add("selected");
         selectedImages.push(container);
@@ -1137,9 +1143,7 @@
 
     async function deleteSelectedImages() {
       if (selectedImages.length === 0) return;
-      if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) {
-        return;
-      }
+      if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) { return; }
       try {
         const deletePromises = selectedImages.map(async (container) => {
           const imageUrl = container.querySelector("img").src;
@@ -1193,9 +1197,7 @@
       if (container.classList.contains("move-selected")) {
         container.classList.remove("move-selected");
         const index = selectedImagesForMove.findIndex(img => img === container);
-        if (index !== -1) {
-          selectedImagesForMove.splice(index, 1);
-        }
+        if (index !== -1) { selectedImagesForMove.splice(index, 1); }
       } else {
         container.classList.add("move-selected");
         selectedImagesForMove.push(container);
@@ -1271,57 +1273,44 @@
     }
 
     /********************************************************
+     * Enlarge Image Modal Closure (click outside image)
+     ********************************************************/
+    document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
+      if (e.target.id === "enlargeImageModal") { this.style.display = "none"; }
+    });
+
+    /********************************************************
      * Event Listeners
      ********************************************************/
     // Folder Modal handling
-    document.getElementById("closeFolderModalBtn").addEventListener("click", () => { 
-      folderModal.classList.remove("active"); 
+    document.getElementById("closeFolderModalBtn").addEventListener("click", () => {
+      folderModal.classList.remove("active");
     });
-    folderModal.addEventListener("click", (e) => { 
-      if(e.target === folderModal) folderModal.classList.remove("active"); 
-    });
+    folderModal.addEventListener("click", (e) => { if(e.target === folderModal) folderModal.classList.remove("active"); });
 
     // Image Modal handling
-    document.getElementById("closeImageModalBtn").addEventListener("click", () => { 
-      imageModal.classList.remove("active"); 
+    document.getElementById("closeImageModalBtn").addEventListener("click", () => {
+      imageModal.classList.remove("active");
     });
-    imageModal.addEventListener("click", (e) => { 
-      if(e.target === imageModal) imageModal.classList.remove("active"); 
-    });
+    imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
 
     // Rename Folder Modal handling
     renameFolderBtn.addEventListener("click", () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) { 
-        alert("Please select a folder to rename."); 
-        return; 
-      }
-      if (selectedEl.getAttribute("data-filter") === "all") { 
-        alert("Cannot rename 'All'."); 
-        return; 
-      }
+      if (!selectedEl) { alert("Please select a folder to rename."); return; }
+      if (selectedEl.getAttribute("data-filter") === "all") { alert("Cannot rename 'All'."); return; }
       renameFolderInput.value = selectedEl.textContent;
       renameFolderModal.classList.add("active");
     });
-    closeRenameFolderModalBtn.addEventListener("click", () => { 
-      renameFolderModal.classList.remove("active"); 
-    });
-    renameFolderModal.addEventListener("click", (e) => { 
-      if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); 
-    });
+    closeRenameFolderModalBtn.addEventListener("click", () => { renameFolderModal.classList.remove("active"); });
+    renameFolderModal.addEventListener("click", (e) => { if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); });
 
     // Delete Folder button
     deleteFolderBtn.addEventListener("click", async () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) {
-        alert("Please select a folder to delete.");
-        return;
-      }
+      if (!selectedEl) { alert("Please select a folder to delete."); return; }
       const currentFullName = selectedEl.getAttribute("data-filter");
-      if (currentFullName === "all") {
-        alert("Cannot delete 'All'.");
-        return;
-      }
+      if (currentFullName === "all") { alert("Cannot delete 'All'."); return; }
       if (!confirm(`Are you sure you want to delete folder "${currentFullName}"?`)) return;
       if (!currentFullName.includes("/")) {
         folders = folders.filter(f => f !== currentFullName && !f.startsWith(currentFullName + "/"));
@@ -1335,35 +1324,23 @@
     // Confirm Rename Folder button
     confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
-      if (!newName) {
-        alert("Please enter a new name.");
-        return;
-      }
+      if (!newName) { alert("Please enter a new name."); return; }
       const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) {
-        alert("No folder selected.");
-        return;
-      }
+      if (!selectedEl) { alert("No folder selected."); return; }
       const currentFullName = selectedEl.getAttribute("data-filter");
-      if (currentFullName === "all") {
-        alert("Cannot rename 'All'.");
-        return;
-      }
+      if (currentFullName === "all") { alert("Cannot rename 'All'."); return; }
       let updatedFolders = [];
       if (!currentFullName.includes("/")) {
         updatedFolders = folders.map(f => {
           if (f === currentFullName) return newName;
-          else if (f.startsWith(currentFullName + "/")) 
-            return newName + f.substring(currentFullName.length);
+          else if (f.startsWith(currentFullName + "/")) return newName + f.substring(currentFullName.length);
           return f;
         });
         await renameFolderInFirebase(currentFullName, newName);
       } else {
         const parentPath = currentFullName.split('/')[0];
         const newFullName = parentPath + '/' + newName;
-        updatedFolders = folders.map(f => 
-          (f === currentFullName ? newFullName : f)
-        );
+        updatedFolders = folders.map(f => (f === currentFullName ? newFullName : f));
         await renameFolderInFirebase(currentFullName, newFullName);
       }
       folders = updatedFolders;
@@ -1372,31 +1349,18 @@
     });
 
     // New Admin Buttons to open modals
-    newFolderAdminBtn.addEventListener("click", () => { 
-      folderModal.classList.add("active"); 
-    });
-    addImageAdminBtn.addEventListener("click", () => { 
-      imageModal.classList.add("active"); 
-    });
+    newFolderAdminBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
+    addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
 
     // Confirm Add Image button
     confirmAddImageBtn.addEventListener("click", async () => {
-      if (!fileInput.files[0]) {
-        alert("Please select an image file first.");
-        return;
-      }
+      if (!fileInput.files[0]) { alert("Please select an image file first."); return; }
       const folderValue = folderSelect.value || 'all';
       const keywords = imageKeywords.value.trim().toLowerCase();
       const filename = fileInput.files[0].name;
       try {
         const imageUrl = await uploadImage(fileInput.files[0]);
-        addImageToGallery(
-          imageUrl,
-          folderValue,
-          keywords,
-          filename,
-          Date.now()
-        );
+        addImageToGallery(imageUrl, folderValue, keywords, filename, Date.now());
         await saveImageToFirebase(imageUrl, folderValue, keywords, filename);
         fileInput.value = "";
         folderSelect.value = "";
@@ -1417,14 +1381,8 @@
     confirmMoveImagesBtn.addEventListener("click", showMoveDestinationModal);
     cancelMoveImagesBtn.addEventListener("click", toggleMoveMode);
 
-    closeMoveDestinationModalBtn.addEventListener("click", () => {
-      moveDestinationModal.classList.remove("active");
-    });
-    moveDestinationModal.addEventListener("click", (e) => {
-      if (e.target === moveDestinationModal) {
-        moveDestinationModal.classList.remove("active");
-      }
-    });
+    closeMoveDestinationModalBtn.addEventListener("click", () => { moveDestinationModal.classList.remove("active"); });
+    moveDestinationModal.addEventListener("click", (e) => { if (e.target === moveDestinationModal) { moveDestinationModal.classList.remove("active"); } });
     confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
 
     imageSearch.addEventListener("input", searchImages);
@@ -1434,9 +1392,7 @@
       filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
     });
     document.addEventListener("click", (e) => {
-      if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) {
-        filterMenu.style.display = "none";
-      }
+      if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) { filterMenu.style.display = "none"; }
     });
     const filterOptions = document.querySelectorAll(".filter-option");
     filterOptions.forEach(opt => {
@@ -1456,21 +1412,13 @@
     });
 
     // ADMIN Login Event Listeners
-    adminBtn.addEventListener("click", () => {
-      adminModal.classList.add("active");
-    });
-    closeAdminModalBtn.addEventListener("click", () => {
-      adminModal.classList.remove("active");
-    });
+    adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+    closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
     confirmAdminBtn.addEventListener("click", () => {
-      const correctPassword = "admin123"; // Change this to your desired password
+      const correctPassword = "admin123"; // Change as needed
       if (adminPasswordInput.value === correctPassword) {
-        editButtons.forEach(button => {
-          button.style.display = "block";
-        });
-        separators.forEach(separator => {
-          separator.style.display = "block";
-        });
+        editButtons.forEach(button => { button.style.display = "block"; });
+        separators.forEach(separator => { separator.style.display = "block"; });
         adminModal.classList.remove("active");
       } else {
         alert("Incorrect password. Please try again.");
@@ -1483,9 +1431,7 @@
         await loadFoldersFromFirebase();
         await loadImagesFromFirebase();
         const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
-        if (allFolder) {
-          allFolder.classList.add("selected");
-        }
+        if (allFolder) { allFolder.classList.add("selected"); }
         console.log("App initialized successfully!");
       } catch (error) {
         console.error("Error initializing app:", error);
