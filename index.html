@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Increase the base font size by 20% -->
+  <style>
+    html {
+      font-size: 120%;
+    }
+  </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ReferencesAdrien</title>
   <style>
@@ -14,7 +20,7 @@
       --border-color: #3a3a3c;
       --text-color: #f2f2f7;
       --highlight-color: #0a84ff;
-      --thumbnail-size: 300px; /* THUMBNAIL/IMAGE SIZE */
+      --thumbnail-size: 360px; /* increased 20% from 300px */
     }
 
     /* --------------------------------------------------
@@ -50,7 +56,7 @@
       border: none;
       padding: 0.4rem 0.6rem;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 1.02rem; /* increased from 0.85rem (approx. 20% larger) */
       cursor: pointer;
     }
     .top-bar button:hover { opacity: 0.9; }
@@ -88,7 +94,7 @@
       border-radius: 6px;
       background-color: #1c1c1e;
       color: var(--text-color);
-      font-size: 0.75rem;
+      font-size: 0.9rem;
     }
     .filter-icon-container {
       display: flex;
@@ -126,7 +132,7 @@
       display: none;
       z-index: 1000;
       min-width: 120px;
-      font-size: 0.75rem;
+      font-size: 0.9rem;
     }
     .filter-menu .filter-option {
       padding: 0.3rem 0.8rem;
@@ -140,7 +146,7 @@
       flex: 1;
       margin: 0;
       padding: 0;
-      font-size: 0.75rem;
+      font-size: 0.9rem;
     }
     .folder-list > li {
       margin: 0.1rem 0;
@@ -162,7 +168,7 @@
       margin: 0.1rem 0;
       border-left: 1px solid rgba(255,255,255,0.08);
       display: none;
-      font-size: 0.75rem;
+      font-size: 0.9rem;
     }
     ul.subfolder-list li {
       margin: 0.1rem 0;
@@ -186,13 +192,12 @@
       border-top: 1px solid rgba(255,255,255,0.08);
     }
     .sidebar-footer button {
-      /* Default styles for non-admin buttons */
       background-color: #444;
       color: #ddd;
       border: none;
       padding: 0.4rem 0.5rem;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.9rem;
       cursor: pointer;
       width: 100%;
       text-align: center;
@@ -226,6 +231,7 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
+      font-size: 0.9rem;
     }
     .gallery {
       display: flex;
@@ -258,7 +264,7 @@
       border: none;
       padding: 0.25rem 0.5rem;
       border-radius: 4px;
-      font-size: 0.65rem;
+      font-size: 0.78rem;
       display: none;
       text-decoration: none;
       line-height: 1.4;
@@ -271,8 +277,8 @@
     -------------------------------------------------- */
     .floating-size-panel {
       position: fixed;
-      bottom: 15px;
-      right: 15px;
+      bottom: 18px; /* increased 20% from 15px */
+      right: 18px;  /* increased 20% from 15px */
       left: auto;
       width: auto;
       transform: none;
@@ -299,7 +305,7 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 0.7rem;
+      font-size: 0.84rem;
       color: var(--text-color);
       transition: background-color 0.2s, border-color 0.2s;
     }
@@ -330,7 +336,7 @@
       position: relative;
       color: #fff;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      font-size: 0.8rem;
+      font-size: 0.96rem;
     }
     .modal-content h3 {
       margin-bottom: 0.8rem;
@@ -361,6 +367,7 @@
       padding: 0.3rem 0.5rem;
       cursor: pointer;
       margin-right: 0.4rem;
+      font-size: 0.96rem;
     }
     .modal-content button:hover { opacity: 0.9; }
     .close-modal-btn {
@@ -404,8 +411,8 @@
     }
     .delete-controls {
       position: fixed;
-      bottom: 15px;
-      right: 15px;
+      bottom: 18px; /* increased from 15px */
+      right: 18px;  /* increased from 15px */
       left: auto;
       transform: none;
       background-color: rgba(44,44,46,0.9);
@@ -421,12 +428,12 @@
       display: flex;
     }
     .delete-controls button {
-      background-color: #ff3b30; /* More saturated red */
+      background-color: #ff3b30;
       color: white;
       border: none;
       padding: 0.4rem 0.8rem;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.9rem;
       cursor: pointer;
     }
     .delete-controls button.cancel {
@@ -483,7 +490,7 @@
       border: none;
       padding: 0.4rem 0.8rem;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.9rem;
       cursor: pointer;
     }
     .move-controls button.cancel {
@@ -542,7 +549,6 @@
         </div>
       </div>
     </div>
-
     <!-- Move Controls -->
     <div class="move-controls" id="moveControls">
       <span id="moveSelectedCount">0 selected</span>
@@ -614,7 +620,7 @@
       <button class="close-modal-btn" id="closeMoveDestinationModalBtn">&times;</button>
       <h3>Move Images</h3>
       <p style="margin-bottom: 0.8rem;">Select destination folder:</p>
-      <select id="moveDestinationSelect" style="margin-bottom: 1rem;"></select>
+      <select id="moveDestinationSelect" style="margin-bottom: 1.2rem;"></select>
       <div style="margin-top:0.8rem;">
         <button id="confirmMoveDestinationBtn">Move</button>
       </div>
@@ -644,12 +650,12 @@
   <script>
     // Initialize Firebase with your configuration
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
+      authDomain: "referencesadrien.firebaseapp.com",
+      projectId: "referencesadrien",
+      storageBucket: "referencesadrien.firebasestorage.app",
+      messagingSenderId: "954877853554",
+      appId: "1:954877853554:web:4492547898026cf1afe7eb"
     };
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
