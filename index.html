@@ -28,7 +28,6 @@
       color: var(--text-color);
     }
     body { display: flex; flex-direction: column; }
-
     /* --------------------------------------------------
        Top Bar
     -------------------------------------------------- */
@@ -49,7 +48,6 @@
       cursor: pointer;
     }
     .top-bar button:hover { opacity: 0.9; }
-
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
     -------------------------------------------------- */
@@ -58,7 +56,6 @@
       display: flex;
       overflow: hidden;
     }
-
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
@@ -191,7 +188,6 @@
       text-align: center;
     }
     .sidebar-footer button:hover { opacity: 0.9; }
-
     /* --------------------------------------------------
        Main Content (Gallery)
     -------------------------------------------------- */
@@ -240,7 +236,6 @@
     }
     .image-container:hover .download-btn { display: block; }
     .hidden { display: none; }
-
     /* --------------------------------------------------
        Floating Size Panel
     -------------------------------------------------- */
@@ -278,16 +273,8 @@
       color: var(--text-color);
       transition: background-color 0.2s, border-color 0.2s;
     }
-    .size-icon span { pointer-events: none; }
-    .size-icon:hover { border-color: var(--highlight-color); }
-    .size-icon.selected {
-      background-color: var(--highlight-color);
-      border-color: var(--highlight-color);
-      color: #fff;
-    }
-
     /* --------------------------------------------------
-       Modals (Folder, Image, Rename)
+       Modals (Folder, Image, Rename, Admin)
     -------------------------------------------------- */
     .modal-backdrop {
       position: fixed;
@@ -361,7 +348,7 @@
        Delete Image Feature
     -------------------------------------------------- */
     .sidebar-footer button.delete-btn {
-      background-color: #ff9a9a; /* Pastel red */
+      background-color: #ff9a9a;
       color: #333;
     }
     .image-container.selectable {
@@ -413,12 +400,11 @@
     .delete-controls button.cancel {
       background-color: #555;
     }
-
     /* --------------------------------------------------
        Move Image Feature
     -------------------------------------------------- */
     .sidebar-footer button.move-btn {
-      background-color: #90caf9; /* Pastel blue */
+      background-color: #90caf9;
       color: #333;
     }
     .image-container.move-selectable {
@@ -470,87 +456,22 @@
     .move-controls button.cancel {
       background-color: #555;
     }
+    /* Update the move destination select size */
     #moveDestinationSelect {
       font-size: 1.2em;
       padding: 0.6rem 0.7rem;
       margin-bottom: 1.2rem;
     }
-
-    /* ADMIN FEATURE ADDED: Hide admin buttons by default */
-    .admin-only {
-      display: none; /* Hidden unless admin-logged in */
-    }
-
-    /* ADMIN FEATURE ADDED: Admin Login Modal */
-    #adminLoginModal {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.3);
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-    }
-    #adminLoginModal.active {
-      opacity: 1;
-      visibility: visible;
-    }
-    #adminLoginModal .modal-content {
-      background: #2c2c2e;
-      border-radius: 12px;
-      padding: 1rem 1.2rem;
-      max-width: 350px;
-      width: 90%;
-      position: relative;
-      color: #fff;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      font-size: 0.85rem;
-    }
-    #adminLoginModal h3 {
-      margin-bottom: 0.8rem;
-      font-weight: 600;
-    }
-    #adminLoginModal input[type="password"] {
-      width: 100%;
-      padding: 0.4rem;
-      margin-bottom: 0.8rem;
-      border: 1px solid #555;
-      border-radius: 6px;
-      background-color: #1c1c1e;
-      color: #fff;
-    }
-    #adminLoginModal .close-modal-btn {
-      background: none;
-      color: #fff;
-      position: absolute;
-      top: 6px; 
-      right: 6px;
-      font-size: 1.2rem;
-      cursor: pointer; 
-      border: none;
-    }
-    #adminLoginModal .close-modal-btn:hover {
-      color: #bbb;
-    }
-
   </style>
 </head>
 <body>
-
   <!-- TOP BAR -->
   <div class="top-bar">
-    <!-- ADMIN FEATURE ADDED: Admin login button -->
-    <button id="adminLoginOpenBtn">ADMIN</button>
-    
-    <!-- Mark these as admin-only -->
-    <button id="openFolderModalBtn" class="admin-only">New Folder</button>
-    <button id="openImageModalBtn" class="admin-only">Add Image</button>
+    <button id="openFolderModalBtn">New Folder</button>
+    <button id="openImageModalBtn">Add Image</button>
+    <!-- New ADMIN button -->
+    <button id="adminBtn">ADMIN</button>
   </div>
-
   <!-- MAIN CONTAINER (Sidebar + Main Content) -->
   <div class="main-container">
     <!-- SIDEBAR -->
@@ -560,9 +481,7 @@
         <div class="filter-icon-container">
           <button class="filter-button" id="filterButton" title="Sort Options">
             <svg viewBox="0 0 24 24">
-              <path d="M3 6h18M3 12h18M3 18h18"
-                    stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
             </svg>
           </button>
         </div>
@@ -576,26 +495,23 @@
         <!-- Dynamically generated folder items will appear here -->
       </ul>
       <div class="sidebar-footer">
-        <!-- Mark these as admin-only, so they're hidden unless admin logs in -->
-        <button id="moveImageBtn" class="move-btn admin-only">Move Images</button>
-        <button id="deleteImageBtn" class="delete-btn admin-only">Delete Images</button>
-        <button id="renameFolderBtn" class="admin-only">Rename Folder</button>
-        <button id="deleteFolderBtn" class="admin-only">Delete Folder</button>
+        <button id="moveImageBtn" class="move-btn">Move Images</button>
+        <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
+        <button id="renameFolderBtn">Rename Folder</button>
+        <button id="deleteFolderBtn">Delete Folder</button>
       </div>
     </div>
-
+    <!-- Move Controls -->
     <div class="move-controls" id="moveControls">
       <span id="moveSelectedCount">0 selected</span>
       <button id="confirmMoveImagesBtn">Select Destination</button>
       <button id="cancelMoveImagesBtn" class="cancel">Cancel</button>
     </div>
-
     <!-- MAIN CONTENT -->
     <div class="main-content">
       <div class="gallery" id="gallery"></div>
     </div>
   </div>
-
   <!-- FLOATING SIZE PANEL -->
   <div class="floating-size-panel">
     <div class="size-icon-container">
@@ -606,7 +522,6 @@
       <div class="size-icon" data-size="500"><span>XL</span></div>
     </div>
   </div>
-
   <!-- MODAL: New Folder -->
   <div class="modal-backdrop" id="folderModal">
     <div class="modal-content">
@@ -623,8 +538,7 @@
       </div>
     </div>
   </div>
-
-  <!-- MODAL: Add Image (Only Upload Interface) -->
+  <!-- MODAL: Add Image -->
   <div class="modal-backdrop" id="imageModal">
     <div class="modal-content">
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
@@ -640,7 +554,6 @@
       </div>
     </div>
   </div>
-
   <!-- MODAL: Rename Folder -->
   <div class="modal-backdrop" id="renameFolderModal">
     <div class="modal-content">
@@ -653,126 +566,864 @@
       </div>
     </div>
   </div>
-
-  <!-- MOVING DESTINATION MODAL -->
+  <!-- MODAL: Move Destination -->
   <div class="modal-backdrop" id="moveDestinationModal">
     <div class="modal-content">
       <button class="close-modal-btn" id="closeMoveDestinationModalBtn">&times;</button>
       <h3>Move Images</h3>
       <p style="margin-bottom: 0.8rem;">Select destination folder:</p>
-      <select id="moveDestinationSelect" style="margin-bottom: 1rem;"></select>
+      <select id="moveDestinationSelect" style="margin-bottom: 1rem;">
+      </select>
       <div style="margin-top:0.8rem;">
         <button id="confirmMoveDestinationBtn">Move</button>
       </div>
     </div>
   </div>
-
-  <!-- DELETE CONTROLS -->
+  <!-- MODAL: Admin Login -->
+  <div class="modal-backdrop" id="adminModal">
+    <div class="modal-content">
+      <button class="close-modal-btn" id="closeAdminModalBtn">&times;</button>
+      <h3>Admin Login</h3>
+      <label for="adminPassword">Password:</label>
+      <input type="password" id="adminPassword" placeholder="Enter password">
+      <div style="margin-top:0.8rem;">
+        <button id="confirmAdminBtn">Login</button>
+      </div>
+    </div>
+  </div>
+  <!-- Delete Controls -->
   <div class="delete-controls" id="deleteControls">
     <span id="selectedCount">0 selected</span>
     <button id="confirmDeleteImagesBtn">Delete Selected</button>
     <button id="cancelDeleteImagesBtn" class="cancel">Cancel</button>
   </div>
-
-  <!-- ADMIN FEATURE ADDED: Admin Login Modal -->
-  <div class="modal-backdrop" id="adminLoginModal">
-    <div class="modal-content">
-      <button class="close-modal-btn" id="closeAdminLoginModalBtn">&times;</button>
-      <h3>Admin Login</h3>
-      <input type="password" id="adminPasswordInput" placeholder="Enter admin password">
-      <button id="adminLoginBtn">Login</button>
-    </div>
-  </div>
-
-  <!-- Load Firebase SDKs via CDN (Global Approach) -->
+  <!-- Load Firebase SDKs via CDN -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script>
-    /* Everything else from your existing script remains unchanged, except we add
-       a few lines for the ADMIN FEATURE.
-       The lines are marked with comments for clarity. */
-
-    /* ADMIN FEATURE ADDED: track admin status */
-    let isAdmin = false; 
-
-    // ADMIN references
-    const adminLoginOpenBtn = document.getElementById('adminLoginOpenBtn');
-    const adminLoginModal = document.getElementById('adminLoginModal');
-    const closeAdminLoginModalBtn = document.getElementById('closeAdminLoginModalBtn');
-    const adminPasswordInput = document.getElementById('adminPasswordInput');
-    const adminLoginBtn = document.getElementById('adminLoginBtn');
-
-    // A function to show/hide the admin-only elements
-    function updateAdminUI() {
-      const adminEls = document.querySelectorAll('.admin-only');
-      adminEls.forEach(el => {
-        el.style.display = isAdmin ? 'inline-block' : 'none';
-      });
-    }
-
-    // Open admin login modal
-    adminLoginOpenBtn.addEventListener('click', () => {
-      adminLoginModal.classList.add('active');
-    });
-
-    // Close admin login modal
-    closeAdminLoginModalBtn.addEventListener('click', () => {
-      adminLoginModal.classList.remove('active');
-      adminPasswordInput.value = '';
-    });
-    adminLoginModal.addEventListener('click', (e) => {
-      if (e.target === adminLoginModal) {
-        adminLoginModal.classList.remove('active');
-        adminPasswordInput.value = '';
-      }
-    });
-
-    // Attempt admin login with a hardcoded password
-    adminLoginBtn.addEventListener('click', () => {
-      const typedPassword = adminPasswordInput.value.trim();
-      const correctPassword = '1905'; /* <--- Hardcoded for demonstration */
-      
-      if (typedPassword === correctPassword) {
-        isAdmin = true;
-        updateAdminUI();
-        adminLoginModal.classList.remove('active');
-        adminPasswordInput.value = '';
-      } else {
-        alert('Incorrect password');
-      }
-    });
-
-    /* REST OF YOUR EXISTING CODE FOLLOWS HERE:
-       (Firebase config, let folders, const db, isDeleteMode, etc.)
-       Make sure you do not remove or reorder them, just keep them
-       exactly as you had. I've shown them in short form here, but
-       you would keep your entire script content below. */
-
-    // Initialize Firebase with your configuration (the code you already have)
+    // Initialize Firebase with your configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyBs3677...",
-      authDomain: "referencesadrien...",
+      apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
+      authDomain: "referencesadrien.firebaseapp.com",
       projectId: "referencesadrien",
       storageBucket: "referencesadrien.firebasestorage.app",
       messagingSenderId: "954877853554",
       appId: "1:954877853554:web:4492547898026cf1afe7eb"
     };
+
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     }
     const db = firebase.firestore();
 
-    // All your existing script: variables, event listeners, Netlify upload function,
-    // Firestore read/write, toggleDeleteMode, toggleMoveMode, etc. remain exactly the same.
-    // (We won't rewrite them here for brevity.)
+    // Initial variables and folder array
+    let folders = [
+      "angle",
+      "brick-roof-tile",
+      "cobblestone",
+      "concrete",
+      "concrete/patterns",
+      "construction",
+      "creature",
+      "ground-tile",
+      "paint",
+      "rock",
+      "wood"
+    ];
+    let currentFolderFilter = "all";
+    let isDeleteMode = false;
+    let selectedImages = [];
+    let isMoveMode = false;
+    let selectedImagesForMove = [];
 
-    // Then, inside document.addEventListener('DOMContentLoaded'...) we call updateAdminUI() at the end:
+    // DOM Elements
+    const folderList = document.getElementById("folderList");
+    const newFolderName = document.getElementById("newFolderName");
+    const parentFolderSelect = document.getElementById("parentFolderSelect");
+    const addFolderBtn = document.getElementById("addFolderBtn");
+
+    const openFolderModalBtn = document.getElementById("openFolderModalBtn");
+    const folderModal = document.getElementById("folderModal");
+    const closeFolderModalBtn = document.getElementById("closeFolderModalBtn");
+
+    const openImageModalBtn = document.getElementById("openImageModalBtn");
+    const imageModal = document.getElementById("imageModal");
+    const closeImageModalBtn = document.getElementById("closeImageModalBtn");
+    const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
+    const fileInput = document.getElementById("fileInput");
+    const folderSelect = document.getElementById("folderSelect");
+    const imageKeywords = document.getElementById("imageKeywords");
+
+    const gallery = document.getElementById("gallery");
+    const sizeIcons = document.querySelectorAll(".size-icon");
+    const imageSearch = document.getElementById("imageSearch");
+
+    const renameFolderBtn = document.getElementById("renameFolderBtn");
+    const renameFolderModal = document.getElementById("renameFolderModal");
+    const closeRenameFolderModalBtn = document.getElementById("closeRenameFolderModalBtn");
+    const renameFolderInput = document.getElementById("renameFolderInput");
+    const confirmRenameFolderBtn = document.getElementById("confirmRenameFolderBtn");
+
+    const filterButton = document.getElementById("filterButton");
+    const filterMenu = document.getElementById("filterMenu");
+    const deleteFolderBtn = document.getElementById("deleteFolderBtn");
+
+    // Delete Image elements
+    const deleteImageBtn = document.getElementById("deleteImageBtn");
+    const deleteControls = document.getElementById("deleteControls");
+    const selectedCount = document.getElementById("selectedCount");
+    const confirmDeleteImagesBtn = document.getElementById("confirmDeleteImagesBtn");
+    const cancelDeleteImagesBtn = document.getElementById("cancelDeleteImagesBtn");
+
+    // Move Image elements
+    const moveImageBtn = document.getElementById("moveImageBtn");
+    const moveControls = document.getElementById("moveControls");
+    const moveSelectedCount = document.getElementById("moveSelectedCount");
+    const confirmMoveImagesBtn = document.getElementById("confirmMoveImagesBtn");
+    const cancelMoveImagesBtn = document.getElementById("cancelMoveImagesBtn");
+    const moveDestinationModal = document.getElementById("moveDestinationModal");
+    const closeMoveDestinationModalBtn = document.getElementById("closeMoveDestinationModalBtn");
+    const moveDestinationSelect = document.getElementById("moveDestinationSelect");
+    const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
+
+    // Admin login elements
+    const adminBtn = document.getElementById("adminBtn");
+    const adminModal = document.getElementById("adminModal");
+    const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
+    const confirmAdminBtn = document.getElementById("confirmAdminBtn");
+    const adminPasswordInput = document.getElementById("adminPassword");
+    // Select all edit buttons in the sidebar footer
+    const editButtons = document.querySelectorAll(".sidebar-footer button");
+
+    // Hide edit buttons by default
+    document.addEventListener("DOMContentLoaded", () => {
+      editButtons.forEach(button => {
+        button.style.display = "none";
+      });
+    });
+
+    /********************************************************
+     * Netlify Upload Function
+     ********************************************************/
+    async function uploadImage(file) {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/.netlify/functions/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      console.log('Upload response:', data);
+      return data.url;
+    }
+
+    /********************************************************
+     * Firebase Data Syncing
+     ********************************************************/
+    async function loadFoldersFromFirebase() {
+      try {
+        const foldersSnapshot = await db.collection('folders').get();
+        if (foldersSnapshot.empty) {
+          console.log('No folders found, initializing defaults');
+          folders.forEach(folder => {
+            db.collection('folders').add({
+              name: folder,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          });
+        } else {
+          folders = [];
+          foldersSnapshot.forEach(doc => {
+            folders.push(doc.data().name);
+          });
+        }
+        renderFolders();
+      } catch (error) {
+        console.error('Error loading folders:', error);
+      }
+    }
+
+    async function saveFolderToFirebase(folderName) {
+      try {
+        await db.collection('folders').add({
+          name: folderName,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log('Folder saved to Firestore:', folderName);
+      } catch (error) {
+        console.error('Error saving folder:', error);
+      }
+    }
+
+    async function deleteFolderFromFirebase(folderName) {
+      try {
+        const querySnapshot = await db.collection('folders')
+          .where('name', '==', folderName)
+          .get();
+        querySnapshot.forEach(doc => {
+          doc.ref.delete();
+        });
+        if (!folderName.includes('/')) {
+          const childSnapshot = await db.collection('folders')
+            .where('name', '>=', folderName + '/')
+            .where('name', '<', folderName + '0')
+            .get();
+          childSnapshot.forEach(doc => {
+            doc.ref.delete();
+          });
+        }
+        console.log('Folder deleted from Firestore:', folderName);
+      } catch (error) {
+        console.error('Error deleting folder:', error);
+      }
+    }
+
+    async function renameFolderInFirebase(oldName, newName) {
+      try {
+        const folderSnapshot = await db.collection('folders')
+          .where('name', '==', oldName)
+          .get();
+        if (!folderSnapshot.empty) {
+          folderSnapshot.forEach(doc => {
+            doc.ref.update({ name: newName });
+          });
+        }
+        if (!oldName.includes('/')) {
+          const subfolderSnapshot = await db.collection('folders')
+            .where('name', '>=', oldName + '/')
+            .where('name', '<', oldName + '0')
+            .get();
+          subfolderSnapshot.forEach(doc => {
+            const currentName = doc.data().name;
+            const updatedName = newName + currentName.substring(oldName.length);
+            doc.ref.update({ name: updatedName });
+          });
+        }
+        console.log('Folder renamed in Firestore from', oldName, 'to', newName);
+      } catch (error) {
+        console.error('Error renaming folder:', error);
+      }
+    }
+
+    async function saveImageToFirebase(url, folder, keywords, filename) {
+      try {
+        await db.collection('images').add({
+          url: url,
+          folder: folder,
+          keywords: keywords || '',
+          filename: filename || 'image',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          addTime: Date.now()
+        });
+        console.log('Image saved to Firestore:', url);
+      } catch (error) {
+        console.error('Error saving image:', error);
+      }
+    }
+
+    async function loadImagesFromFirebase() {
+      try {
+        const imagesSnapshot = await db.collection('images')
+          .orderBy('timestamp', 'desc')
+          .get();
+        gallery.innerHTML = '';
+        imagesSnapshot.forEach(doc => {
+          const imageData = doc.data();
+          addImageToGallery(
+            imageData.url, 
+            imageData.folder || 'all', 
+            imageData.keywords || '',
+            imageData.filename || 'image',
+            imageData.addTime || Date.now()
+          );
+        });
+        console.log('Images loaded from Firestore');
+      } catch (error) {
+        console.error('Error loading images:', error);
+      }
+    }
+
+    async function findImageIdByUrl(url) {
+      try {
+        const querySnapshot = await db.collection('images')
+          .where('url', '==', url)
+          .limit(1)
+          .get();
+        if (!querySnapshot.empty) {
+          return querySnapshot.docs[0].id;
+        }
+        return null;
+      } catch (error) {
+        console.error('Error finding image by URL:', error);
+        return null;
+      }
+    }
+
+    /********************************************************
+     * UI Functions
+     ********************************************************/
+    function addImageToGallery(url, folder, keywords, filename, addTime) {
+      const container = document.createElement('div');
+      container.classList.add('image-container');
+      container.setAttribute('data-category', folder);
+      container.setAttribute('data-keywords', keywords);
+      container.setAttribute('data-add-time', addTime);
+      
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = filename;
+      
+      const downloadLink = document.createElement('a');
+      downloadLink.classList.add('download-btn');
+      downloadLink.textContent = 'Download';
+      downloadLink.href = url;
+      downloadLink.download = filename;
+      
+      container.appendChild(img);
+      container.appendChild(downloadLink);
+      gallery.appendChild(container);
+    }
+
+    function buildFolderStructure() {
+      const structure = {};
+      folders.forEach(folder => {
+        const parts = folder.split("/");
+        if (parts.length === 1) {
+          if (!structure[parts[0]]) structure[parts[0]] = [];
+        } else {
+          const parent = parts[0];
+          const child = parts[1];
+          if (!structure[parent]) structure[parent] = [];
+          structure[parent].push(child);
+        }
+      });
+      return structure;
+    }
+
+    function renderFolders() {
+      folderList.innerHTML = "";
+      folderSelect.innerHTML = "";
+      parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
+
+      const allItem = document.createElement("li");
+      allItem.textContent = "All";
+      allItem.classList.add("all");
+      allItem.setAttribute("data-filter", "all");
+      allItem.addEventListener("click", () => {
+        highlightSelected(allItem);
+        hideAllSubfolders();
+        currentFolderFilter = "all";
+        filterImages("all");
+      });
+      folderList.appendChild(allItem);
+
+      const structure = buildFolderStructure();
+      const parents = Object.keys(structure).sort();
+
+      parents.forEach(parent => {
+        const parentLi = document.createElement("li");
+        parentLi.textContent = parent;
+        parentLi.setAttribute("data-filter", parent);
+
+        const subUl = document.createElement("ul");
+        subUl.classList.add("subfolder-list");
+
+        if (structure[parent] && structure[parent].length > 0) {
+          structure[parent].sort().forEach(child => {
+            const childLi = document.createElement("li");
+            childLi.textContent = child;
+            childLi.setAttribute("data-filter", parent + "/" + child);
+            childLi.addEventListener("click", (e) => {
+              e.stopPropagation();
+              highlightSelected(childLi);
+              currentFolderFilter = parent + "/" + child;
+              filterImages(parent + "/" + child);
+            });
+            subUl.appendChild(childLi);
+          });
+        }
+
+        parentLi.addEventListener("click", () => {
+          highlightSelected(parentLi);
+          toggleSubfolders(subUl);
+          currentFolderFilter = parent;
+          filterImages(parent);
+        });
+
+        folderList.appendChild(parentLi);
+        folderList.appendChild(subUl);
+      });
+
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        folderSelect.appendChild(parentOpt);
+        
+        if (structure[parent] && structure[parent].length > 0) {
+          structure[parent].forEach(child => {
+            const childOpt = document.createElement("option");
+            childOpt.value = parent + "/" + child;
+            childOpt.textContent = "— " + child;
+            folderSelect.appendChild(childOpt);
+          });
+        }
+      });
+
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        parentFolderSelect.appendChild(parentOpt);
+      });
+    }
+
+    function hideAllSubfolders() {
+      const allSubUls = folderList.querySelectorAll(".subfolder-list");
+      allSubUls.forEach(ul => { ul.style.display = "none"; });
+    }
+
+    function toggleSubfolders(currentUl) {
+      const allSubUls = folderList.querySelectorAll(".subfolder-list");
+      allSubUls.forEach(ul => { if (ul !== currentUl) ul.style.display = "none"; });
+      currentUl.style.display = (currentUl.style.display === "none" || !currentUl.style.display) ? "block" : "none";
+    }
+
+    function highlightSelected(li) {
+      const allItems = folderList.querySelectorAll("li");
+      allItems.forEach(item => item.classList.remove("selected"));
+      li.classList.add("selected");
+    }
+
+    function filterImages(filterValue) {
+      const allImages = document.querySelectorAll(".image-container");
+      allImages.forEach(container => {
+        const category = container.getAttribute("data-category");
+        if (filterValue === "all" || category === filterValue)
+          container.classList.remove("hidden");
+        else container.classList.add("hidden");
+      });
+    }
+
+    function searchImages() {
+      const query = imageSearch.value.trim().toLowerCase();
+      const allImages = document.querySelectorAll(".image-container");
+      if (query !== "") {
+        allImages.forEach(container => {
+          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+          const imgAlt = container.querySelector("img").alt.toLowerCase();
+          if (keywords.includes(query) || imgAlt.includes(query))
+            container.classList.remove("hidden");
+          else container.classList.add("hidden");
+        });
+      } else {
+        filterImages(currentFolderFilter);
+      }
+    }
+
+    function sortGallery(type) {
+      const imagesArray = [...gallery.children];
+      if (type === "alphabetical") {
+        imagesArray.sort((a, b) => {
+          let altA = a.querySelector("img").alt.toLowerCase();
+          let altB = b.querySelector("img").alt.toLowerCase();
+          return altA.localeCompare(altB);
+        });
+      } else if (type === "recent") {
+        imagesArray.sort((a, b) => {
+          let timeA = parseInt(a.getAttribute("data-add-time")) || 0;
+          let timeB = parseInt(b.getAttribute("data-add-time")) || 0;
+          return timeB - timeA;
+        });
+      }
+      imagesArray.forEach(img => gallery.appendChild(img));
+    }
+
+    /********************************************************
+     * Delete Image Functions
+     ********************************************************/
+    function toggleDeleteMode() {
+      isDeleteMode = !isDeleteMode;
+      
+      if (isDeleteMode) {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.add("selectable");
+          container.addEventListener("click", toggleImageSelection);
+        });
+        deleteControls.classList.add("active");
+        updateSelectedCount();
+      } else {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.remove("selectable");
+          container.classList.remove("selected");
+          container.removeEventListener("click", toggleImageSelection);
+        });
+        deleteControls.classList.remove("active");
+        selectedImages = [];
+      }
+    }
+
+    function toggleImageSelection(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = e.currentTarget;
+      if (!isDeleteMode) return;
+      if (container.classList.contains("selected")) {
+        container.classList.remove("selected");
+        const index = selectedImages.findIndex(img => img === container);
+        if (index !== -1) {
+          selectedImages.splice(index, 1);
+        }
+      } else {
+        container.classList.add("selected");
+        selectedImages.push(container);
+      }
+      updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+      selectedCount.textContent = `${selectedImages.length} selected`;
+    }
+
+    async function deleteSelectedImages() {
+      if (selectedImages.length === 0) return;
+      if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) {
+        return;
+      }
+      try {
+        const deletePromises = selectedImages.map(async (container) => {
+          const imageUrl = container.querySelector("img").src;
+          const imageId = await findImageIdByUrl(imageUrl);
+          if (imageId) {
+            await db.collection('images').doc(imageId).delete();
+            container.remove();
+            return true;
+          }
+          return false;
+        });
+        const results = await Promise.all(deletePromises);
+        toggleDeleteMode();
+      } catch (error) {
+        console.error('Error deleting images:', error);
+        alert(`Error deleting images: ${error.message}`);
+      }
+    }
+
+    /********************************************************
+     * Move Image Functions
+     ********************************************************/
+    function toggleMoveMode() {
+      isMoveMode = !isMoveMode;
+      
+      if (isMoveMode) {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.add("move-selectable");
+          container.addEventListener("click", toggleImageMoveSelection);
+        });
+        moveControls.classList.add("active");
+        updateMoveSelectedCount();
+      } else {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.remove("move-selectable");
+          container.classList.remove("move-selected");
+          container.removeEventListener("click", toggleImageMoveSelection);
+        });
+        moveControls.classList.remove("active");
+        selectedImagesForMove = [];
+      }
+    }
+
+    function toggleImageMoveSelection(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = e.currentTarget;
+      if (!isMoveMode) return;
+      if (container.classList.contains("move-selected")) {
+        container.classList.remove("move-selected");
+        const index = selectedImagesForMove.findIndex(img => img === container);
+        if (index !== -1) {
+          selectedImagesForMove.splice(index, 1);
+        }
+      } else {
+        container.classList.add("move-selected");
+        selectedImagesForMove.push(container);
+      }
+      updateMoveSelectedCount();
+    }
+
+    function updateMoveSelectedCount() {
+      moveSelectedCount.textContent = `${selectedImagesForMove.length} selected`;
+    }
+
+    function showMoveDestinationModal() {
+      if (selectedImagesForMove.length === 0) {
+        alert("Please select at least one image to move.");
+        return;
+      }
+      populateMoveDestinationSelect();
+      moveDestinationModal.classList.add("active");
+    }
+
+    function populateMoveDestinationSelect() {
+      moveDestinationSelect.innerHTML = "";
+      const allOption = document.createElement("option");
+      allOption.value = "all";
+      allOption.textContent = "All";
+      moveDestinationSelect.appendChild(allOption);
+      const structure = buildFolderStructure();
+      const parents = Object.keys(structure).sort();
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        moveDestinationSelect.appendChild(parentOpt);
+        if (structure[parent] && structure[parent].length > 0) {
+          structure[parent].forEach(child => {
+            const childOpt = document.createElement("option");
+            childOpt.value = parent + "/" + child;
+            childOpt.textContent = "— " + child;
+            moveDestinationSelect.appendChild(childOpt);
+          });
+        }
+      });
+    }
+
+    async function moveImagesToDestination() {
+      if (selectedImagesForMove.length === 0) return;
+      const destinationFolder = moveDestinationSelect.value;
+      if (!destinationFolder) {
+        alert("Please select a destination folder.");
+        return;
+      }
+      try {
+        const movePromises = selectedImagesForMove.map(async (container) => {
+          const imageUrl = container.querySelector("img").src;
+          const imageId = await findImageIdByUrl(imageUrl);
+          if (imageId) {
+            await db.collection('images').doc(imageId).update({
+              folder: destinationFolder
+            });
+            container.setAttribute('data-category', destinationFolder);
+            return true;
+          }
+          return false;
+        });
+        await Promise.all(movePromises);
+        moveDestinationModal.classList.remove("active");
+        toggleMoveMode();
+        filterImages(currentFolderFilter);
+      } catch (error) {
+        console.error('Error moving images:', error);
+        alert(`Error moving images: ${error.message}`);
+      }
+    }
+
+    /********************************************************
+     * Event Listeners
+     ********************************************************/
+    openFolderModalBtn.addEventListener("click", () => { 
+      folderModal.classList.add("active"); 
+    });
+    closeFolderModalBtn.addEventListener("click", () => { 
+      folderModal.classList.remove("active"); 
+    });
+    folderModal.addEventListener("click", (e) => { 
+      if(e.target === folderModal) folderModal.classList.remove("active"); 
+    });
+    openImageModalBtn.addEventListener("click", () => { 
+      imageModal.classList.add("active"); 
+    });
+    closeImageModalBtn.addEventListener("click", () => { 
+      imageModal.classList.remove("active"); 
+    });
+    imageModal.addEventListener("click", (e) => { 
+      if(e.target === imageModal) imageModal.classList.remove("active"); 
+    });
+    renameFolderBtn.addEventListener("click", () => {
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) { 
+        alert("Please select a folder to rename."); 
+        return; 
+      }
+      if (selectedEl.getAttribute("data-filter") === "all") { 
+        alert("Cannot rename 'All'."); 
+        return; 
+      }
+      renameFolderInput.value = selectedEl.textContent;
+      renameFolderModal.classList.add("active");
+    });
+    closeRenameFolderModalBtn.addEventListener("click", () => { 
+      renameFolderModal.classList.remove("active"); 
+    });
+    renameFolderModal.addEventListener("click", (e) => { 
+      if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); 
+    });
+    deleteFolderBtn.addEventListener("click", async () => {
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) {
+        alert("Please select a folder to delete.");
+        return;
+      }
+      const currentFullName = selectedEl.getAttribute("data-filter");
+      if (currentFullName === "all") {
+        alert("Cannot delete 'All'.");
+        return;
+      }
+      if (!confirm(`Are you sure you want to delete folder "${currentFullName}"?`)) return;
+      if (!currentFullName.includes("/")) {
+        folders = folders.filter(f => f !== currentFullName && !f.startsWith(currentFullName + "/"));
+      } else {
+        folders = folders.filter(f => f !== currentFullName);
+      }
+      await deleteFolderFromFirebase(currentFullName);
+      renderFolders();
+    });
+    confirmRenameFolderBtn.addEventListener("click", async () => {
+      const newName = renameFolderInput.value.trim();
+      if (!newName) {
+        alert("Please enter a new name.");
+        return;
+      }
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) {
+        alert("No folder selected.");
+        return;
+      }
+      const currentFullName = selectedEl.getAttribute("data-filter");
+      if (currentFullName === "all") {
+        alert("Cannot rename 'All'.");
+        return;
+      }
+      let updatedFolders = [];
+      if (!currentFullName.includes("/")) {
+        updatedFolders = folders.map(f => {
+          if (f === currentFullName) return newName;
+          else if (f.startsWith(currentFullName + "/")) 
+            return newName + f.substring(currentFullName.length);
+          return f;
+        });
+        await renameFolderInFirebase(currentFullName, newName);
+      } else {
+        const parentPath = currentFullName.split('/')[0];
+        const newFullName = parentPath + '/' + newName;
+        updatedFolders = folders.map(f => 
+          (f === currentFullName ? newFullName : f)
+        );
+        await renameFolderInFirebase(currentFullName, newFullName);
+      }
+      folders = updatedFolders;
+      renameFolderModal.classList.remove("active");
+      renderFolders();
+    });
+    confirmAddImageBtn.addEventListener("click", async () => {
+      if (!fileInput.files[0]) {
+        alert("Please select an image file first.");
+        return;
+      }
+      const folderValue = folderSelect.value || 'all';
+      const keywords = imageKeywords.value.trim().toLowerCase();
+      const filename = fileInput.files[0].name;
+      try {
+        const imageUrl = await uploadImage(fileInput.files[0]);
+        addImageToGallery(
+          imageUrl,
+          folderValue,
+          keywords,
+          filename,
+          Date.now()
+        );
+        await saveImageToFirebase(imageUrl, folderValue, keywords, filename);
+        fileInput.value = "";
+        folderSelect.value = "";
+        imageKeywords.value = "";
+        imageModal.classList.remove("active");
+      } catch (error) {
+        console.error('Upload failed:', error);
+        alert("Upload failed: " + error.message);
+      }
+    });
+
+    // Delete and Move mode event listeners
+    deleteImageBtn.addEventListener("click", toggleDeleteMode);
+    confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
+    cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
+    moveImageBtn.addEventListener("click", toggleMoveMode);
+    confirmMoveImagesBtn.addEventListener("click", showMoveDestinationModal);
+    cancelMoveImagesBtn.addEventListener("click", toggleMoveMode);
+    closeMoveDestinationModalBtn.addEventListener("click", () => {
+      moveDestinationModal.classList.remove("active");
+    });
+    moveDestinationModal.addEventListener("click", (e) => {
+      if (e.target === moveDestinationModal) {
+        moveDestinationModal.classList.remove("active");
+      }
+    });
+    confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
+    imageSearch.addEventListener("input", searchImages);
+    filterButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
+    });
+    document.addEventListener("click", (e) => {
+      if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) {
+        filterMenu.style.display = "none";
+      }
+    });
+    const filterOptions = document.querySelectorAll(".filter-option");
+    filterOptions.forEach(opt => {
+      opt.addEventListener("click", () => {
+        const sortType = opt.getAttribute("data-sort");
+        sortGallery(sortType);
+        filterMenu.style.display = "none";
+      });
+    });
+    sizeIcons.forEach(icon => {
+      icon.addEventListener("click", () => {
+        sizeIcons.forEach(i => i.classList.remove("selected"));
+        icon.classList.add("selected");
+        const newSize = icon.getAttribute("data-size");
+        document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
+      });
+    });
+
+    // ADMIN Login Event Listeners
+    adminBtn.addEventListener("click", () => {
+      adminModal.classList.add("active");
+    });
+    closeAdminModalBtn.addEventListener("click", () => {
+      adminModal.classList.remove("active");
+    });
+    confirmAdminBtn.addEventListener("click", () => {
+      const correctPassword = "admin123"; // Change this to your desired password
+      if (adminPasswordInput.value === correctPassword) {
+        editButtons.forEach(button => {
+          button.style.display = "block";
+        });
+        adminModal.classList.remove("active");
+        alert("Admin mode enabled!");
+      } else {
+        alert("Incorrect password. Please try again.");
+      }
+    });
+
     document.addEventListener("DOMContentLoaded", async () => {
-      // ... your existing DOMContentLoaded logic ...
-      // e.g. loadFoldersFromFirebase(), loadImagesFromFirebase(), etc.
-
-      // ADMIN FEATURE ADDED: ensure the UI is updated on load
-      updateAdminUI();
+      try {
+        console.log("DOM loaded, initializing application...");
+        await loadFoldersFromFirebase();
+        await loadImagesFromFirebase();
+        const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
+        if (allFolder) {
+          allFolder.classList.add('selected');
+        }
+        console.log('App initialized successfully!');
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        alert("Error initializing app: " + error.message);
+      }
     });
   </script>
 </body>
