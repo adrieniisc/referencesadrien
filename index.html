@@ -14,11 +14,11 @@
     /* --------------------------------------------------
        Inverted Color Variables
        - Main area: lighter background (#ffffff) and dark text (#1c1c1e)
-       - Sidebar: dark background (black) with light text (#f2f2f7)
+       - Sidebar: dark background (#1c1c1e) with light text (#f2f2f7)
     -------------------------------------------------- */
     :root {
       --main-bg: #242426;      /* main area */
-      --main-text: #1c1c1e;      /* text for main area */
+      --main-text: #f2f2f7;      /* text for main area */
       --side-bg:    #1c1c1e;     /* sidebar */
       --side-text:  #f2f2f7;     /* text for sidebar */
       --border-color: #3a3a3c;
@@ -40,20 +40,13 @@
     body { display: flex; flex-direction: column; }
 
     /* --------------------------------------------------
-       Top Bar
+       Fixed ADMIN Button in Top Right Corner
     -------------------------------------------------- */
-    .top-bar {
-      background-color: var(--main-bg);
-      padding: 0.4rem 0.8rem;
-      display: flex;
-      align-items: center;
-    }
-    .top-bar .logo {
-      font-size: 1rem;
-      font-weight: bold;
-    }
-    .spacer { flex: 1; }
-    .top-bar button {
+    #adminBtn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 10000;
       background-color: var(--highlight-color);
       color: #fff;
       border: none;
@@ -62,7 +55,7 @@
       font-size: 1.02rem;
       cursor: pointer;
     }
-    .top-bar button:hover { opacity: 0.9; }
+    #adminBtn:hover { opacity: 0.9; }
 
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
@@ -128,7 +121,7 @@
       height: 18px;
       fill: var(--side-text);
     }
-    /* Keep filter menu using the darker sidebar colors */
+    /* The filter menu uses the sidebar colors */
     .filter-menu {
       position: fixed;
       top: 50px;
@@ -515,12 +508,6 @@
   </style>
 </head>
 <body>
-  <!-- TOP BAR -->
-  <div class="top-bar">
-    <span class="logo">References Photo</span>
-    <div class="spacer"></div>
-    <button id="adminBtn">ADMIN</button>
-  </div>
   <!-- MAIN CONTAINER (Sidebar + Main Content) -->
   <div class="main-container">
     <!-- SIDEBAR -->
