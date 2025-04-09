@@ -181,6 +181,7 @@
       border-top: 1px solid rgba(255,255,255,0.08);
     }
     .sidebar-footer button {
+      /* Default styles for non-admin buttons */
       background-color: #444;
       color: #ddd;
       border: none;
@@ -193,11 +194,17 @@
       margin-bottom: 0.4rem;
     }
     .sidebar-footer button:hover { opacity: 0.9; }
-    .admin-top-buttons, .admin-bottom-buttons {
-      display: flex;
-      flex-direction: column;
+    /* Admin top group buttons: style them in blue */
+    .admin-top-buttons button {
+      background-color: var(--highlight-color);
+      color: #fff;
     }
-    /* Thin separator between groups */
+    /* Admin bottom group: move images should be grey */
+    .sidebar-footer button.move-btn {
+      background-color: #444;
+      color: #ddd;
+    }
+    /* Thin separator; hidden when not in admin mode */
     .separator {
       border: 0;
       height: 1px;
@@ -420,8 +427,8 @@
        Move Image Feature
     -------------------------------------------------- */
     .sidebar-footer button.move-btn {
-      background-color: #90caf9;
-      color: #333;
+      background-color: #444;
+      color: #ddd;
     }
     .image-container.move-selectable {
       position: relative;
@@ -510,13 +517,13 @@
       </ul>
       <!-- SIDEBAR FOOTER: Admin Editing Controls -->
       <div class="sidebar-footer">
-        <!-- Top group: New Folder & Add Image buttons -->
+        <!-- Top group: Blue buttons for adding -->
         <div class="admin-top-buttons">
-          <button id="newFolderAdminBtn">New Folder</button>
+          <button id="newFolderAdminBtn">Add Folder</button>
           <button id="addImageAdminBtn">Add Image</button>
         </div>
         <hr class="separator">
-        <!-- Bottom group: Move Images, Rename Folder, then Delete Images & Delete Folder -->
+        <!-- Bottom group: Move, Rename, then Delete buttons -->
         <div class="admin-bottom-buttons">
           <button id="moveImageBtn" class="move-btn">Move Images</button>
           <button id="renameFolderBtn">Rename Folder</button>
@@ -539,11 +546,11 @@
   <!-- FLOATING SIZE PANEL -->
   <div class="floating-size-panel">
     <div class="size-icon-container">
-      <div class="size-icon" data-size="300"><span>XS</span></div>
-      <div class="size-icon" data-size="450"><span>S</span></div>
-      <div class="size-icon selected" data-size="600"><span>M</span></div>
-      <div class="size-icon" data-size="800"><span>L</span></div>
-      <div class="size-icon" data-size="950"><span>XL</span></div>
+      <div class="size-icon" data-size="120"><span>XS</span></div>
+      <div class="size-icon" data-size="200"><span>S</span></div>
+      <div class="size-icon selected" data-size="300"><span>M</span></div>
+      <div class="size-icon" data-size="400"><span>L</span></div>
+      <div class="size-icon" data-size="500"><span>XL</span></div>
     </div>
   </div>
   <!-- MODAL: New Folder -->
@@ -714,7 +721,7 @@
     const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
     const adminPasswordInput = document.getElementById("adminPassword");
-    // All editing buttons in the sidebar footer
+    // All editing buttons in the sidebar footer and separators
     const editButtons = document.querySelectorAll(".sidebar-footer button");
     const separators = document.querySelectorAll(".separator");
 
