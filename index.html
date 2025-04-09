@@ -1291,7 +1291,7 @@ async function moveImagesToDestination() {
     const results = await Promise.all(movePromises);
     const movedCount = results.filter(result => result).length;
     
-    alert(`Successfully moved ${movedCount} image(s) to ${destinationFolder}`);
+
     
     // Close the modal and exit move mode
     moveDestinationModal.classList.remove("active");
