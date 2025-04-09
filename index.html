@@ -16,6 +16,7 @@
       --highlight-color: #0a84ff;
       --thumbnail-size: 300px; /* THUMBNAIL/IMAGE SIZE */
     }
+
     /* --------------------------------------------------
        Base Reset & Body
     -------------------------------------------------- */
@@ -28,6 +29,7 @@
       color: var(--text-color);
     }
     body { display: flex; flex-direction: column; }
+
     /* --------------------------------------------------
        Top Bar
     -------------------------------------------------- */
@@ -52,6 +54,7 @@
       cursor: pointer;
     }
     .top-bar button:hover { opacity: 0.9; }
+
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
     -------------------------------------------------- */
@@ -60,6 +63,7 @@
       display: flex;
       overflow: hidden;
     }
+
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
@@ -172,6 +176,7 @@
       background-color: var(--highlight-color);
       color: #fff;
     }
+
     /* --------------------------------------------------
        Sidebar Footer with Admin Editing Controls
     -------------------------------------------------- */
@@ -211,6 +216,7 @@
       background: #555;
       margin: 0.5rem 0;
     }
+
     /* --------------------------------------------------
        Main Content (Gallery)
     -------------------------------------------------- */
@@ -259,6 +265,7 @@
     }
     .image-container:hover .download-btn { display: block; }
     .hidden { display: none; }
+
     /* --------------------------------------------------
        Floating Size Panel
     -------------------------------------------------- */
@@ -296,6 +303,7 @@
       color: var(--text-color);
       transition: background-color 0.2s, border-color 0.2s;
     }
+
     /* --------------------------------------------------
        Modals (Folder, Image, Rename, Admin)
     -------------------------------------------------- */
@@ -371,8 +379,8 @@
        Delete Image Feature
     -------------------------------------------------- */
     .sidebar-footer button.delete-btn {
-      background-color: #ff9a9a;
-      color: #333;
+      background-color: #ff3b30; /* More saturated red */
+      color: #fff;
     }
     .image-container.selectable {
       position: relative;
@@ -396,9 +404,10 @@
     }
     .delete-controls {
       position: fixed;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
+      bottom: 15px;
+      right: 15px;
+      left: auto;
+      transform: none;
       background-color: rgba(44,44,46,0.9);
       padding: 0.5rem 1rem;
       border-radius: 10px;
@@ -412,7 +421,7 @@
       display: flex;
     }
     .delete-controls button {
-      background-color: #ff5555;
+      background-color: #ff3b30; /* More saturated red */
       color: white;
       border: none;
       padding: 0.4rem 0.8rem;
@@ -423,6 +432,7 @@
     .delete-controls button.cancel {
       background-color: #555;
     }
+
     /* --------------------------------------------------
        Move Image Feature
     -------------------------------------------------- */
@@ -532,6 +542,7 @@
         </div>
       </div>
     </div>
+
     <!-- Move Controls -->
     <div class="move-controls" id="moveControls">
       <span id="moveSelectedCount">0 selected</span>
@@ -633,12 +644,12 @@
   <script>
     // Initialize Firebase with your configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
-      authDomain: "referencesadrien.firebaseapp.com",
-      projectId: "referencesadrien",
-      storageBucket: "referencesadrien.firebasestorage.app",
-      messagingSenderId: "954877853554",
-      appId: "1:954877853554:web:4492547898026cf1afe7eb"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
@@ -671,7 +682,6 @@
     const parentFolderSelect = document.getElementById("parentFolderSelect");
     const addFolderBtn = document.getElementById("addFolderBtn");
 
-    // Removed original top bar buttons for new folder and add image
     const imageModal = document.getElementById("imageModal");
     const closeImageModalBtn = document.getElementById("closeImageModalBtn");
     const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
@@ -711,7 +721,7 @@
     const moveDestinationSelect = document.getElementById("moveDestinationSelect");
     const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
 
-    // New admin sidebar buttons for folder and image modals
+    // Admin sidebar buttons
     const newFolderAdminBtn = document.getElementById("newFolderAdminBtn");
     const addImageAdminBtn = document.getElementById("addImageAdminBtn");
 
@@ -721,6 +731,7 @@
     const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
     const adminPasswordInput = document.getElementById("adminPassword");
+
     // All editing buttons in the sidebar footer and separators
     const editButtons = document.querySelectorAll(".sidebar-footer button");
     const separators = document.querySelectorAll(".separator");
@@ -1265,6 +1276,7 @@
     folderModal.addEventListener("click", (e) => { 
       if(e.target === folderModal) folderModal.classList.remove("active"); 
     });
+
     // Image Modal handling
     document.getElementById("closeImageModalBtn").addEventListener("click", () => { 
       imageModal.classList.remove("active"); 
@@ -1272,6 +1284,7 @@
     imageModal.addEventListener("click", (e) => { 
       if(e.target === imageModal) imageModal.classList.remove("active"); 
     });
+
     // Rename Folder Modal handling
     renameFolderBtn.addEventListener("click", () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
@@ -1292,6 +1305,7 @@
     renameFolderModal.addEventListener("click", (e) => { 
       if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); 
     });
+
     // Delete Folder button
     deleteFolderBtn.addEventListener("click", async () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
@@ -1313,6 +1327,7 @@
       await deleteFolderFromFirebase(currentFullName);
       renderFolders();
     });
+
     // Confirm Rename Folder button
     confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
@@ -1351,6 +1366,7 @@
       renameFolderModal.classList.remove("active");
       renderFolders();
     });
+
     // New Admin Buttons to open modals
     newFolderAdminBtn.addEventListener("click", () => { 
       folderModal.classList.add("active"); 
@@ -1358,6 +1374,7 @@
     addImageAdminBtn.addEventListener("click", () => { 
       imageModal.classList.add("active"); 
     });
+
     // Confirm Add Image button
     confirmAddImageBtn.addEventListener("click", async () => {
       if (!fileInput.files[0]) {
@@ -1386,13 +1403,16 @@
         alert("Upload failed: " + error.message);
       }
     });
+
     // Delete and Move mode event listeners
     deleteImageBtn.addEventListener("click", toggleDeleteMode);
     confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
     cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
+
     moveImageBtn.addEventListener("click", toggleMoveMode);
     confirmMoveImagesBtn.addEventListener("click", showMoveDestinationModal);
     cancelMoveImagesBtn.addEventListener("click", toggleMoveMode);
+
     closeMoveDestinationModalBtn.addEventListener("click", () => {
       moveDestinationModal.classList.remove("active");
     });
@@ -1402,7 +1422,9 @@
       }
     });
     confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
+
     imageSearch.addEventListener("input", searchImages);
+
     filterButton.addEventListener("click", (e) => {
       e.stopPropagation();
       filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
