@@ -502,11 +502,21 @@
       </div>
     </div>
   </div>
+<div class="delete-controls" id="deleteControls">
+  <span id="selectedCount">0 selected</span>
+  <button id="confirmDeleteImagesBtn">Delete Selected</button>
+  <button id="cancelDeleteImagesBtn" class="cancel">Cancel</button>
+</div>
+
   <!-- Load Firebase SDKs via CDN (Global Approach) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script>
-    // Initialize Firebase with your configuration (replace with your actual config)
+    
+
+// Initialize Firebase with your configuration (replace with your actual config)
+
+
 const firebaseConfig = {
   apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
   authDomain: "referencesadrien.firebaseapp.com",
@@ -524,7 +534,7 @@ if (!firebase.apps.length) {
 // Get Firestore reference
 const db = firebase.firestore();
 
-// Variable declarations
+// Variable declarations (just once)
 let folders = [
   "angle",
   "brick-roof-tile",
@@ -539,8 +549,10 @@ let folders = [
   "wood"
 ];
 let currentFolderFilter = "all";
+let isDeleteMode = false;
+let selectedImages = [];
 
-// DOM Elements
+// DOM Elements (just once)
 const folderList = document.getElementById("folderList");
 const newFolderName = document.getElementById("newFolderName");
 const parentFolderSelect = document.getElementById("parentFolderSelect");
@@ -572,7 +584,16 @@ const filterButton = document.getElementById("filterButton");
 const filterMenu = document.getElementById("filterMenu");
 const deleteFolderBtn = document.getElementById("deleteFolderBtn");
 
-// Netlify Upload Function
+// Delete Image Mode Elements
+const deleteImageBtn = document.getElementById("deleteImageBtn");
+const deleteControls = document.getElementById("deleteControls");
+const selectedCount = document.getElementById("selectedCount");
+const confirmDeleteImagesBtn = document.getElementById("confirmDeleteImagesBtn");
+const cancelDeleteImagesBtn = document.getElementById("cancelDeleteImagesBtn");
+
+/********************************************************
+ * Netlify Upload Function
+ ********************************************************/
 async function uploadImage(file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -584,368 +605,6 @@ async function uploadImage(file) {
   console.log('Upload response:', data);
   return data.url; // Cloudinary URL expected
 }
-
-// Folder Building & UI Management
-function buildFolderStructure() {
-  const structure = {};
-  folders.forEach(folder => {
-    const parts = folder.split("/");
-    if (parts.length === 1) {
-      if (!structure[parts[0]]) structure[parts[0]] = [];
-    } else {
-      const parent = parts[0];
-      const child = parts[1];
-      if (!structure[parent]) structure[parent] = [];
-      structure[parent].push(child);
-    }
-  });
-  return structure;
-}
-
-function renderFolders() {
-  folderList.innerHTML = "";
-  folderSelect.innerHTML = "";
-  parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
-
-  const allItem = document.createElement("li");
-  allItem.textContent = "All";
-  allItem.classList.add("all");
-  allItem.setAttribute("data-filter", "all");
-  allItem.addEventListener("click", () => {
-    highlightSelected(allItem);
-    hideAllSubfolders();
-    currentFolderFilter = "all";
-    filterImages("all");
-  });
-  folderList.appendChild(allItem);
-
-  const structure = buildFolderStructure();
-  const parents = Object.keys(structure).sort();
-
-  parents.forEach(parent => {
-    const parentLi = document.createElement("li");
-    parentLi.textContent = parent;
-    parentLi.setAttribute("data-filter", parent);
-
-    const subUl = document.createElement("ul");
-    subUl.classList.add("subfolder-list");
-
-    structure[parent].sort().forEach(child => {
-      const childLi = document.createElement("li");
-      childLi.textContent = child;
-      childLi.setAttribute("data-filter", parent + "/" + child);
-      childLi.addEventListener("click", (e) => {
-        e.stopPropagation();
-        highlightSelected(childLi);
-        currentFolderFilter = parent + "/" + child;
-        filterImages(parent + "/" + child);
-      });
-      subUl.appendChild(childLi);
-    });
-
-    parentLi.addEventListener("click", () => {
-      highlightSelected(parentLi);
-      toggleSubfolders(subUl);
-      currentFolderFilter = parent;
-      filterImages(parent);
-    });
-
-    folderList.appendChild(parentLi);
-    folderList.appendChild(subUl);
-  });
-
-  // Populate "Location" select for the image modal
-  parents.forEach(parent => {
-    const parentOpt = document.createElement("option");
-    parentOpt.value = parent;
-    parentOpt.textContent = parent;
-    folderSelect.appendChild(parentOpt);
-    
-    if (structure[parent] && structure[parent].length > 0) {
-      structure[parent].forEach(child => {
-        const childOpt = document.createElement("option");
-        childOpt.value = parent + "/" + child;
-        childOpt.textContent = "— " + child;
-        folderSelect.appendChild(childOpt);
-      });
-    }
-  });
-
-  // Populate "Parent (optional)" select for the folder modal
-  parents.forEach(parent => {
-    const parentOpt = document.createElement("option");
-    parentOpt.value = parent;
-    parentOpt.textContent = parent;
-    parentFolderSelect.appendChild(parentOpt);
-  });
-}
-
-function hideAllSubfolders() {
-  const allSubUls = folderList.querySelectorAll(".subfolder-list");
-  allSubUls.forEach(ul => { ul.style.display = "none"; });
-}
-
-function toggleSubfolders(currentUl) {
-  const allSubUls = folderList.querySelectorAll(".subfolder-list");
-  allSubUls.forEach(ul => { if (ul !== currentUl) ul.style.display = "none"; });
-  currentUl.style.display = (currentUl.style.display === "none" || !currentUl.style.display) ? "block" : "none";
-}
-
-function highlightSelected(li) {
-  const allItems = folderList.querySelectorAll("li");
-  allItems.forEach(item => item.classList.remove("selected"));
-  li.classList.add("selected");
-}
-
-function filterImages(filterValue) {
-  const allImages = document.querySelectorAll(".image-container");
-  allImages.forEach(container => {
-    const category = container.getAttribute("data-category");
-    if (filterValue === "all" || category === filterValue)
-      container.classList.remove("hidden");
-    else container.classList.add("hidden");
-  });
-}
-
-function searchImages() {
-  const query = imageSearch.value.trim().toLowerCase();
-  const allImages = document.querySelectorAll(".image-container");
-  if (query !== "") {
-    allImages.forEach(container => {
-      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-      const imgAlt = container.querySelector("img").alt.toLowerCase();
-      if (keywords.includes(query) || imgAlt.includes(query))
-        container.classList.remove("hidden");
-      else container.classList.add("hidden");
-    });
-  } else {
-    filterImages(currentFolderFilter);
-  }
-}
-
-function sortGallery(type) {
-  const imagesArray = [...gallery.children];
-  if (type === "alphabetical") {
-    imagesArray.sort((a, b) => {
-      let altA = a.querySelector("img").alt.toLowerCase();
-      let altB = b.querySelector("img").alt.toLowerCase();
-      return altA.localeCompare(altB);
-    });
-  } else if (type === "recent") {
-    imagesArray.sort((a, b) => {
-      let timeA = parseInt(a.getAttribute("data-add-time")) || 0;
-      let timeB = parseInt(b.getAttribute("data-add-time")) || 0;
-      return timeB - timeA;
-    });
-  }
-  imagesArray.forEach(img => gallery.appendChild(img));
-}
-
-// Modal Handling - Event Listeners
-openFolderModalBtn.addEventListener("click", () => { 
-  folderModal.classList.add("active"); 
-});
-
-closeFolderModalBtn.addEventListener("click", () => { 
-  folderModal.classList.remove("active"); 
-});
-
-folderModal.addEventListener("click", (e) => { 
-  if(e.target === folderModal) folderModal.classList.remove("active"); 
-});
-
-openImageModalBtn.addEventListener("click", () => { 
-  imageModal.classList.add("active"); 
-});
-
-closeImageModalBtn.addEventListener("click", () => { 
-  imageModal.classList.remove("active"); 
-});
-
-imageModal.addEventListener("click", (e) => { 
-  if(e.target === imageModal) imageModal.classList.remove("active"); 
-});
-
-renameFolderBtn.addEventListener("click", () => {
-  const selectedEl = document.querySelector(".folder-list li.selected");
-  if (!selectedEl) { 
-    alert("Please select a folder to rename."); 
-    return; 
-  }
-  
-  if (selectedEl.getAttribute("data-filter") === "all") { 
-    alert("Cannot rename 'All'."); 
-    return; 
-  }
-  
-  renameFolderInput.value = selectedEl.textContent;
-  renameFolderModal.classList.add("active");
-});
-
-closeRenameFolderModalBtn.addEventListener("click", () => { 
-  renameFolderModal.classList.remove("active"); 
-});
-
-renameFolderModal.addEventListener("click", (e) => { 
-  if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); 
-});
-
-// Search, Filter & Size Panel Functionality
-imageSearch.addEventListener("input", searchImages);
-
-filterButton.addEventListener("click", (e) => {
-  e.stopPropagation();
-  filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
-});
-
-document.addEventListener("click", (e) => {
-  if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) {
-    filterMenu.style.display = "none";
-  }
-});
-
-const filterOptions = document.querySelectorAll(".filter-option");
-filterOptions.forEach(opt => {
-  opt.addEventListener("click", () => {
-    const sortType = opt.getAttribute("data-sort");
-    sortGallery(sortType);
-    filterMenu.style.display = "none";
-  });
-});
-
-sizeIcons.forEach(icon => {
-  icon.addEventListener("click", () => {
-    sizeIcons.forEach(i => i.classList.remove("selected"));
-    icon.classList.add("selected");
-    const newSize = icon.getAttribute("data-size");
-    document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
-  });
-});
-
-/********************************************************
- * Data & DOM Elements (keep your existing code here)
- ********************************************************/
-// Your existing variable declarations (no changes)
-
-// Delete Image Mode Elements
-const deleteImageBtn = document.getElementById("deleteImageBtn");
-const deleteControls = document.getElementById("deleteControls");
-const selectedCount = document.getElementById("selectedCount");
-const confirmDeleteImagesBtn = document.getElementById("confirmDeleteImagesBtn");
-const cancelDeleteImagesBtn = document.getElementById("cancelDeleteImagesBtn");
-let isDeleteMode = false;
-let selectedImages = [];
-
-// Delete Image Mode Functions
-function toggleDeleteMode() {
-  isDeleteMode = !isDeleteMode;
-  
-  if (isDeleteMode) {
-    // Enter delete mode
-    const allImages = document.querySelectorAll(".image-container");
-    allImages.forEach(container => {
-      container.classList.add("selectable");
-      container.addEventListener("click", toggleImageSelection);
-    });
-    deleteControls.classList.add("active");
-    updateSelectedCount();
-  } else {
-    // Exit delete mode
-    const allImages = document.querySelectorAll(".image-container");
-    allImages.forEach(container => {
-      container.classList.remove("selectable");
-      container.classList.remove("selected");
-      container.removeEventListener("click", toggleImageSelection);
-    });
-    deleteControls.classList.remove("active");
-    selectedImages = [];
-  }
-}
-
-function toggleImageSelection(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  const container = e.currentTarget;
-  
-  if (!isDeleteMode) return;
-  
-  if (container.classList.contains("selected")) {
-    container.classList.remove("selected");
-    const index = selectedImages.findIndex(img => img === container);
-    if (index !== -1) {
-      selectedImages.splice(index, 1);
-    }
-  } else {
-    container.classList.add("selected");
-    selectedImages.push(container);
-  }
-  
-  updateSelectedCount();
-}
-
-function updateSelectedCount() {
-  selectedCount.textContent = `${selectedImages.length} selected`;
-}
-
-async function deleteSelectedImages() {
-  if (selectedImages.length === 0) return;
-  
-  if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) {
-    return;
-  }
-  
-  try {
-    const deletePromises = selectedImages.map(async (container) => {
-      const imageUrl = container.querySelector("img").src;
-      const imageId = await findImageIdByUrl(imageUrl);
-      
-      if (imageId) {
-        await db.collection('images').doc(imageId).delete();
-        
-        // Optional: You could also delete from Cloudinary here if you want
-        // but that would require server-side code in your Netlify function
-        
-        container.remove();
-        return true;
-      }
-      return false;
-    });
-    
-    const results = await Promise.all(deletePromises);
-    const deletedCount = results.filter(result => result).length;
-    
-    alert(`Successfully deleted ${deletedCount} image(s)`);
-    toggleDeleteMode(); // Exit delete mode
-    
-  } catch (error) {
-    console.error('Error deleting images:', error);
-    alert(`Error deleting images: ${error.message}`);
-  }
-}
-
-async function findImageIdByUrl(url) {
-  try {
-    const querySnapshot = await db.collection('images')
-      .where('url', '==', url)
-      .limit(1)
-      .get();
-    
-    if (!querySnapshot.empty) {
-      return querySnapshot.docs[0].id;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error finding image by URL:', error);
-    return null;
-  }
-}
-
-// Delete Image Mode Event Listeners
-deleteImageBtn.addEventListener("click", toggleDeleteMode);
-confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
-cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
-
 
 /********************************************************
  * Firebase Data Syncing
@@ -1095,7 +754,28 @@ async function loadImagesFromFirebase() {
   }
 }
 
-// Fix the addImageToGallery function to accept more parameters
+// Find image ID by URL for deletion
+async function findImageIdByUrl(url) {
+  try {
+    const querySnapshot = await db.collection('images')
+      .where('url', '==', url)
+      .limit(1)
+      .get();
+    
+    if (!querySnapshot.empty) {
+      return querySnapshot.docs[0].id;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error finding image by URL:', error);
+    return null;
+  }
+}
+
+/********************************************************
+ * UI Functions
+ ********************************************************/
+// Add an image to the gallery
 function addImageToGallery(url, folder, keywords, filename, addTime) {
   const container = document.createElement('div');
   container.classList.add('image-container');
@@ -1118,11 +798,353 @@ function addImageToGallery(url, folder, keywords, filename, addTime) {
   gallery.appendChild(container);
 }
 
+// Build folder structure
+function buildFolderStructure() {
+  const structure = {};
+  folders.forEach(folder => {
+    const parts = folder.split("/");
+    if (parts.length === 1) {
+      if (!structure[parts[0]]) structure[parts[0]] = [];
+    } else {
+      const parent = parts[0];
+      const child = parts[1];
+      if (!structure[parent]) structure[parent] = [];
+      structure[parent].push(child);
+    }
+  });
+  return structure;
+}
+
+// Render folders in the UI
+function renderFolders() {
+  folderList.innerHTML = "";
+  folderSelect.innerHTML = "";
+  parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
+
+  const allItem = document.createElement("li");
+  allItem.textContent = "All";
+  allItem.classList.add("all");
+  allItem.setAttribute("data-filter", "all");
+  allItem.addEventListener("click", () => {
+    highlightSelected(allItem);
+    hideAllSubfolders();
+    currentFolderFilter = "all";
+    filterImages("all");
+  });
+  folderList.appendChild(allItem);
+
+  const structure = buildFolderStructure();
+  const parents = Object.keys(structure).sort();
+
+  parents.forEach(parent => {
+    const parentLi = document.createElement("li");
+    parentLi.textContent = parent;
+    parentLi.setAttribute("data-filter", parent);
+
+    const subUl = document.createElement("ul");
+    subUl.classList.add("subfolder-list");
+
+    if (structure[parent] && structure[parent].length > 0) {
+      structure[parent].sort().forEach(child => {
+        const childLi = document.createElement("li");
+        childLi.textContent = child;
+        childLi.setAttribute("data-filter", parent + "/" + child);
+        childLi.addEventListener("click", (e) => {
+          e.stopPropagation();
+          highlightSelected(childLi);
+          currentFolderFilter = parent + "/" + child;
+          filterImages(parent + "/" + child);
+        });
+        subUl.appendChild(childLi);
+      });
+    }
+
+    parentLi.addEventListener("click", () => {
+      highlightSelected(parentLi);
+      toggleSubfolders(subUl);
+      currentFolderFilter = parent;
+      filterImages(parent);
+    });
+
+    folderList.appendChild(parentLi);
+    folderList.appendChild(subUl);
+  });
+
+  // Populate "Location" select for the image modal
+  parents.forEach(parent => {
+    const parentOpt = document.createElement("option");
+    parentOpt.value = parent;
+    parentOpt.textContent = parent;
+    folderSelect.appendChild(parentOpt);
+    
+    if (structure[parent] && structure[parent].length > 0) {
+      structure[parent].forEach(child => {
+        const childOpt = document.createElement("option");
+        childOpt.value = parent + "/" + child;
+        childOpt.textContent = "— " + child;
+        folderSelect.appendChild(childOpt);
+      });
+    }
+  });
+
+  // Populate "Parent (optional)" select for the folder modal
+  parents.forEach(parent => {
+    const parentOpt = document.createElement("option");
+    parentOpt.value = parent;
+    parentOpt.textContent = parent;
+    parentFolderSelect.appendChild(parentOpt);
+  });
+}
+
+// Hide all subfolders
+function hideAllSubfolders() {
+  const allSubUls = folderList.querySelectorAll(".subfolder-list");
+  allSubUls.forEach(ul => { ul.style.display = "none"; });
+}
+
+// Toggle subfolder visibility
+function toggleSubfolders(currentUl) {
+  const allSubUls = folderList.querySelectorAll(".subfolder-list");
+  allSubUls.forEach(ul => { if (ul !== currentUl) ul.style.display = "none"; });
+  currentUl.style.display = (currentUl.style.display === "none" || !currentUl.style.display) ? "block" : "none";
+}
+
+// Highlight selected folder
+function highlightSelected(li) {
+  const allItems = folderList.querySelectorAll("li");
+  allItems.forEach(item => item.classList.remove("selected"));
+  li.classList.add("selected");
+}
+
+// Filter images by folder
+function filterImages(filterValue) {
+  const allImages = document.querySelectorAll(".image-container");
+  allImages.forEach(container => {
+    const category = container.getAttribute("data-category");
+    if (filterValue === "all" || category === filterValue)
+      container.classList.remove("hidden");
+    else container.classList.add("hidden");
+  });
+}
+
+// Search images
+function searchImages() {
+  const query = imageSearch.value.trim().toLowerCase();
+  const allImages = document.querySelectorAll(".image-container");
+  if (query !== "") {
+    allImages.forEach(container => {
+      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+      const imgAlt = container.querySelector("img").alt.toLowerCase();
+      if (keywords.includes(query) || imgAlt.includes(query))
+        container.classList.remove("hidden");
+      else container.classList.add("hidden");
+    });
+  } else {
+    filterImages(currentFolderFilter);
+  }
+}
+
+// Sort gallery images
+function sortGallery(type) {
+  const imagesArray = [...gallery.children];
+  if (type === "alphabetical") {
+    imagesArray.sort((a, b) => {
+      let altA = a.querySelector("img").alt.toLowerCase();
+      let altB = b.querySelector("img").alt.toLowerCase();
+      return altA.localeCompare(altB);
+    });
+  } else if (type === "recent") {
+    imagesArray.sort((a, b) => {
+      let timeA = parseInt(a.getAttribute("data-add-time")) || 0;
+      let timeB = parseInt(b.getAttribute("data-add-time")) || 0;
+      return timeB - timeA;
+    });
+  }
+  imagesArray.forEach(img => gallery.appendChild(img));
+}
+
 /********************************************************
- * Updated Event Handlers
+ * Delete Image Functions
  ********************************************************/
-// Update addFolderBtn event listener
-addFolderBtn.removeEventListener('click', null); // Remove any existing listeners
+// Toggle delete mode
+function toggleDeleteMode() {
+  isDeleteMode = !isDeleteMode;
+  
+  if (isDeleteMode) {
+    // Enter delete mode
+    const allImages = document.querySelectorAll(".image-container");
+    allImages.forEach(container => {
+      container.classList.add("selectable");
+      container.addEventListener("click", toggleImageSelection);
+    });
+    deleteControls.classList.add("active");
+    updateSelectedCount();
+  } else {
+    // Exit delete mode
+    const allImages = document.querySelectorAll(".image-container");
+    allImages.forEach(container => {
+      container.classList.remove("selectable");
+      container.classList.remove("selected");
+      // Use a named function reference to properly remove the event listener
+      container.removeEventListener("click", toggleImageSelection);
+    });
+    deleteControls.classList.remove("active");
+    selectedImages = [];
+  }
+}
+
+// Toggle image selection for deletion
+function toggleImageSelection(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const container = e.currentTarget;
+  
+  if (!isDeleteMode) return;
+  
+  if (container.classList.contains("selected")) {
+    container.classList.remove("selected");
+    const index = selectedImages.findIndex(img => img === container);
+    if (index !== -1) {
+      selectedImages.splice(index, 1);
+    }
+  } else {
+    container.classList.add("selected");
+    selectedImages.push(container);
+  }
+  
+  updateSelectedCount();
+}
+
+// Update selected count display
+function updateSelectedCount() {
+  selectedCount.textContent = `${selectedImages.length} selected`;
+}
+
+// Delete selected images
+async function deleteSelectedImages() {
+  if (selectedImages.length === 0) return;
+  
+  if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) {
+    return;
+  }
+  
+  try {
+    const deletePromises = selectedImages.map(async (container) => {
+      const imageUrl = container.querySelector("img").src;
+      const imageId = await findImageIdByUrl(imageUrl);
+      
+      if (imageId) {
+        await db.collection('images').doc(imageId).delete();
+        container.remove();
+        return true;
+      }
+      return false;
+    });
+    
+    const results = await Promise.all(deletePromises);
+    const deletedCount = results.filter(result => result).length;
+    
+    alert(`Successfully deleted ${deletedCount} image(s)`);
+    toggleDeleteMode(); // Exit delete mode
+    
+  } catch (error) {
+    console.error('Error deleting images:', error);
+    alert(`Error deleting images: ${error.message}`);
+  }
+}
+
+/********************************************************
+ * Event Listeners
+ ********************************************************/
+// Modal handling
+openFolderModalBtn.addEventListener("click", () => { 
+  folderModal.classList.add("active"); 
+});
+
+closeFolderModalBtn.addEventListener("click", () => { 
+  folderModal.classList.remove("active"); 
+});
+
+folderModal.addEventListener("click", (e) => { 
+  if(e.target === folderModal) folderModal.classList.remove("active"); 
+});
+
+openImageModalBtn.addEventListener("click", () => { 
+  imageModal.classList.add("active"); 
+});
+
+closeImageModalBtn.addEventListener("click", () => { 
+  imageModal.classList.remove("active"); 
+});
+
+imageModal.addEventListener("click", (e) => { 
+  if(e.target === imageModal) imageModal.classList.remove("active"); 
+});
+
+renameFolderBtn.addEventListener("click", () => {
+  const selectedEl = document.querySelector(".folder-list li.selected");
+  if (!selectedEl) { 
+    alert("Please select a folder to rename."); 
+    return; 
+  }
+  
+  if (selectedEl.getAttribute("data-filter") === "all") { 
+    alert("Cannot rename 'All'."); 
+    return; 
+  }
+  
+  renameFolderInput.value = selectedEl.textContent;
+  renameFolderModal.classList.add("active");
+});
+
+closeRenameFolderModalBtn.addEventListener("click", () => { 
+  renameFolderModal.classList.remove("active"); 
+});
+
+renameFolderModal.addEventListener("click", (e) => { 
+  if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); 
+});
+
+// Delete Image functionality
+deleteImageBtn.addEventListener("click", toggleDeleteMode);
+confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
+cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
+
+// Search and filtering
+imageSearch.addEventListener("input", searchImages);
+
+filterButton.addEventListener("click", (e) => {
+  e.stopPropagation();
+  filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
+});
+
+document.addEventListener("click", (e) => {
+  if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) {
+    filterMenu.style.display = "none";
+  }
+});
+
+const filterOptions = document.querySelectorAll(".filter-option");
+filterOptions.forEach(opt => {
+  opt.addEventListener("click", () => {
+    const sortType = opt.getAttribute("data-sort");
+    sortGallery(sortType);
+    filterMenu.style.display = "none";
+  });
+});
+
+// Size panel
+sizeIcons.forEach(icon => {
+  icon.addEventListener("click", () => {
+    sizeIcons.forEach(i => i.classList.remove("selected"));
+    icon.classList.add("selected");
+    const newSize = icon.getAttribute("data-size");
+    document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
+  });
+});
+
+// Folder operations
 addFolderBtn.addEventListener("click", async () => {
   const folderName = newFolderName.value.trim();
   const parentName = parentFolderSelect.value;
@@ -1149,8 +1171,6 @@ addFolderBtn.addEventListener("click", async () => {
   renderFolders();
 });
 
-// Update deleteFolderBtn event listener
-deleteFolderBtn.removeEventListener('click', null); // Remove any existing listeners
 deleteFolderBtn.addEventListener("click", async () => {
   const selectedEl = document.querySelector(".folder-list li.selected");
   if (!selectedEl) {
@@ -1176,8 +1196,6 @@ deleteFolderBtn.addEventListener("click", async () => {
   renderFolders();
 });
 
-// Update confirmRenameFolderBtn event listener
-confirmRenameFolderBtn.removeEventListener('click', null); // Remove any existing listeners
 confirmRenameFolderBtn.addEventListener("click", async () => {
   const newName = renameFolderInput.value.trim();
   if (!newName) {
@@ -1221,8 +1239,7 @@ confirmRenameFolderBtn.addEventListener("click", async () => {
   renderFolders();
 });
 
-// Update confirmAddImageBtn event listener
-confirmAddImageBtn.removeEventListener('click', null); // Remove any existing listeners
+// Image upload
 confirmAddImageBtn.addEventListener("click", async () => {
   if (!fileInput.files[0]) {
     alert("Please select an image file first.");
@@ -1262,9 +1279,10 @@ confirmAddImageBtn.addEventListener("click", async () => {
 /********************************************************
  * Initialize App
  ********************************************************/
-// Update the document.addEventListener DOMContentLoaded
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    console.log("DOM loaded, initializing application...");
+    
     // First load folders
     await loadFoldersFromFirebase();
     
@@ -1280,15 +1298,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log('App initialized successfully!');
   } catch (error) {
     console.error('Error initializing app:', error);
+    alert("Error initializing app: " + error.message);
   }
 });
-  </script>
 
-<div class="delete-controls" id="deleteControls">
-  <span id="selectedCount">0 selected</span>
-  <button id="confirmDeleteImagesBtn">Delete Selected</button>
-  <button id="cancelDeleteImagesBtn" class="cancel">Cancel</button>
-</div>
+  </script>
 
 </body>
 </html>
