@@ -482,19 +482,22 @@
   margin-bottom: 1.2rem;
 }
 
-/* Updated floating size panel styles */
+/* Fixed thumbnail size panel positioning */
 .floating-size-panel {
   position: fixed;
   bottom: 15px;
   right: 15px;
+  left: auto; /* Override any previous left positioning */
+  width: auto; /* Allow natural width instead of stretching */
   transform: none;
   background-color: rgba(44,44,46,0.9);
   border-radius: 10px;
   z-index: 1000;
-  display: flex;
+  display: inline-flex; /* Changed to inline-flex to respect content size */
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end; /* Align to the right */
   padding: 6px;
+  max-width: max-content; /* Ensure it only takes the width it needs */
 }
 
 .size-icon-container { 
@@ -523,6 +526,7 @@
   padding: 0.6rem 0.7rem;
   margin-bottom: 1.2rem;
 }
+
   </style>
 </head>
 <body>
