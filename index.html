@@ -14,7 +14,7 @@
       --border-color: #3a3a3c;
       --text-color: #f2f2f7;
       --highlight-color: #0a84ff;
-      --thumbnail-size: 300px; /* THUNAIL/IMAGE SIZE */
+      --thumbnail-size: 300px; /* THUMBNAIL/IMAGE SIZE */
     }
     /* --------------------------------------------------
        Base Reset & Body
@@ -35,9 +35,10 @@
       background-color: var(--secondary-bg);
       padding: 0.4rem 0.8rem;
       display: flex;
-      justify-content: space-between;
       align-items: center;
     }
+    /* This spacer pushes the admin button to the right */
+    .spacer { flex: 1; }
     .top-bar button {
       background-color: var(--highlight-color);
       color: #fff;
@@ -168,10 +169,10 @@
       background-color: var(--highlight-color);
       color: #fff;
     }
+    /* --------------------------------------------------
+       Sidebar Footer with Admin Editing Controls
+    -------------------------------------------------- */
     .sidebar-footer {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
       margin-top: auto;
       padding-top: 0.8rem;
       border-top: 1px solid rgba(255,255,255,0.08);
@@ -186,8 +187,20 @@
       cursor: pointer;
       width: 100%;
       text-align: center;
+      margin-bottom: 0.4rem;
     }
     .sidebar-footer button:hover { opacity: 0.9; }
+    .admin-top-buttons, .admin-bottom-buttons {
+      display: flex;
+      flex-direction: column;
+    }
+    /* Thin separator between groups */
+    .separator {
+      border: 0;
+      height: 1px;
+      background: #555;
+      margin: 0.5rem 0;
+    }
     /* --------------------------------------------------
        Main Content (Gallery)
     -------------------------------------------------- */
@@ -456,7 +469,6 @@
     .move-controls button.cancel {
       background-color: #555;
     }
-    /* Update the move destination select size */
     #moveDestinationSelect {
       font-size: 1.2em;
       padding: 0.6rem 0.7rem;
@@ -465,11 +477,9 @@
   </style>
 </head>
 <body>
-  <!-- TOP BAR -->
+  <!-- TOP BAR with ADMIN button on the right -->
   <div class="top-bar">
-    <button id="openFolderModalBtn">New Folder</button>
-    <button id="openImageModalBtn">Add Image</button>
-    <!-- New ADMIN button -->
+    <div class="spacer"></div>
     <button id="adminBtn">ADMIN</button>
   </div>
   <!-- MAIN CONTAINER (Sidebar + Main Content) -->
@@ -494,11 +504,21 @@
       <ul class="folder-list" id="folderList">
         <!-- Dynamically generated folder items will appear here -->
       </ul>
+      <!-- SIDEBAR FOOTER: Admin Editing Controls -->
       <div class="sidebar-footer">
-        <button id="moveImageBtn" class="move-btn">Move Images</button>
-        <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
-        <button id="renameFolderBtn">Rename Folder</button>
-        <button id="deleteFolderBtn">Delete Folder</button>
+        <!-- Top group: New Folder & Add Image buttons -->
+        <div class="admin-top-buttons">
+          <button id="newFolderAdminBtn">New Folder</button>
+          <button id="addImageAdminBtn">Add Image</button>
+        </div>
+        <hr class="separator">
+        <!-- Bottom group: Existing edit buttons -->
+        <div class="admin-bottom-buttons">
+          <button id="moveImageBtn" class="move-btn">Move Images</button>
+          <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
+          <button id="renameFolderBtn">Rename Folder</button>
+          <button id="deleteFolderBtn">Delete Folder</button>
+        </div>
       </div>
     </div>
     <!-- Move Controls -->
@@ -610,13 +630,12 @@
       messagingSenderId: "954877853554",
       appId: "1:954877853554:web:4492547898026cf1afe7eb"
     };
-
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     }
     const db = firebase.firestore();
 
-    // Initial variables and folder array
+    // Initial variables
     let folders = [
       "angle",
       "brick-roof-tile",
@@ -642,11 +661,7 @@
     const parentFolderSelect = document.getElementById("parentFolderSelect");
     const addFolderBtn = document.getElementById("addFolderBtn");
 
-    const openFolderModalBtn = document.getElementById("openFolderModalBtn");
-    const folderModal = document.getElementById("folderModal");
-    const closeFolderModalBtn = document.getElementById("closeFolderModalBtn");
-
-    const openImageModalBtn = document.getElementById("openImageModalBtn");
+    // Removed the original top bar buttons for new folder and add image
     const imageModal = document.getElementById("imageModal");
     const closeImageModalBtn = document.getElementById("closeImageModalBtn");
     const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
@@ -686,16 +701,20 @@
     const moveDestinationSelect = document.getElementById("moveDestinationSelect");
     const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
 
+    // New admin sidebar buttons for folder and image modals
+    const newFolderAdminBtn = document.getElementById("newFolderAdminBtn");
+    const addImageAdminBtn = document.getElementById("addImageAdminBtn");
+
     // Admin login elements
     const adminBtn = document.getElementById("adminBtn");
     const adminModal = document.getElementById("adminModal");
     const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
     const adminPasswordInput = document.getElementById("adminPassword");
-    // Select all edit buttons in the sidebar footer
+    // All editing buttons in the sidebar footer
     const editButtons = document.querySelectorAll(".sidebar-footer button");
 
-    // Hide edit buttons by default
+    // Hide edit buttons by default (including the new ones)
     document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => {
         button.style.display = "none";
@@ -1103,7 +1122,7 @@
           }
           return false;
         });
-        const results = await Promise.all(deletePromises);
+        await Promise.all(deletePromises);
         toggleDeleteMode();
       } catch (error) {
         console.error('Error deleting images:', error);
@@ -1225,24 +1244,21 @@
     /********************************************************
      * Event Listeners
      ********************************************************/
-    openFolderModalBtn.addEventListener("click", () => { 
-      folderModal.classList.add("active"); 
-    });
-    closeFolderModalBtn.addEventListener("click", () => { 
+    // Folder Modal handling
+    document.getElementById("closeFolderModalBtn").addEventListener("click", () => { 
       folderModal.classList.remove("active"); 
     });
     folderModal.addEventListener("click", (e) => { 
       if(e.target === folderModal) folderModal.classList.remove("active"); 
     });
-    openImageModalBtn.addEventListener("click", () => { 
-      imageModal.classList.add("active"); 
-    });
-    closeImageModalBtn.addEventListener("click", () => { 
+    // Image Modal handling
+    document.getElementById("closeImageModalBtn").addEventListener("click", () => { 
       imageModal.classList.remove("active"); 
     });
     imageModal.addEventListener("click", (e) => { 
       if(e.target === imageModal) imageModal.classList.remove("active"); 
     });
+    // Rename Folder Modal handling
     renameFolderBtn.addEventListener("click", () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
       if (!selectedEl) { 
@@ -1262,6 +1278,7 @@
     renameFolderModal.addEventListener("click", (e) => { 
       if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); 
     });
+    // Delete Folder button
     deleteFolderBtn.addEventListener("click", async () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
       if (!selectedEl) {
@@ -1282,6 +1299,7 @@
       await deleteFolderFromFirebase(currentFullName);
       renderFolders();
     });
+    // Confirm Rename Folder button
     confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
       if (!newName) {
@@ -1319,6 +1337,14 @@
       renameFolderModal.classList.remove("active");
       renderFolders();
     });
+    // New Admin Buttons to open modals
+    newFolderAdminBtn.addEventListener("click", () => { 
+      folderModal.classList.add("active"); 
+    });
+    addImageAdminBtn.addEventListener("click", () => { 
+      imageModal.classList.add("active"); 
+    });
+    // Confirm Add Image button
     confirmAddImageBtn.addEventListener("click", async () => {
       if (!fileInput.files[0]) {
         alert("Please select an image file first.");
@@ -1346,7 +1372,6 @@
         alert("Upload failed: " + error.message);
       }
     });
-
     // Delete and Move mode event listeners
     deleteImageBtn.addEventListener("click", toggleDeleteMode);
     confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
