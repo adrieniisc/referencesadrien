@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <!-- Increase the base font size by 10% (you mentioned 10% bigger) -->
+  <!-- Increase the base font size by 10% -->
   <style>
     html {
       font-size: 110%;
@@ -12,15 +12,15 @@
   <title>ReferencesAdrien</title>
   <style>
     /* --------------------------------------------------
-       Apple-Inspired Dark Mode Variables
+       Custom Color Variables
     -------------------------------------------------- */
     :root {
-      --primary-bg: #1c1c1e;
-      --secondary-bg: #2c2c2e;
+      --primary-bg: #F2F2F2;    /* Lighter background for main area */
+      --side-bg:    #000000;    /* Black background for sidebar */
       --border-color: #3a3a3c;
-      --text-color: #f2f2f7;
+      --text-color: #1c1c1e;    /* Dark text for main area */
       --highlight-color: #0a84ff;
-      --thumbnail-size: 360px; /* increased 20% from 300px */
+      --thumbnail-size: 360px;
     }
 
     /* --------------------------------------------------
@@ -40,7 +40,7 @@
        Top Bar
     -------------------------------------------------- */
     .top-bar {
-      background-color: var(--secondary-bg);
+      background-color: var(--primary-bg);
       padding: 0.4rem 0.8rem;
       display: flex;
       align-items: center;
@@ -56,7 +56,7 @@
       border: none;
       padding: 0.4rem 0.6rem;
       border-radius: 6px;
-      font-size: 1.02rem; /* increased from 0.85rem */
+      font-size: 1.02rem;
       cursor: pointer;
     }
     .top-bar button:hover { opacity: 0.9; }
@@ -74,28 +74,30 @@
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
     .sidebar {
-      /* Modified to fit its content */
+      /* Let the sidebar fit its content while ensuring a minimum width */
       width: fit-content;
       min-width: 220px;
-      background-color: var(--secondary-bg);
+      background-color: var(--side-bg);
       border-right: 1px solid var(--border-color);
       padding: 0.8rem;
       display: flex;
       flex-direction: column;
       position: relative;
+      color: #fff; /* white text in sidebar */
     }
     .search-bar-container {
       display: flex;
       align-items: center;
       margin-bottom: 0.6rem;
     }
+    /* Make the search input darker for the sidebar */
     #imageSearch {
       flex: 1;
       padding: 0.3rem 0.5rem;
       border: 1px solid var(--border-color);
       border-radius: 6px;
-      background-color: #1c1c1e;
-      color: var(--text-color);
+      background-color: #222;
+      color: #fff;
       font-size: 0.9rem;
     }
     .filter-icon-container {
@@ -121,13 +123,14 @@
     .filter-button svg {
       width: 18px;
       height: 18px;
-      fill: var(--text-color);
+      fill: #fff; /* white icons in sidebar */
     }
+    /* Update filter-menu to use main (light) background */
     .filter-menu {
       position: fixed;
       top: 50px;
       left: 240px;
-      background-color: #2c2c2e;
+      background-color: var(--primary-bg);
       border: 1px solid var(--border-color);
       border-radius: 6px;
       padding: 0.2rem 0;
@@ -135,6 +138,7 @@
       z-index: 1000;
       min-width: 120px;
       font-size: 0.9rem;
+      color: var(--text-color);
     }
     .filter-menu .filter-option {
       padding: 0.3rem 0.8rem;
@@ -159,7 +163,7 @@
       text-align: left;
     }
     .folder-list > li.all { font-weight: 600; }
-    .folder-list li:hover { background-color: #3a3a3c; }
+    .folder-list li:hover { background-color: #333; }
     .folder-list li.selected {
       background-color: var(--highlight-color);
       color: #fff;
@@ -179,7 +183,7 @@
       cursor: pointer;
       transition: background-color 0.2s ease;
     }
-    ul.subfolder-list li:hover { background-color: #3a3a3c; }
+    ul.subfolder-list li:hover { background-color: #333; }
     ul.subfolder-list li.selected {
       background-color: var(--highlight-color);
       color: #fff;
@@ -279,8 +283,8 @@
     -------------------------------------------------- */
     .floating-size-panel {
       position: fixed;
-      bottom: 18px; /* increased 20% from 15px */
-      right: 18px;  /* increased 20% from 15px */
+      bottom: 18px;
+      right: 18px;
       left: auto;
       width: auto;
       transform: none;
@@ -388,7 +392,7 @@
        Delete Image Feature
     -------------------------------------------------- */
     .sidebar-footer button.delete-btn {
-      background-color: #ff3b30; /* More saturated red */
+      background-color: #ff3b30;
       color: #fff;
     }
     .image-container.selectable {
@@ -413,8 +417,8 @@
     }
     .delete-controls {
       position: fixed;
-      bottom: 18px; /* increased from 15px */
-      right: 18px;  /* increased from 15px */
+      bottom: 18px;
+      right: 18px;
       left: auto;
       transform: none;
       background-color: rgba(44,44,46,0.9);
