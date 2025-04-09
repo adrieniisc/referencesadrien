@@ -170,21 +170,23 @@
     }
     .sidebar-footer {
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       gap: 0.4rem;
       margin-top: auto;
-      padding-top: 0.4rem;
+      padding-top: 0.8rem;
       border-top: 1px solid rgba(255,255,255,0.08);
     }
     .sidebar-footer button {
-      background-color: #444;
-      color: #ddd;
-      border: none;
-      padding: 0.3rem 0.5rem;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      cursor: pointer;
-    }
+  background-color: #444;
+  color: #ddd;
+  border: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
     .sidebar-footer button:hover { opacity: 0.9; }
     /* --------------------------------------------------
        Main Content (Gallery)
@@ -501,11 +503,11 @@
       <ul class="folder-list" id="folderList">
         <!-- Dynamically generated folder items will appear here -->
       </ul>
-      <div class="sidebar-footer">
-        <button id="renameFolderBtn">Rename Folder</button>
-        <button id="deleteFolderBtn">Delete Folder</button>
-        <button id="deleteImageBtn" class="delete-btn">Delete Image</button>
-        <button id="moveImageBtn" class="move-btn">Move Images</button>
+        <div class="sidebar-footer">
+         <button id="moveImageBtn" class="move-btn">Move Images</button>
+         <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
+         <button id="renameFolderBtn">Rename Folder</button>
+         <button id="deleteFolderBtn">Delete Folder</button>
       </div>
     </div>
 
