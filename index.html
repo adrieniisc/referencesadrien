@@ -12,13 +12,16 @@
   <title>ReferencesAdrien</title>
   <style>
     /* --------------------------------------------------
-       Custom Color Variables
+       Color Variables (Inverted for Main vs Sidebar)
     -------------------------------------------------- */
     :root {
-      --primary-bg: #F2F2F2;    /* Lighter background for main area */
-      --side-bg:    #000000;    /* Black background for sidebar */
+      /* Main area (center): lighter background, dark text */
+      --main-bg: #f2f2f2;
+      --main-text: #1c1c1e;
+      /* Sidebar: dark background (black) with light text */
+      --side-bg: #000000;
+      --side-text: #f2f2f7;
       --border-color: #3a3a3c;
-      --text-color: #1c1c1e;    /* Dark text for main area */
       --highlight-color: #0a84ff;
       --thumbnail-size: 360px;
     }
@@ -31,8 +34,8 @@
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
                    Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-      background-color: var(--primary-bg);
-      color: var(--text-color);
+      background-color: var(--main-bg);
+      color: var(--main-text);
     }
     body { display: flex; flex-direction: column; }
 
@@ -40,7 +43,7 @@
        Top Bar
     -------------------------------------------------- */
     .top-bar {
-      background-color: var(--primary-bg);
+      background-color: var(--main-bg);
       padding: 0.4rem 0.8rem;
       display: flex;
       align-items: center;
@@ -83,14 +86,14 @@
       display: flex;
       flex-direction: column;
       position: relative;
-      color: #fff; /* white text in sidebar */
+      color: var(--side-text);
     }
     .search-bar-container {
       display: flex;
       align-items: center;
       margin-bottom: 0.6rem;
     }
-    /* Make the search input darker for the sidebar */
+    /* For the sidebar search input, use a dark background with light text */
     #imageSearch {
       flex: 1;
       padding: 0.3rem 0.5rem;
@@ -123,14 +126,14 @@
     .filter-button svg {
       width: 18px;
       height: 18px;
-      fill: #fff; /* white icons in sidebar */
+      fill: #fff;
     }
-    /* Update filter-menu to use main (light) background */
+    /* The filter menu belongs to the main content so use main colors */
     .filter-menu {
       position: fixed;
       top: 50px;
       left: 240px;
-      background-color: var(--primary-bg);
+      background-color: var(--main-bg);
       border: 1px solid var(--border-color);
       border-radius: 6px;
       padding: 0.2rem 0;
@@ -138,13 +141,13 @@
       z-index: 1000;
       min-width: 120px;
       font-size: 0.9rem;
-      color: var(--text-color);
+      color: var(--main-text);
     }
     .filter-menu .filter-option {
       padding: 0.3rem 0.8rem;
       cursor: pointer;
       transition: background-color 0.2s ease;
-      color: var(--text-color);
+      color: var(--main-text);
     }
     .filter-menu .filter-option:hover { background-color: #3a3a3c; }
     .folder-list {
@@ -238,6 +241,8 @@
       display: flex;
       flex-direction: column;
       font-size: 0.9rem;
+      background-color: var(--main-bg);
+      color: var(--main-text);
     }
     .gallery {
       display: flex;
@@ -312,7 +317,7 @@
       justify-content: center;
       cursor: pointer;
       font-size: 0.84rem;
-      color: var(--text-color);
+      color: var(--main-text);
       transition: background-color 0.2s, border-color 0.2s;
     }
 
@@ -1492,11 +1497,11 @@
         await loadImagesFromFirebase();
         const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
         if (allFolder) {
-          allFolder.classList.add('selected');
+          allFolder.classList.add("selected");
         }
-        console.log('App initialized successfully!');
+        console.log("App initialized successfully!");
       } catch (error) {
-        console.error('Error initializing app:', error);
+        console.error("Error initializing app:", error);
         alert("Error initializing app: " + error.message);
       }
     });
