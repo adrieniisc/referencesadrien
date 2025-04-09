@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <!-- Increase the base font size by 20% -->
+  <!-- Increase the base font size by 10% (you mentioned 10% bigger) -->
   <style>
     html {
       font-size: 110%;
@@ -56,7 +56,7 @@
       border: none;
       padding: 0.4rem 0.6rem;
       border-radius: 6px;
-      font-size: 1.02rem; /* increased from 0.85rem (approx. 20% larger) */
+      font-size: 1.02rem; /* increased from 0.85rem */
       cursor: pointer;
     }
     .top-bar button:hover { opacity: 0.9; }
@@ -74,7 +74,9 @@
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
     .sidebar {
-      width: 220px;
+      /* Modified to fit its content */
+      width: fit-content;
+      min-width: 220px;
       background-color: var(--secondary-bg);
       border-right: 1px solid var(--border-color);
       padding: 0.8rem;
