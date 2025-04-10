@@ -561,6 +561,58 @@
   display: none;
 }
 
+/* Make body use the full viewport height */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrollbars on the body */
+}
+
+/* Reset the container structure to use the full page height */
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Position admin button absolutely to not affect the layout flow */
+#adminBtn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 10000;
+}
+
+/* Position the search bar absolutely */
+.top-search-bar {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+/* Make main container take full available height */
+.main-container {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Sidebar takes full height of its parent */
+.sidebar {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Main content area should also take full height */
+.main-content {
+  height: 100%;
+  overflow-y: auto;
+  padding-top: 60px; /* Make room for the floating search bar */
+}
+
   </style>
 </head>
 <body>
