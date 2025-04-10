@@ -34,16 +34,24 @@
                    Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
       background-color: var(--main-bg);
       color: var(--main-text);
-    body {
+
+
+body {
   display: flex;
   flex-direction: column;
-  height: 100%; /* Ensure body takes full height */
-  margin: 0; /* Reset default body margins */
+  height: 100%;
+  margin: 0;
+}    
+
+header {
+  /* Give the header a fixed height or a height based on its content */
+  /* height: 50px;  */ /* Example fixed height */
+  /* padding: 10px; */ /* Add padding for spacing if needed */
+  background-color: var(--side-bg); /* Match sidebar background */
+  color: var(--side-text); /* Match sidebar text color */
+  border-bottom: 1px solid var(--border-color); /* Add a border to separate header */
 }
-    /* --------------------------------------------------
-       Fixed ADMIN Button in Top-Right Corner
-         (This fixed button is hidden; only the sidebar Admin Access button is visible.)
-    -------------------------------------------------- */
+
     #adminBtn {
       display: none;
       padding: 0.3rem 0.6rem;
@@ -60,20 +68,14 @@
     }
     #adminBtn:hover { opacity: 0.9; }
 
-    /* --------------------------------------------------
-       Main Container (Sidebar + Content)
-    -------------------------------------------------- */
+
 .main-container {
-  flex: 1;
+  flex: 1; /* Allow this section to take up the remaining space */
   display: flex;
   overflow: hidden;
-  height: 100%;
-  position: relative; /* Add this to make the sidebar's absolute positioning relative to this container */
 }
-    /* --------------------------------------------------
-       Sidebar (Folders, Search & Filter)
-         (Sidebar now automatically takes full viewport height)
-    -------------------------------------------------- */
+
+
 .sidebar {
   width: fit-content;
   min-width: 220px;
@@ -82,13 +84,23 @@
   padding: 0.8rem;
   display: flex;
   flex-direction: column;
-  /* position: relative; */ /* Remove this line if it exists */
-  position: absolute; /* Change to absolute positioning */
-  top: 0; /* Position at the very top of its container */
-  left: 0; /* Keep it on the left side */
   color: var(--side-text);
-  height: 100%; /* Make it take the full height of its container */
+  height: 100%; /* Sidebar takes the full height of the main container */
 }
+
+.content {
+  flex: 1; /* Allow the content area to take up remaining space */
+  overflow-y: auto; /* Add scroll if content overflows */
+}
+
+.image-grid {
+  /* Your image grid styles here */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--thumbnail-size), 1fr));
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
     .search-bar-container {
       display: flex;
       align-items: center;
