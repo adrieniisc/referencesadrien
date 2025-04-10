@@ -560,6 +560,10 @@
       background-color: rgba(50, 50, 53, 0.95);
     }
 
+    /* Hide the original admin button */
+    #adminBtn {
+      display: none;
+    }
 
     /* Style for the new admin button in the sidebar */
     .admin-access-btn {
@@ -573,7 +577,6 @@
       width: 100%;
       text-align: center;
       margin-top: 0.4rem;
-      display: block !important;
     }
 
     .admin-access-btn:hover {
@@ -582,12 +585,13 @@
 
     /* Add a bit more space above the admin button */
     .sidebar-admin-section {
-      display: block !important;
       margin-top: 0.8rem;
     }
   </style>
 </head>
 <body>
+  <!-- ADMIN Button (fixed top-right) -->
+  <button id="adminBtn">ADMIN</button>
 
   <div class="top-search-bar">
     <div class="main-search-container">
@@ -618,25 +622,23 @@
         <!-- Folder items will be generated dynamically -->
       </ul>
       <!-- SIDEBAR FOOTER: Admin Editing Controls -->
-     <div class="sidebar-footer">
-  <!-- These will be hidden by default -->
-  <div class="admin-top-buttons">
-    <button id="newFolderAdminBtn">Add Folder</button>
-    <button id="addImageAdminBtn">Add Image</button>
-  </div>
-  <hr class="separator">
-  <div class="admin-bottom-buttons">
-    <button id="moveImageBtn" class="move-btn">Move Images</button>
-    <button id="renameFolderBtn">Rename Folder</button>
-    <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
-    <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
-  </div>
-  <hr class="separator">
-  <!-- This will always be visible -->
-  <div class="sidebar-admin-section">
-    <button id="adminAccessBtn" class="admin-access-btn">Admin Access</button>
-  </div>
-</div>
+      <div class="sidebar-footer">
+        <div class="admin-top-buttons">
+          <button id="newFolderAdminBtn">Add Folder</button>
+          <button id="addImageAdminBtn">Add Image</button>
+        </div>
+        <hr class="separator">
+        <div class="admin-bottom-buttons">
+          <button id="moveImageBtn" class="move-btn">Move Images</button>
+          <button id="renameFolderBtn">Rename Folder</button>
+          <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
+          <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
+        </div>
+        <hr class="separator">
+        <div class="sidebar-admin-section">
+          <button id="adminAccessBtn" class="admin-access-btn">Admin Access</button>
+        </div>
+      </div>
     </div>
     <!-- Move Controls -->
     <div class="move-controls" id="moveControls">
@@ -835,16 +837,11 @@
     const editButtons = document.querySelectorAll(".sidebar-footer button");
     const separators = document.querySelectorAll(".separator");
 
-
-    // Hide all admin buttons EXCEPT the admin access button
-    
-  document.addEventListener("DOMContentLoaded", () => {  
-  document.querySelectorAll('.admin-top-buttons button, .admin-bottom-buttons button').forEach(button => { 
-    button.style.display = "none"; 
-  });
-  // Hide separators too if needed
-  separators.forEach(separator => { separator.style.display = "none"; });
-});
+    // Hide edit buttons and separators by default
+    document.addEventListener("DOMContentLoaded", () => {
+      editButtons.forEach(button => { button.style.display = "none"; });
+      separators.forEach(separator => { separator.style.display = "none"; });
+    });
 
     const mainImageSearch = document.getElementById("mainImageSearch");
 
@@ -1534,62 +1531,31 @@
 
     // ADMIN Login Event Listeners
     adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+    closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
     confirmAdminBtn.addEventListener("click", () => {
-  const correctPassword = "admin123"; // Change as needed
-  if (adminPasswordInput.value === correctPassword) {
-    // Show all admin buttons (except the access button which is always visible)
-    document.querySelectorAll('.admin-top-buttons button, .admin-bottom-buttons button').forEach(button => { 
-      button.style.display = "block"; 
+      const correctPassword = "admin123"; // Change as needed
+      if (adminPasswordInput.value === correctPassword) {
+        editButtons.forEach(button => { button.style.display = "block"; });
+        separators.forEach(separator => { separator.style.display = "block"; });
+        adminModal.classList.remove("active");
+      } else {
+        alert("Incorrect password. Please try again.");
+      }
     });
-    separators.forEach(separator => { separator.style.display = "block"; });
-    adminModal.classList.remove("active");
-  } else {
-    alert("Incorrect password. Please try again.");
-  }
-});
 
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    console.log("DOM loaded, initializing application...");
-    
-    // Initialize Firebase
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    
-    // Set up admin button
-    adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
-    adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
-    
-    // Load data
-    await loadFoldersFromFirebase();
-    await loadImagesFromFirebase();
-    
-    // Select "All" folder by default
-    const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
-    if (allFolder) { 
-      allFolder.classList.add("selected"); 
-      allFolder.click(); // Trigger the click to load images
-    }
-    
-    // Set up size icons
-    const sizeIcons = document.querySelectorAll(".size-icon");
-    sizeIcons.forEach(icon => {
-      icon.addEventListener("click", () => {
-        sizeIcons.forEach(i => i.classList.remove("selected"));
-        icon.classList.add("selected");
-        const newSize = icon.getAttribute("data-size");
-        document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
-      });
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        console.log("DOM loaded, initializing application...");
+        await loadFoldersFromFirebase();
+        await loadImagesFromFirebase();
+        const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
+        if (allFolder) { allFolder.classList.add("selected"); }
+        console.log("App initialized successfully!");
+      } catch (error) {
+        console.error("Error initializing app:", error);
+        alert("Error initializing app: " + error.message);
+      }
     });
-    
-    console.log("App initialized successfully!");
-  } catch (error) {
-    console.error("Error initializing app:", error);
-    alert("Error initializing app: " + error.message);
-  }
-});
-
   </script>
 </body>
 </html>
