@@ -613,6 +613,39 @@ body {
   padding-top: 60px; /* Make room for the floating search bar */
 }
 
+
+
+/* First, hide the original admin button */
+#adminBtn {
+  display: none;
+}
+
+/* Style for the new admin button in the sidebar */
+.admin-access-btn {
+  background-color: #444;
+  color: #ddd;
+  border: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  margin-top: 0.4rem;
+}
+
+.admin-access-btn:hover {
+  opacity: 0.9;
+}
+
+/* Add a bit more space above the admin button */
+.sidebar-admin-section {
+  margin-top: 0.8rem;
+}
+
+
+
+
   </style>
 </head>
 <body>
@@ -659,6 +692,10 @@ body {
           <button id="renameFolderBtn">Rename Folder</button>
           <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
+        </div>
+		<hr class="separator">
+        <div class="sidebar-admin-section">
+          <button id="adminAccessBtn" class="admin-access-btn">Admin Access</button>
         </div>
       </div>
     </div>
@@ -867,8 +904,13 @@ body {
 
 const mainImageSearch = document.getElementById("mainImageSearch");
 
+const adminAccessBtn = document.getElementById("adminAccessBtn");
+adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+
 // Add the event listener for the new search box
 mainImageSearch.addEventListener("input", searchImages);
+
 
 // Update the searchImages function to use the new search input
 function searchImages() {
