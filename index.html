@@ -24,7 +24,6 @@
       --thumbnail-size: 360px;
     }
 
-
     /* --------------------------------------------------
        Base Reset & Body
     -------------------------------------------------- */
@@ -39,22 +38,9 @@
     body { display: flex; flex-direction: column; }
 
     /* --------------------------------------------------
-       Fixed ADMIN Button in Top-Right Corner
+       (Removed Fixed ADMIN Button in Top-Right Corner)
     -------------------------------------------------- */
-    #adminBtn {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 10000;
-      background-color: var(--highlight-color);
-      color: #fff;
-      border: none;
-      padding: 0.4rem 0.6rem;
-      border-radius: 6px;
-      font-size: 1.02rem;
-      cursor: pointer;
-    }
-    #adminBtn:hover { opacity: 0.9; }
+    /* The fixed #adminBtn block has been removed so that the admin button is no longer fixed at top right. */
 
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
@@ -221,6 +207,22 @@
       background: #555;
       margin: 0.5rem 0;
     }
+    /* New admin button (always visible) in the sidebar footer */
+    .sidebar-admin-section {
+      margin-top: 0.8rem;
+    }
+    .admin-access-btn {
+      background-color: var(--highlight-color);
+      color: #fff;
+      border: none;
+      padding: 0.4rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+    }
+    .admin-access-btn:hover { opacity: 0.9; }
 
     /* --------------------------------------------------
        Main Content (Gallery)
@@ -311,13 +313,11 @@
       color: var(--main-text);
       transition: background-color 0.2s, border-color 0.2s;
     }
-
     .size-icon.selected {
-  background-color: var(--highlight-color);
-  border-color: var(--highlight-color);
-  color: #fff;
-}
-
+      background-color: var(--highlight-color);
+      border-color: var(--highlight-color);
+      color: #fff;
+    }
 
     /* --------------------------------------------------
        Modal for Folder, Image, Rename, Admin
@@ -518,139 +518,73 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
 
-/* Updated Top bar for search with floating effect */
-.top-search-bar {
-  width: 100%;
-  padding: 15px 0;
-  background-color: transparent; /* Make background transparent */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  z-index: 10;
-}
+    /* Updated Top bar for search with floating effect */
+    .top-search-bar {
+      width: 100%;
+      padding: 15px 0;
+      background-color: transparent; /* Make background transparent */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+    .main-search-container {
+      width: 50%;
+      max-width: 700px;
+      position: relative;
+    }
+    #mainImageSearch {
+      width: 100%;
+      padding: 10px 16px;
+      border: none; /* Remove border */
+      border-radius: 12px; /* More rounded corners */
+      background-color: rgba(45, 45, 48, 0.9); /* Slightly transparent background */
+      color: var(--main-text);
+      font-size: 0.95rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Subtle diffused shadow */
+      transition: all 0.2s ease;
+    }
+    #mainImageSearch:focus {
+      outline: none;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); /* Enhanced shadow on focus */
+      background-color: rgba(50, 50, 53, 0.95); /* Slightly lighter on focus */
+    }
+    .sidebar .search-bar-container {
+      display: none;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      height: 100%;
+      overflow: hidden;
+    }
+    .sidebar {
+      height: 100%;
+      overflow-y: auto;
+    }
+    .main-content {
+      height: 100%;
+      overflow-y: auto;
+      padding-top: 60px;
+    }
 
-/* Search container style - centered with floating effect */
-.main-search-container {
-  width: 50%;
-  max-width: 700px;
-  position: relative;
-}
-
-/* Style for the floating search input */
-#mainImageSearch {
-  width: 100%;
-  padding: 10px 16px;
-  border: none; /* Remove border */
-  border-radius: 12px; /* More rounded corners */
-  background-color: rgba(45, 45, 48, 0.9); /* Slightly transparent background */
-  color: var(--main-text);
-  font-size: 0.95rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Subtle diffused shadow */
-  transition: all 0.2s ease;
-}
-
-#mainImageSearch:focus {
-  outline: none;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); /* Enhanced shadow on focus */
-  background-color: rgba(50, 50, 53, 0.95); /* Slightly lighter on focus */
-}
-
-/* Hide the sidebar search */
-.sidebar .search-bar-container {
-  display: none;
-}
-
-/* Make body use the full viewport height */
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden; /* Prevent scrollbars on the body */
-}
-
-/* Reset the container structure to use the full page height */
-body {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Position admin button absolutely to not affect the layout flow */
-#adminBtn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 10000;
-}
-
-/* Position the search bar absolutely */
-.top-search-bar {
-  position: absolute;
-  top: 15px;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-}
-
-/* Make main container take full available height */
-.main-container {
-  display: flex;
-  flex: 1;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* Sidebar takes full height of its parent */
-.sidebar {
-  height: 100%;
-  overflow-y: auto;
-}
-
-/* Main content area should also take full height */
-.main-content {
-  height: 100%;
-  overflow-y: auto;
-  padding-top: 60px; /* Make room for the floating search bar */
-}
-
-
-
-/* First, hide the original admin button */
-#adminBtn {
-  display: none;
-}
-
-/* Style for the new admin button in the sidebar */
-.admin-access-btn {
-  background-color: #444;
-  color: #ddd;
-  border: none;
-  padding: 0.4rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  width: 100%;
-  text-align: center;
-  margin-top: 0.4rem;
-}
-
-.admin-access-btn:hover {
-  opacity: 0.9;
-}
-
-/* Add a bit more space above the admin button */
-.sidebar-admin-section {
-  margin-top: 0.8rem;
-}
-
-
-
-
+    /* Hide the original fixed admin button */
+    #adminBtn { display: none; }
   </style>
 </head>
 <body>
-  <!-- ADMIN Button (fixed top-right) -->
-  <button id="adminBtn">ADMIN</button>
+  <!-- (Removed the fixed top-right ADMIN button) -->
 
 <div class="top-search-bar">
   <div class="main-search-container">
@@ -693,9 +627,10 @@ body {
           <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
         </div>
-		<hr class="separator">
+        <hr class="separator">
+        <!-- New Admin button placed at the bottom of the sidebar -->
         <div class="sidebar-admin-section">
-          <button id="adminAccessBtn" class="admin-access-btn">Admin Access</button>
+          <button id="adminAccessBtn" class="admin-access-btn">ADMIN</button>
         </div>
       </div>
     </div>
@@ -881,12 +816,12 @@ body {
     const moveDestinationSelect = document.getElementById("moveDestinationSelect");
     const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
 
-    // Admin sidebar buttons
+    // Admin sidebar buttons (we now use the new admin button in the sidebar)
     const newFolderAdminBtn = document.getElementById("newFolderAdminBtn");
     const addImageAdminBtn = document.getElementById("addImageAdminBtn");
 
     // Admin login elements
-    const adminBtn = document.getElementById("adminBtn");
+    // We keep the admin modal and its controls the same.
     const adminModal = document.getElementById("adminModal");
     const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
@@ -896,40 +831,39 @@ body {
     const editButtons = document.querySelectorAll(".sidebar-footer button");
     const separators = document.querySelectorAll(".separator");
 
-    // Hide edit buttons and separators by default
+    // Hide edit buttons and separators by default (if needed)
     document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => { button.style.display = "none"; });
       separators.forEach(separator => { separator.style.display = "none"; });
     });
 
-const mainImageSearch = document.getElementById("mainImageSearch");
+    const mainImageSearch = document.getElementById("mainImageSearch");
 
-const adminAccessBtn = document.getElementById("adminAccessBtn");
-adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
-adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+    // Use the new admin button in the sidebar for admin login
+    const adminAccessBtn = document.getElementById("adminAccessBtn");
+    adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
 
-// Add the event listener for the new search box
-mainImageSearch.addEventListener("input", searchImages);
+    // Add the event listener for the new search box
+    mainImageSearch.addEventListener("input", searchImages);
 
-
-// Update the searchImages function to use the new search input
-function searchImages() {
-  // Get the search query from either search input
-  const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
-  const allImages = document.querySelectorAll(".image-container");
-  
-  if (query !== "") {
-    allImages.forEach(container => {
-      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-      const imgAlt = container.querySelector("img").alt.toLowerCase();
-      if (keywords.includes(query) || imgAlt.includes(query))
-        container.classList.remove("hidden");
-      else container.classList.add("hidden");
-    });
-  } else {
-    filterImages(currentFolderFilter);
-  }
-}
+    // Update the searchImages function to use the new search input
+    function searchImages() {
+      // Get the search query from either search input
+      const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
+      const allImages = document.querySelectorAll(".image-container");
+      
+      if (query !== "") {
+        allImages.forEach(container => {
+          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+          const imgAlt = container.querySelector("img").alt.toLowerCase();
+          if (keywords.includes(query) || imgAlt.includes(query))
+            container.classList.remove("hidden");
+          else container.classList.add("hidden");
+        });
+      } else {
+        filterImages(currentFolderFilter);
+      }
+    }
 
     /********************************************************
      * Enlarge Image Modal Functionality
@@ -1091,25 +1025,23 @@ function searchImages() {
       const img = document.createElement('img');
       img.src = url;
       img.alt = filename;
-      // Enlarge image on click
-img.addEventListener("click", function(e) {
-  // When in delete or move mode, don't trigger the enlarge modal.
-  if (isDeleteMode || isMoveMode) return;
-  e.stopPropagation();
-  const enlargeModal = document.getElementById("enlargeImageModal");
-  const enlargeImg = document.getElementById("enlargeImage");
-  enlargeImg.src = url;
-  enlargeModal.style.display = "flex";
-});
+      // Enlarge image on click (unless in delete or move mode)
+      img.addEventListener("click", function(e) {
+        if (isDeleteMode || isMoveMode) return;
+        e.stopPropagation();
+        const enlargeModal = document.getElementById("enlargeImageModal");
+        const enlargeImg = document.getElementById("enlargeImage");
+        enlargeImg.src = url;
+        enlargeModal.style.display = "flex";
+      });
 
-      
       const downloadLink = document.createElement('a');
       downloadLink.classList.add('download-btn');
       downloadLink.textContent = 'Download';
       downloadLink.href = url;
       downloadLink.download = filename;
       downloadLink.target = "_self";
-      // Prevent propagation so the image does not enlarge when clicking download.
+      // Prevent propagation so clicking download doesn't enlarge the image
       downloadLink.addEventListener("click", function(e) {
           e.stopPropagation();
       });
@@ -1501,7 +1433,7 @@ img.addEventListener("click", function(e) {
     });
 
     // Confirm Rename Folder button
-      confirmRenameFolderBtn.addEventListener("click", async () => {
+    confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
       if (!newName) { alert("Please enter a new name."); return; }
       const selectedEl = document.querySelector(".folder-list li.selected");
@@ -1522,9 +1454,9 @@ img.addEventListener("click", function(e) {
         updatedFolders = folders.map(f => (f === currentFullName ? newFullName : f));
         await renameFolderInFirebase(currentFullName, newFullName);
       }
-        folders = updatedFolders;
-        renameFolderModal.classList.remove("active");
-        renderFolders();
+      folders = updatedFolders;
+      renameFolderModal.classList.remove("active");
+      renderFolders();
     });
 
     // New Admin Buttons to open modals
@@ -1590,8 +1522,7 @@ img.addEventListener("click", function(e) {
       });
     });
 
-    // ADMIN Login Event Listeners
-    adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+    // ADMIN Login Event Listeners (using the sidebar admin button)
     closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
     confirmAdminBtn.addEventListener("click", () => {
       const correctPassword = "admin123"; // Change as needed
