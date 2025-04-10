@@ -63,18 +63,18 @@
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
     -------------------------------------------------- */
-   .main-container {
-  flex: 1; /* Allow main-container to grow and take remaining space */
+.main-container {
+  flex: 1;
   display: flex;
   overflow: hidden;
-  height: 100%; /* Ensure main-container takes full height */
+  height: 100%;
+  position: relative; /* Add this to make the sidebar's absolute positioning relative to this container */
 }
-
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
          (Sidebar now automatically takes full viewport height)
     -------------------------------------------------- */
- .sidebar {
+.sidebar {
   width: fit-content;
   min-width: 220px;
   background-color: var(--side-bg);
@@ -82,11 +82,13 @@
   padding: 0.8rem;
   display: flex;
   flex-direction: column;
-  position: relative;
+  /* position: relative; */ /* Remove this line if it exists */
+  position: absolute; /* Change to absolute positioning */
+  top: 0; /* Position at the very top of its container */
+  left: 0; /* Keep it on the left side */
   color: var(--side-text);
-  height: 100%; /* Sidebar takes full height */
+  height: 100%; /* Make it take the full height of its container */
 }
-
     .search-bar-container {
       display: flex;
       align-items: center;
