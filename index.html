@@ -39,11 +39,24 @@
 
     /* --------------------------------------------------
        Fixed ADMIN Button in Top-Right Corner
-         (This fixed button is hidden in favor of the sidebar button.)
+         (This button remains hidden; only the sidebar Admin Access button is shown.)
     -------------------------------------------------- */
     #adminBtn {
       display: none;
+      /* Original padding: 0.4rem 0.6rem -> changed to 0.3rem 0.6rem */
+      padding: 0.3rem 0.6rem;
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 10000;
+      background-color: var(--highlight-color);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.02rem;
+      cursor: pointer;
     }
+    #adminBtn:hover { opacity: 0.9; }
 
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
@@ -186,7 +199,8 @@
       background-color: #444;
       color: #ddd;
       border: none;
-      padding: 0.4rem 0.5rem;
+      /* Changed vertical padding from 0.4rem to 0.3rem, horizontal remains 0.5rem */
+      padding: 0.3rem 0.5rem;
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -199,6 +213,7 @@
     .admin-top-buttons button {
       background-color: var(--highlight-color);
       color: #fff;
+      /* Inherit padding from parent if not defined specifically */
     }
     /* Admin bottom group: move images buttons in grey */
     .sidebar-footer button.move-btn {
@@ -220,7 +235,8 @@
       background-color: var(--highlight-color);
       color: #fff;
       border: none;
-      padding: 0.4rem 0.5rem;
+      /* Changed padding vertically from 0.4rem to 0.3rem, horizontal remains 0.5rem */
+      padding: 0.3rem 0.5rem;
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -441,7 +457,7 @@
       background-color: #ff3b30;
       color: white;
       border: none;
-      padding: 0.4rem 0.8rem;
+      padding: 0.3rem 0.8rem; /* changed vertical padding to 0.3rem */
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -492,7 +508,7 @@
       background-color: #2196f3;
       color: white;
       border: none;
-      padding: 0.4rem 0.8rem;
+      padding: 0.3rem 0.8rem; /* changed vertical padding to 0.3rem */
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -609,7 +625,6 @@
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
         </div>
         <hr class="separator">
-        <!-- ADMIN button placed at the bottom of the sidebar -->
         <div class="sidebar-admin-section">
           <button id="adminAccessBtn" class="admin-access-btn">ADMIN</button>
         </div>
@@ -795,7 +810,7 @@
     const moveDestinationSelect = document.getElementById("moveDestinationSelect");
     const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
 
-    // Admin sidebar button (visible by default)
+    // Admin login related – only the sidebar admin button is visible
     const adminAccessBtn = document.getElementById("adminAccessBtn");
 
     // Admin login elements
@@ -1070,7 +1085,7 @@
         parentOpt.value = parent;
         parentOpt.textContent = parent;
         folderSelect.appendChild(parentOpt);
-
+        
         if (structure[parent] && structure[parent].length > 0) {
           structure[parent].forEach(child => {
             const childOpt = document.createElement("option");
@@ -1431,7 +1446,6 @@
     });
 
     // ADMIN Login Event Listeners (using the sidebar admin button)
-    // Only attach to adminAccessBtn (the fixed #adminBtn is hidden)
     adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
     closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
     confirmAdminBtn.addEventListener("click", () => {
