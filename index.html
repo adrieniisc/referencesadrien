@@ -20,7 +20,7 @@
       --side-bg:    #1c1c1e;     /* sidebar */
       --side-text:  #f2f2f7;     /* text for sidebar */
       --border-color: #3a3a3c;
-      --highlight-color: #707070;
+      --highlight-color: #555555;
       --thumbnail-size: 360px;
     }
 
@@ -1355,7 +1355,8 @@ img.addEventListener("click", function(e) {
         await renameFolderInFirebase(currentFullName, newFullName);
       }
       folders = updatedFolders;
-      renameFolderModal.classList.remove("active");
+      renameFolderModal.classList.remove("active");terMenu.style.display === "block") ? "none" : "block";
+    });
       renderFolders();
     });
 
