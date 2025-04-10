@@ -14,7 +14,7 @@
        - Main area: lighter background (#ffffff) and dark text (#1c1c1e)
        - Sidebar: dark background (#000000) with light text (#f2f2f7)
     -------------------------------------------------- */
-    :root {
+     :root {
       --main-bg: #232323;      /* main area */
       --main-text: #f2f2f7;      /* text for main area */
       --side-bg:    #171717;     /* sidebar */
@@ -38,8 +38,8 @@
     body { display: flex; flex-direction: column; }
 
     /* --------------------------------------------------
-       (Fixed ADMIN Button in Top-Right Removed)
-         (We will use the sidebar admin button instead.)
+       Fixed ADMIN Button in Top-Right Corner (removed)
+         (The fixed #adminBtn is now hidden.)
     -------------------------------------------------- */
     #adminBtn { display: none; }
 
@@ -54,7 +54,7 @@
 
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
-         (Added height: 100% so it fills the page vertically.)
+         (Sidebar is set to span full page height)
     -------------------------------------------------- */
     .sidebar {
       width: fit-content;
@@ -559,13 +559,10 @@
     .main-container { display: flex; flex: 1; height: 100%; overflow: hidden; }
     .sidebar { height: 100%; overflow-y: auto; }
     .main-content { height: 100%; overflow-y: auto; padding-top: 60px; }
-
-    /* Position the search bar absolutely */
-    .top-search-bar { position: absolute; top: 15px; left: 0; right: 0; z-index: 1000; }
   </style>
 </head>
 <body>
-  <!-- (Fixed top-right admin button removed) -->
+  <!-- The fixed top-right admin button (#adminBtn) is removed -->
 
   <div class="top-search-bar">
     <div class="main-search-container">
@@ -609,7 +606,7 @@
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
         </div>
         <hr class="separator">
-        <!-- NEW ADMIN BUTTON PLACED AT THE BOTTOM OF THE SIDEBAR -->
+        <!-- ADMIN button placed at the bottom of the sidebar -->
         <div class="sidebar-admin-section">
           <button id="adminAccessBtn" class="admin-access-btn">ADMIN</button>
         </div>
@@ -678,4 +675,816 @@
       <button class="close-modal-btn" id="closeRenameFolderModalBtn">&times;</button>
       <h3>Rename Folder</h3>
       <label for="renameFolderInput">New Name:</label>
-      <input type="text" id="renameFolderInput" placeholder="Enter new folder name
+      <input type="text" id="renameFolderInput" placeholder="Enter new folder name">
+      <div style="margin-top:0.8rem;">
+        <button id="confirmRenameFolderBtn">Rename</button>
+      </div>
+    </div>
+  </div>
+  <!-- MODAL: Move Destination -->
+  <div class="modal-backdrop" id="moveDestinationModal">
+    <div class="modal-content">
+      <button class="close-modal-btn" id="closeMoveDestinationModalBtn">&times;</button>
+      <h3>Move Images</h3>
+      <p style="margin-bottom: 0.8rem;">Select destination folder:</p>
+      <select id="moveDestinationSelect" style="margin-bottom: 1.2rem;"></select>
+      <div style="margin-top:0.8rem;">
+        <button id="confirmMoveDestinationBtn">Move</button>
+      </div>
+    </div>
+  </div>
+  <!-- MODAL: Admin Login -->
+  <div class="modal-backdrop" id="adminModal">
+    <div class="modal-content">
+      <button class="close-modal-btn" id="closeAdminModalBtn">&times;</button>
+      <h3>Admin Login</h3>
+      <label for="adminPassword">Password:</label>
+      <input type="password" id="adminPassword" placeholder="Enter password">
+      <div style="margin-top:0.8rem;">
+        <button id="confirmAdminBtn">Login</button>
+      </div>
+    </div>
+  </div>
+  <!-- Delete Controls -->
+  <div class="delete-controls" id="deleteControls">
+    <span id="selectedCount">0 selected</span>
+    <button id="confirmDeleteImagesBtn">Delete Selected</button>
+    <button id="cancelDeleteImagesBtn" class="cancel">Cancel</button>
+  </div>
+  <!-- Load Firebase SDKs via CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script>
+    // Initialize Firebase with your configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
+      authDomain: "referencesadrien.firebaseapp.com",
+      projectId: "referencesadrien",
+      storageBucket: "referencesadrien.firebasestorage.app",
+      messagingSenderId: "954877853554",
+      appId: "1:954877853554:web:4492547898026cf1afe7eb"
+    };
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.firestore();
+
+    // Initial variables
+    let folders = [
+      "angle",
+      "brick-roof-tile",
+      "cobblestone",
+      "concrete",
+      "concrete/patterns",
+      "construction",
+      "creature",
+      "ground-tile",
+      "paint",
+      "rock",
+      "wood"
+    ];
+    let currentFolderFilter = "all";
+    let isDeleteMode = false;
+    let selectedImages = [];
+    let isMoveMode = false;
+    let selectedImagesForMove = [];
+
+    // DOM Elements
+    const folderList = document.getElementById("folderList");
+    const newFolderName = document.getElementById("newFolderName");
+    const parentFolderSelect = document.getElementById("parentFolderSelect");
+    const addFolderBtn = document.getElementById("addFolderBtn");
+
+    const imageModal = document.getElementById("imageModal");
+    const closeImageModalBtn = document.getElementById("closeImageModalBtn");
+    const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
+    const fileInput = document.getElementById("fileInput");
+    const folderSelect = document.getElementById("folderSelect");
+    const imageKeywords = document.getElementById("imageKeywords");
+
+    const gallery = document.getElementById("gallery");
+    const sizeIcons = document.querySelectorAll(".size-icon");
+    const imageSearch = document.getElementById("imageSearch");
+
+    const renameFolderBtn = document.getElementById("renameFolderBtn");
+    const renameFolderModal = document.getElementById("renameFolderModal");
+    const closeRenameFolderModalBtn = document.getElementById("closeRenameFolderModalBtn");
+    const renameFolderInput = document.getElementById("renameFolderInput");
+    const confirmRenameFolderBtn = document.getElementById("confirmRenameFolderBtn");
+
+    const filterButton = document.getElementById("filterButton");
+    const filterMenu = document.getElementById("filterMenu");
+    const deleteFolderBtn = document.getElementById("deleteFolderBtn");
+
+    // Delete Image elements
+    const deleteImageBtn = document.getElementById("deleteImageBtn");
+    const deleteControls = document.getElementById("deleteControls");
+    const selectedCount = document.getElementById("selectedCount");
+    const confirmDeleteImagesBtn = document.getElementById("confirmDeleteImagesBtn");
+    const cancelDeleteImagesBtn = document.getElementById("cancelDeleteImagesBtn");
+
+    // Move Image elements
+    const moveImageBtn = document.getElementById("moveImageBtn");
+    const moveControls = document.getElementById("moveControls");
+    const moveSelectedCount = document.getElementById("moveSelectedCount");
+    const confirmMoveImagesBtn = document.getElementById("confirmMoveImagesBtn");
+    const cancelMoveImagesBtn = document.getElementById("cancelMoveImagesBtn");
+    const moveDestinationModal = document.getElementById("moveDestinationModal");
+    const closeMoveDestinationModalBtn = document.getElementById("closeMoveDestinationModalBtn");
+    const moveDestinationSelect = document.getElementById("moveDestinationSelect");
+    const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
+
+    // Admin sidebar buttons (the admin access button in the sidebar footer)
+    const newFolderAdminBtn = document.getElementById("newFolderAdminBtn");
+    const addImageAdminBtn = document.getElementById("addImageAdminBtn");
+    const adminAccessBtn = document.getElementById("adminAccessBtn");
+
+    // Admin login elements
+    const adminModal = document.getElementById("adminModal");
+    const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
+    const confirmAdminBtn = document.getElementById("confirmAdminBtn");
+    const adminPasswordInput = document.getElementById("adminPassword");
+
+    // All editing buttons in the sidebar footer and separators
+    // Only select buttons that are NOT the adminAccessBtn
+    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
+    const separators = document.querySelectorAll(".separator");
+
+    // Hide editing buttons and separators by default (keeping the adminAccessBtn visible)
+    document.addEventListener("DOMContentLoaded", () => {
+      editButtons.forEach(button => { button.style.display = "none"; });
+      separators.forEach(separator => { separator.style.display = "none"; });
+    });
+
+    const mainImageSearch = document.getElementById("mainImageSearch");
+
+    // New search box event
+    mainImageSearch.addEventListener("input", searchImages);
+
+    function searchImages() {
+      const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
+      const allImages = document.querySelectorAll(".image-container");
+      if (query !== "") {
+        allImages.forEach(container => {
+          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+          const imgAlt = container.querySelector("img").alt.toLowerCase();
+          if (keywords.includes(query) || imgAlt.includes(query))
+            container.classList.remove("hidden");
+          else container.classList.add("hidden");
+        });
+      } else {
+        filterImages(currentFolderFilter);
+      }
+    }
+
+    document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
+      if (e.target.id === "enlargeImageModal") { this.style.display = "none"; }
+    });
+
+    async function uploadImage(file) {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/.netlify/functions/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      console.log('Upload response:', data);
+      return data.url;
+    }
+
+    async function loadFoldersFromFirebase() {
+      try {
+        const foldersSnapshot = await db.collection('folders').get();
+        if (foldersSnapshot.empty) {
+          console.log('No folders found, initializing defaults');
+          folders.forEach(folder => {
+            db.collection('folders').add({
+              name: folder,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          });
+        } else {
+          folders = [];
+          foldersSnapshot.forEach(doc => { folders.push(doc.data().name); });
+        }
+        renderFolders();
+      } catch (error) {
+        console.error('Error loading folders:', error);
+      }
+    }
+
+    async function saveFolderToFirebase(folderName) {
+      try {
+        await db.collection('folders').add({
+          name: folderName,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log('Folder saved to Firestore:', folderName);
+      } catch (error) {
+        console.error('Error saving folder:', error);
+      }
+    }
+
+    async function deleteFolderFromFirebase(folderName) {
+      try {
+        const querySnapshot = await db.collection('folders').where('name', '==', folderName).get();
+        querySnapshot.forEach(doc => { doc.ref.delete(); });
+        if (!folderName.includes('/')) {
+          const childSnapshot = await db.collection('folders')
+            .where('name', '>=', folderName + '/')
+            .where('name', '<', folderName + '0')
+            .get();
+          childSnapshot.forEach(doc => { doc.ref.delete(); });
+        }
+        console.log('Folder deleted from Firestore:', folderName);
+      } catch (error) {
+        console.error('Error deleting folder:', error);
+      }
+    }
+
+    async function renameFolderInFirebase(oldName, newName) {
+      try {
+        const folderSnapshot = await db.collection('folders').where('name', '==', oldName).get();
+        if (!folderSnapshot.empty) {
+          folderSnapshot.forEach(doc => { doc.ref.update({ name: newName }); });
+        }
+        if (!oldName.includes('/')) {
+          const subfolderSnapshot = await db.collection('folders')
+            .where('name', '>=', oldName + '/')
+            .where('name', '<', oldName + '0')
+            .get();
+          subfolderSnapshot.forEach(doc => {
+            const currentName = doc.data().name;
+            const updatedName = newName + currentName.substring(oldName.length);
+            doc.ref.update({ name: updatedName });
+          });
+        }
+        console.log('Folder renamed in Firestore from', oldName, 'to', newName);
+      } catch (error) {
+        console.error('Error renaming folder:', error);
+      }
+    }
+
+    async function saveImageToFirebase(url, folder, keywords, filename) {
+      try {
+        await db.collection('images').add({
+          url: url,
+          folder: folder,
+          keywords: keywords || '',
+          filename: filename || 'image',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          addTime: Date.now()
+        });
+        console.log('Image saved to Firestore:', url);
+      } catch (error) {
+        console.error('Error saving image:', error);
+      }
+    }
+
+    async function loadImagesFromFirebase() {
+      try {
+        const imagesSnapshot = await db.collection('images').orderBy('timestamp', 'desc').get();
+        gallery.innerHTML = '';
+        imagesSnapshot.forEach(doc => {
+          const imageData = doc.data();
+          addImageToGallery(
+            imageData.url, 
+            imageData.folder || 'all', 
+            imageData.keywords || '',
+            imageData.filename || 'image',
+            imageData.addTime || Date.now()
+          );
+        });
+        console.log('Images loaded from Firestore');
+      } catch (error) {
+        console.error('Error loading images:', error);
+      }
+    }
+
+    async function findImageIdByUrl(url) {
+      try {
+        const querySnapshot = await db.collection('images').where('url', '==', url).limit(1).get();
+        if (!querySnapshot.empty) { return querySnapshot.docs[0].id; }
+        return null;
+      } catch (error) {
+        console.error('Error finding image by URL:', error);
+        return null;
+      }
+    }
+
+    function addImageToGallery(url, folder, keywords, filename, addTime) {
+      const container = document.createElement('div');
+      container.classList.add('image-container');
+      container.setAttribute('data-category', folder);
+      container.setAttribute('data-keywords', keywords);
+      container.setAttribute('data-add-time', addTime);
+      
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = filename;
+      // Enlarge image on click (unless in delete or move mode)
+      img.addEventListener("click", function(e) {
+        if (isDeleteMode || isMoveMode) return;
+        e.stopPropagation();
+        const enlargeModal = document.getElementById("enlargeImageModal");
+        const enlargeImg = document.getElementById("enlargeImage");
+        enlargeImg.src = url;
+        enlargeModal.style.display = "flex";
+      });
+
+      const downloadLink = document.createElement('a');
+      downloadLink.classList.add('download-btn');
+      downloadLink.textContent = 'Download';
+      downloadLink.href = url;
+      downloadLink.download = filename;
+      downloadLink.target = "_self";
+      downloadLink.addEventListener("click", function(e) {
+          e.stopPropagation();
+      });
+
+      container.appendChild(img);
+      container.appendChild(downloadLink);
+      gallery.appendChild(container);
+    }
+
+    function buildFolderStructure() {
+      const structure = {};
+      folders.forEach(folder => {
+        const parts = folder.split("/");
+        if (parts.length === 1) {
+          if (!structure[parts[0]]) structure[parts[0]] = [];
+        } else {
+          const parent = parts[0];
+          const child = parts[1];
+          if (!structure[parent]) structure[parent] = [];
+          structure[parent].push(child);
+        }
+      });
+      return structure;
+    }
+
+    function renderFolders() {
+      folderList.innerHTML = "";
+      folderSelect.innerHTML = "";
+      parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
+
+      const allItem = document.createElement("li");
+      allItem.textContent = "All";
+      allItem.classList.add("all");
+      allItem.setAttribute("data-filter", "all");
+      allItem.addEventListener("click", () => {
+        highlightSelected(allItem);
+        hideAllSubfolders();
+        currentFolderFilter = "all";
+        filterImages("all");
+      });
+      folderList.appendChild(allItem);
+
+      const structure = buildFolderStructure();
+      const parents = Object.keys(structure).sort();
+
+      parents.forEach(parent => {
+        const parentLi = document.createElement("li");
+        parentLi.textContent = parent;
+        parentLi.setAttribute("data-filter", parent);
+
+        const subUl = document.createElement("ul");
+        subUl.classList.add("subfolder-list");
+
+        if (structure[parent] && structure[parent].length > 0) {
+          structure[parent].sort().forEach(child => {
+            const childLi = document.createElement("li");
+            childLi.textContent = child;
+            childLi.setAttribute("data-filter", parent + "/" + child);
+            childLi.addEventListener("click", (e) => {
+              e.stopPropagation();
+              highlightSelected(childLi);
+              currentFolderFilter = parent + "/" + child;
+              filterImages(parent + "/" + child);
+            });
+            subUl.appendChild(childLi);
+          });
+        }
+
+        parentLi.addEventListener("click", () => {
+          highlightSelected(parentLi);
+          toggleSubfolders(subUl);
+          currentFolderFilter = parent;
+          filterImages(parent);
+        });
+
+        folderList.appendChild(parentLi);
+        folderList.appendChild(subUl);
+      });
+
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        folderSelect.appendChild(parentOpt);
+        
+        if (structure[parent] && structure[parent].length > 0) {
+          structure[parent].forEach(child => {
+            const childOpt = document.createElement("option");
+            childOpt.value = parent + "/" + child;
+            childOpt.textContent = "— " + child;
+            folderSelect.appendChild(childOpt);
+          });
+        }
+      });
+
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        parentFolderSelect.appendChild(parentOpt);
+      });
+    }
+
+    function hideAllSubfolders() {
+      const allSubUls = folderList.querySelectorAll(".subfolder-list");
+      allSubUls.forEach(ul => { ul.style.display = "none"; });
+    }
+
+    function toggleSubfolders(currentUl) {
+      const allSubUls = folderList.querySelectorAll(".subfolder-list");
+      allSubUls.forEach(ul => { if (ul !== currentUl) ul.style.display = "none"; });
+      currentUl.style.display = (currentUl.style.display === "none" || !currentUl.style.display) ? "block" : "none";
+    }
+
+    function highlightSelected(li) {
+      const allItems = folderList.querySelectorAll("li");
+      allItems.forEach(item => item.classList.remove("selected"));
+      li.classList.add("selected");
+    }
+
+    function filterImages(filterValue) {
+      const allImages = document.querySelectorAll(".image-container");
+      allImages.forEach(container => {
+        const category = container.getAttribute("data-category");
+        if (filterValue === "all" || category === filterValue)
+          container.classList.remove("hidden");
+        else container.classList.add("hidden");
+      });
+    }
+
+    function searchImages() {
+      const query = imageSearch.value.trim().toLowerCase();
+      const allImages = document.querySelectorAll(".image-container");
+      if (query !== "") {
+        allImages.forEach(container => {
+          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+          const imgAlt = container.querySelector("img").alt.toLowerCase();
+          if (keywords.includes(query) || imgAlt.includes(query))
+            container.classList.remove("hidden");
+          else container.classList.add("hidden");
+        });
+      } else {
+        filterImages(currentFolderFilter);
+      }
+    }
+
+    function sortGallery(type) {
+      const imagesArray = [...gallery.children];
+      if (type === "alphabetical") {
+        imagesArray.sort((a, b) => {
+          let altA = a.querySelector("img").alt.toLowerCase();
+          let altB = b.querySelector("img").alt.toLowerCase();
+          return altA.localeCompare(altB);
+        });
+      } else if (type === "recent") {
+        imagesArray.sort((a, b) => {
+          let timeA = parseInt(a.getAttribute("data-add-time")) || 0;
+          let timeB = parseInt(b.getAttribute("data-add-time")) || 0;
+          return timeB - timeA;
+        });
+      }
+      imagesArray.forEach(img => gallery.appendChild(img));
+    }
+
+    /* Delete Image Functions */
+    function toggleDeleteMode() {
+      isDeleteMode = !isDeleteMode;
+      if (isDeleteMode) {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.add("selectable");
+          container.addEventListener("click", toggleImageSelection);
+        });
+        deleteControls.classList.add("active");
+        updateSelectedCount();
+      } else {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.remove("selectable");
+          container.classList.remove("selected");
+          container.removeEventListener("click", toggleImageSelection);
+        });
+        deleteControls.classList.remove("active");
+        selectedImages = [];
+      }
+    }
+
+    function toggleImageSelection(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = e.currentTarget;
+      if (!isDeleteMode) return;
+      if (container.classList.contains("selected")) {
+        container.classList.remove("selected");
+        const index = selectedImages.findIndex(img => img === container);
+        if (index !== -1) { selectedImages.splice(index, 1); }
+      } else {
+        container.classList.add("selected");
+        selectedImages.push(container);
+      }
+      updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+      selectedCount.textContent = `${selectedImages.length} selected`;
+    }
+
+    async function deleteSelectedImages() {
+      if (selectedImages.length === 0) return;
+      if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) { return; }
+      try {
+        const deletePromises = selectedImages.map(async (container) => {
+          const imageUrl = container.querySelector("img").src;
+          const imageId = await findImageIdByUrl(imageUrl);
+          if (imageId) {
+            await db.collection('images').doc(imageId).delete();
+            container.remove();
+            return true;
+          }
+          return false;
+        });
+        await Promise.all(deletePromises);
+        toggleDeleteMode();
+      } catch (error) {
+        console.error('Error deleting images:', error);
+        alert(`Error deleting images: ${error.message}`);
+      }
+    }
+
+    /* Move Image Functions */
+    function toggleMoveMode() {
+      isMoveMode = !isMoveMode;
+      if (isMoveMode) {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.add("move-selectable");
+          container.addEventListener("click", toggleImageMoveSelection);
+        });
+        moveControls.classList.add("active");
+        updateMoveSelectedCount();
+      } else {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.remove("move-selectable");
+          container.classList.remove("move-selected");
+          container.removeEventListener("click", toggleImageMoveSelection);
+        });
+        moveControls.classList.remove("active");
+        selectedImagesForMove = [];
+      }
+    }
+
+    function toggleImageMoveSelection(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = e.currentTarget;
+      if (!isMoveMode) return;
+      if (container.classList.contains("move-selected")) {
+        container.classList.remove("move-selected");
+        const index = selectedImagesForMove.findIndex(img => img === container);
+        if (index !== -1) { selectedImagesForMove.splice(index, 1); }
+      } else {
+        container.classList.add("move-selected");
+        selectedImagesForMove.push(container);
+      }
+      updateMoveSelectedCount();
+    }
+
+    function updateMoveSelectedCount() {
+      moveSelectedCount.textContent = `${selectedImagesForMove.length} selected`;
+    }
+
+    function showMoveDestinationModal() {
+      if (selectedImagesForMove.length === 0) {
+        alert("Please select at least one image to move.");
+        return;
+      }
+      populateMoveDestinationSelect();
+      moveDestinationModal.classList.add("active");
+    }
+
+    function populateMoveDestinationSelect() {
+      moveDestinationSelect.innerHTML = "";
+      const allOption = document.createElement("option");
+      allOption.value = "all";
+      allOption.textContent = "All";
+      moveDestinationSelect.appendChild(allOption);
+      const structure = buildFolderStructure();
+      const parents = Object.keys(structure).sort();
+      parents.forEach(parent => {
+        const parentOpt = document.createElement("option");
+        parentOpt.value = parent;
+        parentOpt.textContent = parent;
+        moveDestinationSelect.appendChild(parentOpt);
+        if (structure[parent] && structure[parent].length > 0) {
+          structure[parent].forEach(child => {
+            const childOpt = document.createElement("option");
+            childOpt.value = parent + "/" + child;
+            childOpt.textContent = "— " + child;
+            moveDestinationSelect.appendChild(childOpt);
+          });
+        }
+      });
+    }
+
+    async function moveImagesToDestination() {
+      if (selectedImagesForMove.length === 0) return;
+      const destinationFolder = moveDestinationSelect.value;
+      if (!destinationFolder) {
+        alert("Please select a destination folder.");
+        return;
+      }
+      try {
+        const movePromises = selectedImagesForMove.map(async (container) => {
+          const imageUrl = container.querySelector("img").src;
+          const imageId = await findImageIdByUrl(imageUrl);
+          if (imageId) {
+            await db.collection('images').doc(imageId).update({ folder: destinationFolder });
+            container.setAttribute('data-category', destinationFolder);
+            return true;
+          }
+          return false;
+        });
+        await Promise.all(movePromises);
+        moveDestinationModal.classList.remove("active");
+        toggleMoveMode();
+        filterImages(currentFolderFilter);
+      } catch (error) {
+        console.error('Error moving images:', error);
+        alert(`Error moving images: ${error.message}`);
+      }
+    }
+
+    document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
+      if (e.target.id === "enlargeImageModal") { this.style.display = "none"; }
+    });
+
+    /* Event Listeners */
+    document.getElementById("closeFolderModalBtn").addEventListener("click", () => {
+      folderModal.classList.remove("active");
+    });
+    folderModal.addEventListener("click", (e) => { if(e.target === folderModal) folderModal.classList.remove("active"); });
+
+    document.getElementById("closeImageModalBtn").addEventListener("click", () => {
+      imageModal.classList.remove("active");
+    });
+    imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
+
+    renameFolderBtn.addEventListener("click", () => {
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) { alert("Please select a folder to rename."); return; }
+      if (selectedEl.getAttribute("data-filter") === "all") { alert("Cannot rename 'All'."); return; }
+      renameFolderInput.value = selectedEl.textContent;
+      renameFolderModal.classList.add("active");
+    });
+    closeRenameFolderModalBtn.addEventListener("click", () => { renameFolderModal.classList.remove("active"); });
+    renameFolderModal.addEventListener("click", (e) => { if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); });
+
+    deleteFolderBtn.addEventListener("click", async () => {
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) { alert("Please select a folder to delete."); return; }
+      const currentFullName = selectedEl.getAttribute("data-filter");
+      if (currentFullName === "all") { alert("Cannot delete 'All'."); return; }
+      if (!confirm(`Are you sure you want to delete folder "${currentFullName}"?`)) return;
+      if (!currentFullName.includes("/")) {
+        folders = folders.filter(f => f !== currentFullName && !f.startsWith(currentFullName + "/"));
+      } else {
+        folders = folders.filter(f => f !== currentFullName);
+      }
+      await deleteFolderFromFirebase(currentFullName);
+      renderFolders();
+    });
+
+    confirmRenameFolderBtn.addEventListener("click", async () => {
+      const newName = renameFolderInput.value.trim();
+      if (!newName) { alert("Please enter a new name."); return; }
+      const selectedEl = document.querySelector(".folder-list li.selected");
+      if (!selectedEl) { alert("No folder selected."); return; }
+      const currentFullName = selectedEl.getAttribute("data-filter");
+      if (currentFullName === "all") { alert("Cannot rename 'All'."); return; }
+      let updatedFolders = [];
+      if (!currentFullName.includes("/")) {
+        updatedFolders = folders.map(f => {
+          if (f === currentFullName) return newName;
+          else if (f.startsWith(currentFullName + "/")) return newName + f.substring(currentFullName.length);
+          return f;
+        });
+        await renameFolderInFirebase(currentFullName, newName);
+      } else {
+        const parentPath = currentFullName.split('/')[0];
+        const newFullName = parentPath + '/' + newName;
+        updatedFolders = folders.map(f => (f === currentFullName ? newFullName : f));
+        await renameFolderInFirebase(currentFullName, newFullName);
+      }
+      folders = updatedFolders;
+      renameFolderModal.classList.remove("active");
+      renderFolders();
+    });
+
+    newFolderAdminBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
+    addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
+
+    confirmAddImageBtn.addEventListener("click", async () => {
+      if (!fileInput.files[0]) { alert("Please select an image file first."); return; }
+      const folderValue = folderSelect.value || 'all';
+      const keywords = imageKeywords.value.trim().toLowerCase();
+      const filename = fileInput.files[0].name;
+      try {
+        const imageUrl = await uploadImage(fileInput.files[0]);
+        addImageToGallery(imageUrl, folderValue, keywords, filename, Date.now());
+        await saveImageToFirebase(imageUrl, folderValue, keywords, filename);
+        fileInput.value = "";
+        folderSelect.value = "";
+        imageKeywords.value = "";
+        imageModal.classList.remove("active");
+      } catch (error) {
+        console.error('Upload failed:', error);
+        alert("Upload failed: " + error.message);
+      }
+    });
+
+    deleteImageBtn.addEventListener("click", toggleDeleteMode);
+    confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
+    cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
+
+    moveImageBtn.addEventListener("click", toggleMoveMode);
+    confirmMoveImagesBtn.addEventListener("click", showMoveDestinationModal);
+    cancelMoveImagesBtn.addEventListener("click", toggleMoveMode);
+
+    closeMoveDestinationModalBtn.addEventListener("click", () => { moveDestinationModal.classList.remove("active"); });
+    moveDestinationModal.addEventListener("click", (e) => { if (e.target === moveDestinationModal) { moveDestinationModal.classList.remove("active"); } });
+    confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
+
+    imageSearch.addEventListener("input", searchImages);
+
+    filterButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
+    });
+    document.addEventListener("click", (e) => {
+      if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) { filterMenu.style.display = "none"; }
+    });
+    const filterOptions = document.querySelectorAll(".filter-option");
+    filterOptions.forEach(opt => {
+      opt.addEventListener("click", () => {
+        const sortType = opt.getAttribute("data-sort");
+        sortGallery(sortType);
+        filterMenu.style.display = "none";
+      });
+    });
+    sizeIcons.forEach(icon => {
+      icon.addEventListener("click", () => {
+        sizeIcons.forEach(i => i.classList.remove("selected"));
+        icon.classList.add("selected");
+        const newSize = icon.getAttribute("data-size");
+        document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
+      });
+    });
+
+    // ADMIN Login Event Listeners (using the sidebar admin button)
+    closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
+    confirmAdminBtn.addEventListener("click", () => {
+      const correctPassword = "admin123"; // Change as needed
+      if (adminPasswordInput.value === correctPassword) {
+        // Reveal all the hidden editing buttons except the adminAccessBtn
+        document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)").forEach(button => { button.style.display = "block"; });
+        separators.forEach(separator => { separator.style.display = "block"; });
+        adminModal.classList.remove("active");
+      } else {
+        alert("Incorrect password. Please try again.");
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        console.log("DOM loaded, initializing application...");
+        await loadFoldersFromFirebase();
+        await loadImagesFromFirebase();
+        const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
+        if (allFolder) { allFolder.classList.add("selected"); }
+        console.log("App initialized successfully!");
+      } catch (error) {
+        console.error("Error initializing app:", error);
+        alert("Error initializing app: " + error.message);
+      }
+    });
+  </script>
+</body>
+</html>
