@@ -1,12 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <!-- Increase the base font size by 10% -->
-  <style>
-    html { font-size: 110%; }
-  </style>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ReferencesAdrien</title>
   <style>
     /* --------------------------------------------------
@@ -15,10 +12,14 @@
        - Sidebar: dark background (#000000) with light text (#f2f2f7)
     -------------------------------------------------- */
     :root {
-      --main-bg: #232323;      /* main area */
-      --main-text: #f2f2f7;      /* text for main area */
-      --side-bg:    #171717;     /* sidebar */
-      --side-text:  #f2f2f7;     /* text for sidebar */
+      --main-bg: #232323;
+      /* main area */
+      --main-text: #f2f2f7;
+      /* text for main area */
+      --side-bg: #171717;
+      /* sidebar */
+      --side-text: #f2f2f7;
+      /* text for sidebar */
       --border-color: #3a3a3c;
       --highlight-color: #555555;
       --thumbnail-size: 360px;
@@ -27,1446 +28,612 @@
     /* --------------------------------------------------
        Base Reset & Body
     -------------------------------------------------- */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-                   Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-      background-color: var(--main-bg);
-      color: var(--main-text);
-
-
-body {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  margin: 0;
-}    
-
-header {
-  /* Give the header a fixed height or a height based on its content */
-  /* height: 50px;  */ /* Example fixed height */
-  /* padding: 10px; */ /* Add padding for spacing if needed */
-  background-color: var(--side-bg); /* Match sidebar background */
-  color: var(--side-text); /* Match sidebar text color */
-  border-bottom: 1px solid var(--border-color); /* Add a border to separate header */
-}
-
-    #adminBtn {
-      display: none;
-      padding: 0.3rem 0.6rem;
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 10000;
-      background-color: var(--highlight-color);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 1.02rem;
-      cursor: pointer;
-    }
-    #adminBtn:hover { opacity: 0.9; }
-
-
-.main-container {
-  flex: 1; /* Allow this section to take up the remaining space */
-  display: flex;
-  overflow: hidden;
-}
-
-
-.sidebar {
-  width: fit-content;
-  min-width: 220px;
-  background-color: var(--side-bg);
-  border-right: 1px solid var(--border-color);
-  padding: 0.8rem;
-  display: flex;
-  flex-direction: column;
-  color: var(--side-text);
-  height: 100%; /* Sidebar takes the full height of the main container */
-}
-
-.content {
-  flex: 1; /* Allow the content area to take up remaining space */
-  overflow-y: auto; /* Add scroll if content overflows */
-}
-
-.image-grid {
-  /* Your image grid styles here */
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--thumbnail-size), 1fr));
-  gap: 0.5rem;
-  padding: 0.5rem;
-}
-
-    .search-bar-container {
-      display: flex;
-      align-items: center;
-      margin-bottom: 0.6rem;
-    }
-    /* Sidebar search input */
-    #imageSearch {
-      flex: 1;
-      padding: 0.3rem 0.5rem;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      background-color: #1c1c1e;
-      color: var(--side-text);
-      font-size: 0.9rem;
-    }
-    .filter-icon-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      margin-left: 0.4rem;
-    }
-    .filter-button {
-      width: 28px;
-      height: 28px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      border-radius: 4px;
-      transition: background-color 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .filter-button:hover { background-color: #3a3a3c; }
-    .filter-button svg {
-      width: 18px;
-      height: 18px;
-      fill: var(--side-text);
-    }
-    /* Filter menu in sidebar colors */
-    .filter-menu {
-      position: fixed;
-      top: 50px;
-      left: 240px;
-      background-color: var(--side-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 0.2rem 0;
-      display: none;
-      z-index: 1000;
-      min-width: 120px;
-      font-size: 0.9rem;
-      color: var(--side-text);
-    }
-    .filter-menu .filter-option {
-      padding: 0.3rem 0.8rem;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-      color: var(--side-text);
-    }
-    .filter-menu .filter-option:hover { background-color: #3a3a3c; }
-    .folder-list {
-      list-style: none;
-      flex: 1;
+    * {
       margin: 0;
       padding: 0;
-      font-size: 0.9rem;
-    }
-    .folder-list > li {
-      margin: 0.1rem 0;
-      padding: 0.3rem 0.4rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-      text-align: left;
-    }
-    .folder-list > li.all { font-weight: 600; }
-    .folder-list li:hover { background-color: #3a3a3c; }
-    .folder-list li.selected {
-      background-color: var(--highlight-color);
-      color: #fff;
-    }
-    ul.subfolder-list {
-      list-style: none;
-      padding-left: 1rem;
-      margin: 0.1rem 0;
-      border-left: 1px solid rgba(255,255,255,0.08);
-      display: none;
-      font-size: 0.9rem;
-    }
-    ul.subfolder-list li {
-      margin: 0.1rem 0;
-      padding: 0.3rem 0.4rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-    ul.subfolder-list li:hover { background-color: #3a3a3c; }
-    ul.subfolder-list li.selected {
-      background-color: var(--highlight-color);
-      color: #fff;
+      box-sizing: border-box;
     }
 
-    /* --------------------------------------------------
-       Sidebar Footer with Admin Editing Controls
-    -------------------------------------------------- */
-    .sidebar-footer {
-      margin-top: auto;
-      padding-top: 0.8rem;
-      border-top: 1px solid rgba(255,255,255,0.08);
+    html,
+    body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
     }
-    .sidebar-footer button {
-      background-color: #444;
-      color: #ddd;
-      border: none;
-      padding: 0.3rem 0.5rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      width: 100%;
-      text-align: center;
-      margin-bottom: 0.4rem;
-    }
-    .sidebar-footer button:hover { opacity: 0.9; }
-    /* Admin top group buttons in blue */
-    .admin-top-buttons button {
-      background-color: var(--highlight-color);
-      color: #fff;
-    }
-    /* Admin bottom group: move images buttons in grey */
-    .sidebar-footer button.move-btn {
-      background-color: #444;
-      color: #ddd;
-    }
-    /* Thin separator */
-    .separator {
-      border: 0;
-      height: 1px;
-      background: #555;
-      margin: 0.5rem 0;
-    }
-    /* New admin button in the sidebar footer */
-    .sidebar-admin-section {
-      margin-top: 0.8rem;
-    }
-    .admin-access-btn {
-      background-color: var(--highlight-color);
-      color: #fff;
-      border: none;
-      padding: 0.3rem 0.5rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      width: 100%;
-      text-align: center;
-    }
-    .admin-access-btn:hover { opacity: 0.9; }
 
-    /* --------------------------------------------------
-       Main Content (Gallery)
-    -------------------------------------------------- */
-    .main-content {
-      flex: 1;
-      padding: 0.8rem;
-      overflow-y: auto;
+    body {
       display: flex;
       flex-direction: column;
-      font-size: 0.9rem;
-      background-color: var(--main-bg);
       color: var(--main-text);
+      background-color: var(--main-bg);
     }
-    .gallery {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.8rem;
-    }
-    .image-container {
-      position: relative;
-      width: var(--thumbnail-size);
-      min-width: var(--thumbnail-size);
+
+    /* --------------------------------------------------
+       Header Styles
+    -------------------------------------------------- */
+    header {
+      background-color: var(--side-bg);
+      /* Match sidebar background */
+      color: var(--side-text);
+      /* Match sidebar text color */
+      border-bottom: 1px solid var(--border-color);
+      /* Add a border to separate header */
+      padding: 0.5rem;
+      /* Adjust padding as needed */
       display: flex;
       align-items: center;
-      justify-content: center;
+      /* Center items vertically */
     }
-    .image-container img {
-      width: 100%;
-      height: auto;
-      border: 1px solid #444;
-      border-radius: 6px;
-      transition: transform 0.3s ease;
+
+    #search-bar {
+      flex: 1;
+      /* Allow search bar to grow */
+      margin-right: 1rem;
+      /* Add spacing between search and admin button */
+    }
+
+    #admin-access-btn {
+      /* Style admin button */
+      background-color: var(--highlight-color);
+      color: var(--side-text);
+      border: none;
+      padding: 0.5rem 1rem;
       cursor: pointer;
     }
-    .image-container img:hover { transform: scale(1.02); }
-    .download-btn {
-      position: absolute;
-      top: 4px;
-      right: 4px;
+
+    /* --------------------------------------------------
+       Main Content Area
+    -------------------------------------------------- */
+    .main-container {
+      flex: 1;
+      /* Allow this section to take up the remaining space */
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* --------------------------------------------------
+       Sidebar Styles
+    -------------------------------------------------- */
+    .sidebar {
+      width: fit-content;
+      min-width: 220px;
+      background-color: var(--side-bg);
+      border-right: 1px solid var(--border-color);
+      padding: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      color: var(--side-text);
+      height: 100%;
+      /* Sidebar takes the full height of the main container */
+    }
+
+    .folder-list {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    .folder-list li {
+      padding: 0.5rem;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .folder-list li.selected {
       background-color: var(--highlight-color);
-      color: #fff;
+    }
+
+    .admin-controls {
+      margin-top: 1rem;
+    }
+
+    .admin-controls button {
+      background-color: var(--highlight-color);
+      color: var(--side-text);
+      border: none;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      display: none;
+      /* Hidden by default, shown on admin login */
+    }
+
+    .separator {
+      height: 1px;
+      background-color: var(--border-color);
+      margin: 0.5rem 0;
+      display: none;
+      /* Hidden by default, shown on admin login */
+    }
+
+    /* --------------------------------------------------
+       Main Content Styles
+    -------------------------------------------------- */
+    .content {
+      flex: 1;
+      /* Allow the content area to take up remaining space */
+      overflow-y: auto;
+      /* Add scroll if content overflows */
+      padding: 0.5rem;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--thumbnail-size), 1fr));
+      gap: 0.5rem;
+    }
+
+    .image-container {
+      position: relative;
+    }
+
+    .delete-btn,
+    .move-btn {
+      position: absolute;
+      top: 0.25rem;
+      right: 0.25rem;
+      background-color: rgba(0, 0, 0, 0.5);
+      color: var(--side-text);
       border: none;
       padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.78rem;
+      cursor: pointer;
       display: none;
-      text-decoration: none;
-      line-height: 1.4;
+      /* Hidden by default, shown on admin login */
     }
-    .image-container:hover .download-btn { display: block; }
-    .hidden { display: none; }
+
+    .move-btn {
+      right: 2.5rem;
+    }
 
     /* --------------------------------------------------
        Floating Size Panel
     -------------------------------------------------- */
-    .floating-size-panel {
+    #size-panel {
       position: fixed;
-      bottom: 18px;
-      right: 18px;
-      left: auto;
-      width: auto;
-      transform: none;
-      background-color: rgba(44,44,46,0.9);
-      border-radius: 10px;
-      z-index: 1000;
-      display: inline-flex;
-      align-items: center;
-      justify-content: flex-end;
-      padding: 6px;
-      max-width: max-content;
-    }
-    .size-icon-container { 
-      display: inline-flex; 
-      gap: 6px; 
-    }
-    .size-icon {
-      width: 36px;
-      height: 36px;
-      background-color: #1c1c1e;
-      border: 1px solid #555;
-      border-radius: 6px;
+      bottom: 1rem;
+      right: 1rem;
+      background-color: var(--side-bg);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 0.84rem;
-      color: var(--main-text);
-      transition: background-color 0.2s, border-color 0.2s;
+      gap: 0.5rem;
     }
-    .size-icon.selected {
-      background-color: var(--highlight-color);
-      border-color: var(--highlight-color);
-      color: #fff;
+
+    #size-panel img {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
     }
 
     /* --------------------------------------------------
-       Modal for Folder, Image, Rename, Admin
+       Modals
     -------------------------------------------------- */
-    .modal-backdrop {
+    .modal {
       position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.3);
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-    }
-    .modal-backdrop.active { opacity: 1; visibility: visible; }
-    .modal-content {
-      background: #2c2c2e;
-      border-radius: 12px;
-      padding: 0.8rem 1.2rem;
-      max-width: 400px;
-      width: 90%;
-      position: relative;
-      color: #fff;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      font-size: 0.96rem;
-    }
-    .modal-content h3 {
-      margin-bottom: 0.8rem;
-      font-weight: 600;
-    }
-    .modal-content label {
-      display: inline-block;
-      margin-right: 0.4rem;
-      font-weight: 500;
-      margin-top: 0.5rem;
-    }
-    .modal-content input,
-    .modal-content select {
-      margin-bottom: 0.8rem;
-      padding: 0.3rem 0.5rem;
-      border: 1px solid #555;
-      border-radius: 6px;
+      top: 0;
+      left: 0;
       width: 100%;
-      margin-top: 0.3rem;
-      background-color: #1c1c1e;
-      color: #fff;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      /* Hidden by default */
+      justify-content: center;
+      align-items: center;
     }
+
+    .modal-content {
+      background-color: var(--side-bg);
+      border: 1px solid var(--border-color);
+      padding: 1rem;
+      min-width: 300px;
+    }
+
+    .modal-content h2 {
+      margin-bottom: 1rem;
+    }
+
+    .modal-content input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
     .modal-content button {
       background-color: var(--highlight-color);
-      color: #fff;
+      color: var(--side-text);
       border: none;
-      border-radius: 6px;
-      padding: 0.3rem 0.5rem;
-      cursor: pointer;
-      margin-right: 0.4rem;
-      font-size: 0.96rem;
-    }
-    .modal-content button:hover { opacity: 0.9; }
-    .close-modal-btn {
-      background: none;
-      color: #fff;
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      font-size: 1.2rem;
-      cursor: pointer;
-      border: none;
-    }
-    .close-modal-btn:hover { color: #bbb; }
-
-    /* --------------------------------------------------
-       Delete Image Feature
-    -------------------------------------------------- */
-    .sidebar-footer button.delete-btn {
-      background-color: #ff3b30;
-      color: #fff;
-    }
-    .image-container.selectable { position: relative; }
-    .image-container.selectable::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(255,154,154,0.2);
-      border: 2px dashed #ff9a9a;
-      border-radius: 6px;
-      z-index: 1;
-      pointer-events: none;
-    }
-    .image-container.selected::before {
-      background-color: rgba(255,154,154,0.5);
-      border: 2px solid #ff5555;
-    }
-    .delete-controls {
-      position: fixed;
-      bottom: 18px;
-      right: 18px;
-      left: auto;
-      transform: none;
-      background-color: rgba(44,44,46,0.9);
       padding: 0.5rem 1rem;
-      border-radius: 10px;
-      z-index: 1000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-    .delete-controls.active { display: flex; }
-    .delete-controls button {
-      background-color: #ff3b30;
-      color: white;
-      border: none;
-      padding: 0.3rem 0.8rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
       cursor: pointer;
     }
-    .delete-controls button.cancel { background-color: #555; }
 
-    /* --------------------------------------------------
-       Move Image Feature
-    -------------------------------------------------- */
-    .sidebar-footer button.move-btn {
-      background-color: #444;
-      color: #ddd;
-    }
-    .image-container.move-selectable { position: relative; }
-    .image-container.move-selectable::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(144,202,249,0.2);
-      border: 2px dashed #90caf9;
-      border-radius: 6px;
-      z-index: 1;
-      pointer-events: none;
-    }
-    .image-container.move-selected::before {
-      background-color: rgba(144,202,249,0.5);
-      border: 2px solid #2196f3;
-    }
-    .move-controls {
-      position: fixed;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: rgba(44,44,46,0.9);
-      padding: 0.5rem 1rem;
-      border-radius: 10px;
-      z-index: 1000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-    .move-controls.active { display: flex; }
-    .move-controls button {
-      background-color: #2196f3;
-      color: white;
-      border: none;
-      padding: 0.3rem 0.8rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-    }
-    .move-controls button.cancel { background-color: #555; }
-    #moveDestinationSelect {
-      font-size: 1.2em;
-      padding: 0.6rem 0.7rem;
-      margin-bottom: 1.2rem;
-    }
-
-    /* --------------------------------------------------
-       Enlarge Image Modal (Lightbox)
-    -------------------------------------------------- */
-    #enlargeImageModal {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 15000;
-    }
-    #enlargeImageModal img {
-      max-width: 90%;
-      max-height: 90%;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-    }
-
-    /* Updated Top bar for search with floating effect */
-    .top-search-bar {
-      width: 100%;
-      padding: 15px 0;
-      background-color: transparent;
+    .modal.active {
       display: flex;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-      z-index: 10;
+      /* Show modal when active */
     }
-    .main-search-container {
-      width: 50%;
-      max-width: 700px;
-      position: relative;
-    }
-    #mainImageSearch {
-      width: 100%;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 12px;
-      background-color: rgba(45, 45, 48, 0.9);
-      color: var(--main-text);
-      font-size: 0.95rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      transition: all 0.2s ease;
-    }
-    #mainImageSearch:focus {
-      outline: none;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-      background-color: rgba(50, 50, 53, 0.95);
-    }
-    .sidebar .search-bar-container { display: none; }
-    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
-    body { display: flex; flex-direction: column; }
-    .main-container { display: flex; flex: 1; height: 100%; overflow: hidden; }
-    .sidebar { height: 100%; overflow-y: auto; }
-    .main-content { height: 100%; overflow-y: auto; padding-top: 60px; }
   </style>
 </head>
+
 <body>
-  <!-- Fixed top-right admin button (hidden) -->
-  <button id="adminBtn">ADMIN</button>
+  <header>
+    <input type="text" id="search-bar" placeholder="Search images..." />
+    <button id="admin-access-btn">Admin Access</button>
+  </header>
 
-  <div class="top-search-bar">
-    <div class="main-search-container">
-      <input type="search" id="mainImageSearch" placeholder="Search images...">
-    </div>
-  </div>
-
-  <!-- MAIN CONTAINER (Sidebar + Main Content) -->
   <div class="main-container">
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <div class="search-bar-container">
-        <input type="search" id="imageSearch" placeholder="Search images...">
-        <div class="filter-icon-container">
-          <button class="filter-button" id="filterButton" title="Sort Options">
-            <svg viewBox="0 0 24 24">
-              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <!-- Filter Menu -->
-      <div class="filter-menu" id="filterMenu">
-        <div class="filter-option" data-sort="alphabetical">Alphabetical</div>
-        <div class="filter-option" data-sort="recent">Recent Add</div>
-      </div>
-      <ul class="folder-list" id="folderList">
-        <!-- Folder items will be generated dynamically -->
+    <aside class="sidebar">
+      <ul class="folder-list">
+        <li data-filter="all">All</li>
       </ul>
-      <!-- SIDEBAR FOOTER: Admin Editing Controls -->
-      <div class="sidebar-footer">
-        <div class="admin-top-buttons">
-          <button id="newFolderAdminBtn">Add Folder</button>
-          <button id="addImageAdminBtn">Add Image</button>
+      <div class="admin-controls">
+        <button id="add-folder-btn">Add Folder</button>
+        <button id="add-image-btn">Add Image</button>
+        <div class="separator"></div>
+        <button id="rename-folder-btn">Rename Folder</button>
+        <div class="separator"></div>
+        <button id="move-image-btn">Move Image</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="image-grid">
         </div>
-        <hr class="separator">
-        <div class="admin-bottom-buttons">
-          <button id="moveImageBtn" class="move-btn">Move Images</button>
-          <button id="renameFolderBtn">Rename Folder</button>
-          <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
-          <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
-        </div>
-        <hr class="separator">
-        <div class="sidebar-admin-section">
-          <button id="adminAccessBtn" class="admin-access-btn">ADMIN</button>
-        </div>
-      </div>
-    </div>
-    <!-- Move Controls -->
-    <div class="move-controls" id="moveControls">
-      <span id="moveSelectedCount">0 selected</span>
-      <button id="confirmMoveImagesBtn">Select Destination</button>
-      <button id="cancelMoveImagesBtn" class="cancel">Cancel</button>
-    </div>
-    <!-- MAIN CONTENT -->
-    <div class="main-content">
-      <div class="gallery" id="gallery"></div>
-    </div>
+    </main>
   </div>
-  <!-- FLOATING SIZE PANEL -->
-  <div class="floating-size-panel">
-    <div class="size-icon-container">
-      <div class="size-icon" data-size="250"><span>XS</span></div>
-      <div class="size-icon" data-size="400"><span>S</span></div>
-      <div class="size-icon selected" data-size="650"><span>M</span></div>
-      <div class="size-icon" data-size="750"><span>L</span></div>
-      <div class="size-icon" data-size="950"><span>XL</span></div>
-    </div>
+
+  <div id="size-panel">
+    <img src="icons/small.png" alt="Small" data-size="180" />
+    <img src="icons/medium.png" alt="Medium" data-size="260" />
+    <img src="icons/large.png" alt="Large" data-size="360" />
   </div>
-  <!-- Enlarge Image Modal -->
-  <div id="enlargeImageModal">
-    <img id="enlargeImage" src="" alt="">
-  </div>
-  <!-- MODAL: New Folder -->
-  <div class="modal-backdrop" id="folderModal">
+
+  <div id="add-folder-modal" class="modal">
     <div class="modal-content">
-      <button class="close-modal-btn" id="closeFolderModalBtn">&times;</button>
-      <h3>Create New</h3>
-      <label for="newFolderName">Name:</label>
-      <input type="text" id="newFolderName" placeholder="e.g., My Textures">
-      <label for="parentFolderSelect">Parent (optional):</label>
-      <select id="parentFolderSelect">
-        <option value="">No Parent</option>
-      </select>
-      <div style="margin-top:0.8rem;">
-        <button id="addFolderBtn">Add</button>
-      </div>
+      <h2>Add New Folder</h2>
+      <input type="text" id="new-folder-name" placeholder="Enter folder name" />
+      <button id="confirm-add-folder">Confirm</button>
+      <button id="close-add-folder-modal">Cancel</button>
     </div>
   </div>
-  <!-- MODAL: Add Image -->
-  <div class="modal-backdrop" id="imageModal">
+
+  <div id="add-image-modal" class="modal">
     <div class="modal-content">
-      <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
-      <h3>Add Image</h3>
-      <label for="fileInput">Select Image:</label>
-      <input type="file" id="fileInput" accept="image/*">
-      <label for="folderSelect">Location:</label>
-      <select id="folderSelect"></select>
-      <label for="imageKeywords">Keywords:</label>
-      <input type="text" id="imageKeywords" placeholder="e.g., red, green">
-      <div style="margin-top:0.8rem;">
-        <button id="confirmAddImageBtn">Add</button>
-      </div>
+      <h2>Add New Image</h2>
+      <input type="file" id="image-upload" accept="image/*" />
+      <input type="text" id="image-name" placeholder="Enter image name" />
+      <select id="image-folder-select"></select>
+      <button id="confirm-add-image">Confirm</button>
+      <button id="close-add-image-modal">Cancel</button>
     </div>
   </div>
-  <!-- MODAL: Rename Folder -->
-  <div class="modal-backdrop" id="renameFolderModal">
+
+  <div id="rename-folder-modal" class="modal">
     <div class="modal-content">
-      <button class="close-modal-btn" id="closeRenameFolderModalBtn">&times;</button>
-      <h3>Rename Folder</h3>
-      <label for="renameFolderInput">New Name:</label>
-      <input type="text" id="renameFolderInput" placeholder="Enter new folder name">
-      <div style="margin-top:0.8rem;">
-        <button id="confirmRenameFolderBtn">Rename</button>
-      </div>
+      <h2>Rename Folder</h2>
+      <select id="folder-select"></select>
+      <input type="text" id="rename-folder-name" placeholder="Enter new folder name" />
+      <button id="confirm-rename-folder">Confirm</button>
+      <button id="close-rename-folder-modal">Cancel</button>
     </div>
   </div>
-  <!-- MODAL: Move Destination -->
-  <div class="modal-backdrop" id="moveDestinationModal">
+
+  <div id="move-image-modal" class="modal">
     <div class="modal-content">
-      <button class="close-modal-btn" id="closeMoveDestinationModalBtn">&times;</button>
-      <h3>Move Images</h3>
-      <p style="margin-bottom: 0.8rem;">Select destination folder:</p>
-      <select id="moveDestinationSelect" style="margin-bottom: 1.2rem;"></select>
-      <div style="margin-top:0.8rem;">
-        <button id="confirmMoveDestinationBtn">Move</button>
-      </div>
+      <h2>Move Image</h2>
+      <select id="image-select"></select>
+      <select id="destination-folder-select"></select>
+      <button id="confirm-move-image">Confirm</button>
+      <button id="close-move-image-modal">Cancel</button>
     </div>
   </div>
-  <!-- MODAL: Admin Login -->
-  <div class="modal-backdrop" id="adminModal">
+
+  <div id="admin-modal" class="modal">
     <div class="modal-content">
-      <button class="close-modal-btn" id="closeAdminModalBtn">&times;</button>
-      <h3>Admin Login</h3>
-      <label for="adminPassword">Password:</label>
-      <input type="password" id="adminPassword" placeholder="Enter password">
-      <div style="margin-top:0.8rem;">
-        <button id="confirmAdminBtn">Login</button>
-      </div>
+      <h2>Admin Login</h2>
+      <input type="password" id="admin-password-input" placeholder="Enter admin password" />
+      <button id="confirm-admin-btn">Login</button>
+      <button id="close-admin-modal-btn">Cancel</button>
     </div>
   </div>
-  <!-- Delete Controls -->
-  <div class="delete-controls" id="deleteControls">
-    <span id="selectedCount">0 selected</span>
-    <button id="confirmDeleteImagesBtn">Delete Selected</button>
-    <button id="cancelDeleteImagesBtn" class="cancel">Cancel</button>
-  </div>
-  <!-- Load Firebase SDKs via CDN -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
   <script>
-    // Initialize Firebase with your configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
-      authDomain: "referencesadrien.firebaseapp.com",
-      projectId: "referencesadrien",
-      storageBucket: "referencesadrien.firebasestorage.app",
-      messagingSenderId: "954877853554",
-      appId: "1:954877853554:web:4492547898026cf1afe7eb"
-    };
-    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-    const db = firebase.firestore();
-
-    // Initial variables
-    let folders = [
-      "angle",
-      "brick-roof-tile",
-      "cobblestone",
-      "concrete",
-      "concrete/patterns",
-      "construction",
-      "creature",
-      "ground-tile",
-      "paint",
-      "rock",
-      "wood"
-    ];
-    let currentFolderFilter = "all";
-    let isDeleteMode = false;
-    let selectedImages = [];
-    let isMoveMode = false;
-    let selectedImagesForMove = [];
-
     // DOM Elements
-    const folderList = document.getElementById("folderList");
-    const newFolderName = document.getElementById("newFolderName");
-    const parentFolderSelect = document.getElementById("parentFolderSelect");
-    const addFolderBtn = document.getElementById("addFolderBtn");
-
-    const imageModal = document.getElementById("imageModal");
-    const closeImageModalBtn = document.getElementById("closeImageModalBtn");
-    const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
-    const fileInput = document.getElementById("fileInput");
-    const folderSelect = document.getElementById("folderSelect");
-    const imageKeywords = document.getElementById("imageKeywords");
-
-    const gallery = document.getElementById("gallery");
-    const sizeIcons = document.querySelectorAll(".size-icon");
-    const imageSearch = document.getElementById("imageSearch");
-
-    const renameFolderBtn = document.getElementById("renameFolderBtn");
-    const renameFolderModal = document.getElementById("renameFolderModal");
-    const closeRenameFolderModalBtn = document.getElementById("closeRenameFolderModalBtn");
-    const renameFolderInput = document.getElementById("renameFolderInput");
-    const confirmRenameFolderBtn = document.getElementById("confirmRenameFolderBtn");
-
-    const filterButton = document.getElementById("filterButton");
-    const filterMenu = document.getElementById("filterMenu");
-    const deleteFolderBtn = document.getElementById("deleteFolderBtn");
-
-    // Delete Image elements
-    const deleteImageBtn = document.getElementById("deleteImageBtn");
-    const deleteControls = document.getElementById("deleteControls");
-    const selectedCount = document.getElementById("selectedCount");
-    const confirmDeleteImagesBtn = document.getElementById("confirmDeleteImagesBtn");
-    const cancelDeleteImagesBtn = document.getElementById("cancelDeleteImagesBtn");
-
-    // Move Image elements
-    const moveImageBtn = document.getElementById("moveImageBtn");
-    const moveControls = document.getElementById("moveControls");
-    const moveSelectedCount = document.getElementById("moveSelectedCount");
-    const confirmMoveImagesBtn = document.getElementById("confirmMoveImagesBtn");
-    const cancelMoveImagesBtn = document.getElementById("cancelMoveImagesBtn");
-    const moveDestinationModal = document.getElementById("moveDestinationModal");
-    const closeMoveDestinationModalBtn = document.getElementById("closeMoveDestinationModalBtn");
-    const moveDestinationSelect = document.getElementById("moveDestinationSelect");
-    const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
-
-    // Admin login related – only the sidebar admin button is visible
-    const adminAccessBtn = document.getElementById("adminAccessBtn");
-
-    // Admin login elements
-    const adminModal = document.getElementById("adminModal");
-    const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
-    const confirmAdminBtn = document.getElementById("confirmAdminBtn");
-    const adminPasswordInput = document.getElementById("adminPassword");
-
-    // All editing buttons in the sidebar footer except the adminAccessBtn, and the separators
-    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
+    const folderList = document.querySelector(".folder-list");
+    const imageGrid = document.querySelector(".image-grid");
+    const addFolderBtn = document.querySelector("#add-folder-btn");
+    const addImageBtn = document.querySelector("#add-image-btn");
+    const renameFolderBtn = document.querySelector("#rename-folder-btn");
+    const moveImageBtn = document.querySelector("#move-image-btn");
+    const addFolderModal = document.querySelector("#add-folder-modal");
+    const addImageModal = document.querySelector("#add-image-modal");
+    const renameFolderModal = document.querySelector("#rename-folder-modal");
+    const moveImageModal = document.querySelector("#move-image-modal");
+    const closeAddFolderModalBtn = document.querySelector("#close-add-folder-modal");
+    const confirmAddFolderBtn = document.querySelector("#confirm-add-folder");
+    const closeAddImageModalBtn = document.querySelector("#close-add-image-modal");
+    const confirmAddImageBtn = document.querySelector("#confirm-add-image");
+    const closeRenameFolderModalBtn = document.querySelector("#close-rename-folder-modal");
+    const confirmRenameFolderBtn = document.querySelector("#confirm-rename-folder");
+    const closeMoveImageModalBtn = document.querySelector("#close-move-image-modal");
+    const confirmMoveImageBtn = document.querySelector("#confirm-move-image");
+    const newFolderNameInput = document.querySelector("#new-folder-name");
+    const imageUploadInput = document.querySelector("#image-upload");
+    const imageNameInput = document.querySelector("#image-name");
+    const folderSelect = document.querySelector("#folder-select");
+    const renameFolderNameInput = document.querySelector("#rename-folder-name");
+    const imageSelect = document.querySelector("#image-select");
+    const destinationFolderSelect = document.querySelector("#destination-folder-select");
+    const sizePanel = document.querySelector("#size-panel");
+    const adminAccessBtn = document.querySelector("#admin-access-btn");
+    const adminModal = document.querySelector("#admin-modal");
+    const closeAdminModalBtn = document.querySelector("#close-admin-modal-btn");
+    const confirmAdminBtn = document.querySelector("#confirm-admin-btn");
+    const adminPasswordInput = document.querySelector("#admin-password-input");
+    const editButtons = document.querySelectorAll(".admin-controls button");
     const separators = document.querySelectorAll(".separator");
+    const searchBar = document.querySelector("#search-bar");
 
-    // Hide editing buttons and separators by default
-    document.addEventListener("DOMContentLoaded", () => {
-      editButtons.forEach(button => { button.style.display = "none"; });
-      separators.forEach(separator => { separator.style.display = "none"; });
-    });
+    let images = [];
+    let folders = [];
+    let currentFolderFilter = "all";
 
-    const mainImageSearch = document.getElementById("mainImageSearch");
-    mainImageSearch.addEventListener("input", searchImages);
+    // --- Firebase Initialization (Placeholder) ---
+    // Replace with your actual Firebase initialization code
+    const initializeFirebase = () => {
+      console.log("Firebase initialized (placeholder)");
+      // Your Firebase initialization code here
+    };
 
-    function searchImages() {
-      const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
-      const allImages = document.querySelectorAll(".image-container");
-      if (query !== "") {
-        allImages.forEach(container => {
-          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-          const imgAlt = container.querySelector("img").alt.toLowerCase();
-          if (keywords.includes(query) || imgAlt.includes(query))
-            container.classList.remove("hidden");
-          else container.classList.add("hidden");
-        });
-      } else {
-        filterImages(currentFolderFilter);
+    // --- Firebase Functions (Placeholders) ---
+    // Replace with your actual Firebase database interaction code
+
+    const loadFoldersFromFirebase = async () => {
+      console.log("Loading folders from Firebase (placeholder)");
+      folders = [{ id: "all", name: "All" }, { id: "folder1", name: "Folder 1" }, { id: "folder2", name: "Folder 2" }]; // Example data
+      populateFolderList();
+      populateFolderSelects();
+    };
+
+    const loadImagesFromFirebase = async () => {
+      console.log("Loading images from Firebase (placeholder)");
+      images = [
+        { id: "image1", name: "Image 1", url: "placeholder_image_url.jpg", folderId: "folder1" },
+        { id: "image2", name: "Image 2", url: "placeholder_image_url.jpg", folderId: "folder2" },
+        { id: "image3", name: "Image 3", url: "placeholder_image_url.jpg", folderId: "folder1" },
+      ]; // Example data
+      displayImages(currentFolderFilter);
+    };
+
+    const addFolderToFirebase = async (folderName) => {
+      console.log("Adding folder to Firebase (placeholder):", folderName);
+      const newFolder = { id: "newFolderId", name: folderName }; // Example data
+      folders.push(newFolder);
+      populateFolderList();
+      populateFolderSelects();
+    };
+
+    const addImageToFirebase = async (imageFile, imageName, folderId) => {
+      console.log("Adding image to Firebase (placeholder):", imageName, folderId);
+      // Upload file to Firebase Storage, get URL
+      const imageUrl = "placeholder_image_url.jpg"; // Replace with actual URL
+      const newImage = { id: "newImageId", name: imageName, url: imageUrl, folderId: folderId }; // Example data
+      images.push(newImage);
+      displayImages(currentFolderFilter);
+    };
+
+    const renameFolderInFirebase = async (folderId, newFolderName) => {
+      console.log("Renaming folder in Firebase (placeholder):", folderId, newFolderName);
+      const folder = folders.find((f) => f.id === folderId);
+      if (folder) {
+        folder.name = newFolderName;
+        populateFolderList();
+        populateFolderSelects();
       }
-    }
+    };
 
-    document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
-      if (e.target.id === "enlargeImageModal") { this.style.display = "none"; }
-    });
-
-    async function uploadImage(file) {
-      const formData = new FormData();
-      formData.append('file', file);
-      const response = await fetch('/.netlify/functions/upload', { method: 'POST', body: formData });
-      const data = await response.json();
-      console.log('Upload response:', data);
-      return data.url;
-    }
-
-    async function loadFoldersFromFirebase() {
-      try {
-        const foldersSnapshot = await db.collection('folders').get();
-        if (foldersSnapshot.empty) {
-          console.log('No folders found, initializing defaults');
-          folders.forEach(folder => {
-            db.collection('folders').add({ name: folder, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-          });
-        } else {
-          folders = [];
-          foldersSnapshot.forEach(doc => { folders.push(doc.data().name); });
-        }
-        renderFolders();
-      } catch (error) {
-        console.error('Error loading folders:', error);
+    const moveImageInFirebase = async (imageId, newFolderId) => {
+      console.log("Moving image in Firebase (placeholder):", imageId, newFolderId);
+      const image = images.find((i) => i.id === imageId);
+      if (image) {
+        image.folderId = newFolderId;
       }
-    }
+    };
 
-    async function saveFolderToFirebase(folderName) {
-      try {
-        await db.collection('folders').add({ name: folderName, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-        console.log('Folder saved to Firestore:', folderName);
-      } catch (error) {
-        console.error('Error saving folder:', error);
-      }
-    }
+    const deleteImageFromFirebase = async (imageId) => {
+      console.log("Deleting image from Firebase (placeholder):", imageId);
+      images = images.filter((image) => image.id !== imageId);
+      displayImages(currentFolderFilter);
+    };
 
-    async function deleteFolderFromFirebase(folderName) {
-      try {
-        const querySnapshot = await db.collection('folders').where('name', '==', folderName).get();
-        querySnapshot.forEach(doc => { doc.ref.delete(); });
-        if (!folderName.includes('/')) {
-          const childSnapshot = await db.collection('folders')
-            .where('name', '>=', folderName + '/')
-            .where('name', '<', folderName + '0')
-            .get();
-          childSnapshot.forEach(doc => { doc.ref.delete(); });
-        }
-        console.log('Folder deleted from Firestore:', folderName);
-      } catch (error) {
-        console.error('Error deleting folder:', error);
-      }
-    }
+    // --- UI Population Functions ---
 
-    async function renameFolderInFirebase(oldName, newName) {
-      try {
-        const folderSnapshot = await db.collection('folders').where('name', '==', oldName).get();
-        if (!folderSnapshot.empty) {
-          folderSnapshot.forEach(doc => { doc.ref.update({ name: newName }); });
-        }
-        if (!oldName.includes('/')) {
-          const subfolderSnapshot = await db.collection('folders')
-            .where('name', '>=', oldName + '/')
-            .where('name', '<', oldName + '0')
-            .get();
-          subfolderSnapshot.forEach(doc => {
-            const currentName = doc.data().name;
-            const updatedName = newName + currentName.substring(oldName.length);
-            doc.ref.update({ name: updatedName });
-          });
-        }
-        console.log('Folder renamed in Firestore from', oldName, 'to', newName);
-      } catch (error) {
-        console.error('Error renaming folder:', error);
-      }
-    }
-
-    async function saveImageToFirebase(url, folder, keywords, filename) {
-      try {
-        await db.collection('images').add({
-          url: url,
-          folder: folder,
-          keywords: keywords || '',
-          filename: filename || 'image',
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          addTime: Date.now()
-        });
-        console.log('Image saved to Firestore:', url);
-      } catch (error) {
-        console.error('Error saving image:', error);
-      }
-    }
-
-    async function loadImagesFromFirebase() {
-      try {
-        const imagesSnapshot = await db.collection('images').orderBy('timestamp', 'desc').get();
-        gallery.innerHTML = '';
-        imagesSnapshot.forEach(doc => {
-          const imageData = doc.data();
-          addImageToGallery(
-            imageData.url,
-            imageData.folder || 'all',
-            imageData.keywords || '',
-            imageData.filename || 'image',
-            imageData.addTime || Date.now()
-          );
-        });
-        console.log('Images loaded from Firestore');
-      } catch (error) {
-        console.error('Error loading images:', error);
-      }
-    }
-
-    async function findImageIdByUrl(url) {
-      try {
-        const querySnapshot = await db.collection('images').where('url', '==', url).limit(1).get();
-        if (!querySnapshot.empty) { return querySnapshot.docs[0].id; }
-        return null;
-      } catch (error) {
-        console.error('Error finding image by URL:', error);
-        return null;
-      }
-    }
-
-    function addImageToGallery(url, folder, keywords, filename, addTime) {
-      const container = document.createElement('div');
-      container.classList.add('image-container');
-      container.setAttribute('data-category', folder);
-      container.setAttribute('data-keywords', keywords);
-      container.setAttribute('data-add-time', addTime);
-      
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = filename;
-      img.addEventListener("click", function(e) {
-        if (isDeleteMode || isMoveMode) return;
-        e.stopPropagation();
-        const enlargeModal = document.getElementById("enlargeImageModal");
-        const enlargeImg = document.getElementById("enlargeImage");
-        enlargeImg.src = url;
-        enlargeModal.style.display = "flex";
-      });
-
-      const downloadLink = document.createElement('a');
-      downloadLink.classList.add('download-btn');
-      downloadLink.textContent = 'Download';
-      downloadLink.href = url;
-      downloadLink.download = filename;
-      downloadLink.target = "_self";
-      downloadLink.addEventListener("click", function(e) {
-          e.stopPropagation();
-      });
-
-      container.appendChild(img);
-      container.appendChild(downloadLink);
-      gallery.appendChild(container);
-    }
-
-    function buildFolderStructure() {
-      const structure = {};
-      folders.forEach(folder => {
-        const parts = folder.split("/");
-        if (parts.length === 1) {
-          if (!structure[parts[0]]) structure[parts[0]] = [];
-        } else {
-          const parent = parts[0];
-          const child = parts[1];
-          if (!structure[parent]) structure[parent] = [];
-          structure[parent].push(child);
-        }
-      });
-      return structure;
-    }
-
-    function renderFolders() {
+    const populateFolderList = () => {
       folderList.innerHTML = "";
+      folders.forEach((folder) => {
+        const li = document.createElement("li");
+        li.textContent = folder.name;
+        li.dataset.filter = folder.id;
+        li.addEventListener("click", () => {
+          currentFolderFilter = folder.id;
+          displayImages(currentFolderFilter);
+          document.querySelectorAll(".folder-list li").forEach((item) => item.classList.remove("selected"));
+          li.classList.add("selected");
+        });
+        folderList.appendChild(li);
+      });
+    };
+
+    const populateFolderSelects = () => {
       folderSelect.innerHTML = "";
-      parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
+      destinationFolderSelect.innerHTML = "";
+      imageFolderSelect.innerHTML = "";
 
-      const allItem = document.createElement("li");
-      allItem.textContent = "All";
-      allItem.classList.add("all");
-      allItem.setAttribute("data-filter", "all");
-      allItem.addEventListener("click", () => {
-        highlightSelected(allItem);
-        hideAllSubfolders();
-        currentFolderFilter = "all";
-        filterImages("all");
+      folders.forEach((folder) => {
+        const option1 = document.createElement("option");
+        option1.value = folder.id;
+        option1.textContent = folder.name;
+        folderSelect.appendChild(option1);
+
+        const option2 = document.createElement("option");
+        option2.value = folder.id;
+        option2.textContent = folder.name;
+        destinationFolderSelect.appendChild(option2);
+
+        const option3 = document.createElement("option");
+        option3.value = folder.id;
+        option3.textContent = folder.name;
+        imageFolderSelect.appendChild(option3);
       });
-      folderList.appendChild(allItem);
+    };
 
-      const structure = buildFolderStructure();
-      const parents = Object.keys(structure).sort();
-
-      parents.forEach(parent => {
-        const parentLi = document.createElement("li");
-        parentLi.textContent = parent;
-        parentLi.setAttribute("data-filter", parent);
-
-        const subUl = document.createElement("ul");
-        subUl.classList.add("subfolder-list");
-
-        if (structure[parent] && structure[parent].length > 0) {
-          structure[parent].sort().forEach(child => {
-            const childLi = document.createElement("li");
-            childLi.textContent = child;
-            childLi.setAttribute("data-filter", parent + "/" + child);
-            childLi.addEventListener("click", (e) => {
-              e.stopPropagation();
-              highlightSelected(childLi);
-              currentFolderFilter = parent + "/" + child;
-              filterImages(parent + "/" + child);
-            });
-            subUl.appendChild(childLi);
-          });
-        }
-
-        parentLi.addEventListener("click", () => {
-          highlightSelected(parentLi);
-          toggleSubfolders(subUl);
-          currentFolderFilter = parent;
-          filterImages(parent);
-        });
-
-        folderList.appendChild(parentLi);
-        folderList.appendChild(subUl);
+    const populateImageSelect = () => {
+      imageSelect.innerHTML = "";
+      images.forEach((image) => {
+        const option = document.createElement("option");
+        option.value = image.id;
+        option.textContent = image.name;
+        imageSelect.appendChild(option);
       });
+    };
 
-      parents.forEach(parent => {
-        const parentOpt = document.createElement("option");
-        parentOpt.value = parent;
-        parentOpt.textContent = parent;
-        folderSelect.appendChild(parentOpt);
-        
-        if (structure[parent] && structure[parent].length > 0) {
-          structure[parent].forEach(child => {
-            const childOpt = document.createElement("option");
-            childOpt.value = parent + "/" + child;
-            childOpt.textContent = "— " + child;
-            folderSelect.appendChild(childOpt);
-          });
-        }
+    const displayImages = (folderId) => {
+      imageGrid.innerHTML = "";
+      const filteredImages = folderId === "all" ? images : images.filter((image) => image.folderId === folderId);
+      filteredImages.forEach((image) => {
+        const imageContainer = document.createElement("div");
+        imageContainer.classList.add("image-container");
+
+        const img = document.createElement("img");
+        img.src = image.url;
+        img.alt = image.name;
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete";
+        deleteBtn.classList.add("delete-btn");
+        deleteBtn.addEventListener("click", () => {
+          deleteImageFromFirebase(image.id);
+        });
+
+        const moveBtn = document.createElement("button");
+        moveBtn.textContent = "Move";
+        moveBtn.classList.add("move-btn");
+        moveBtn.addEventListener("click", () => {
+          moveImageModal.classList.add("active");
+          populateImageSelect();
+          populateFolderSelects();
+          moveImageSelect.value = image.id;
+        });
+
+        imageContainer.appendChild(img);
+        imageContainer.appendChild(deleteBtn);
+        imageContainer.appendChild(moveBtn);
+        imageGrid.appendChild(imageContainer);
       });
+    };
 
-      parents.forEach(parent => {
-        const parentOpt = document.createElement("option");
-        parentOpt.value = parent;
-        parentOpt.textContent = parent;
-        parentFolderSelect.appendChild(parentOpt);
-      });
-    }
+    // --- Event Listeners ---
 
-    function hideAllSubfolders() {
-      const allSubUls = folderList.querySelectorAll(".subfolder-list");
-      allSubUls.forEach(ul => { ul.style.display = "none"; });
-    }
-
-    function toggleSubfolders(currentUl) {
-      const allSubUls = folderList.querySelectorAll(".subfolder-list");
-      allSubUls.forEach(ul => { if (ul !== currentUl) ul.style.display = "none"; });
-      currentUl.style.display = (currentUl.style.display === "none" || !currentUl.style.display) ? "block" : "none";
-    }
-
-    function highlightSelected(li) {
-      const allItems = folderList.querySelectorAll("li");
-      allItems.forEach(item => item.classList.remove("selected"));
-      li.classList.add("selected");
-    }
-
-    function filterImages(filterValue) {
-      const allImages = document.querySelectorAll(".image-container");
-      allImages.forEach(container => {
-        const category = container.getAttribute("data-category");
-        if (filterValue === "all" || category === filterValue)
-          container.classList.remove("hidden");
-        else container.classList.add("hidden");
-      });
-    }
-
-    function searchImages() {
-      const query = imageSearch.value.trim().toLowerCase();
-      const allImages = document.querySelectorAll(".image-container");
-      if (query !== "") {
-        allImages.forEach(container => {
-          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-          const imgAlt = container.querySelector("img").alt.toLowerCase();
-          if (keywords.includes(query) || imgAlt.includes(query))
-            container.classList.remove("hidden");
-          else container.classList.add("hidden");
-        });
-      } else {
-        filterImages(currentFolderFilter);
-      }
-    }
-
-    function sortGallery(type) {
-      const imagesArray = [...gallery.children];
-      if (type === "alphabetical") {
-        imagesArray.sort((a, b) => {
-          let altA = a.querySelector("img").alt.toLowerCase();
-          let altB = b.querySelector("img").alt.toLowerCase();
-          return altA.localeCompare(altB);
-        });
-      } else if (type === "recent") {
-        imagesArray.sort((a, b) => {
-          let timeA = parseInt(a.getAttribute("data-add-time")) || 0;
-          let timeB = parseInt(b.getAttribute("data-add-time")) || 0;
-          return timeB - timeA;
-        });
-      }
-      imagesArray.forEach(img => gallery.appendChild(img));
-    }
-
-    /* Delete Image Functions */
-    function toggleDeleteMode() {
-      isDeleteMode = !isDeleteMode;
-      if (isDeleteMode) {
-        const allImages = document.querySelectorAll(".image-container");
-        allImages.forEach(container => {
-          container.classList.add("selectable");
-          container.addEventListener("click", toggleImageSelection);
-        });
-        deleteControls.classList.add("active");
-        updateSelectedCount();
-      } else {
-        const allImages = document.querySelectorAll(".image-container");
-        allImages.forEach(container => {
-          container.classList.remove("selectable");
-          container.classList.remove("selected");
-          container.removeEventListener("click", toggleImageSelection);
-        });
-        deleteControls.classList.remove("active");
-        selectedImages = [];
-      }
-    }
-
-    function toggleImageSelection(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const container = e.currentTarget;
-      if (!isDeleteMode) return;
-      if (container.classList.contains("selected")) {
-        container.classList.remove("selected");
-        const index = selectedImages.findIndex(img => img === container);
-        if (index !== -1) { selectedImages.splice(index, 1); }
-      } else {
-        container.classList.add("selected");
-        selectedImages.push(container);
-      }
-      updateSelectedCount();
-    }
-
-    function updateSelectedCount() {
-      selectedCount.textContent = `${selectedImages.length} selected`;
-    }
-
-    async function deleteSelectedImages() {
-      if (selectedImages.length === 0) return;
-      if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) { return; }
-      try {
-        const deletePromises = selectedImages.map(async (container) => {
-          const imageUrl = container.querySelector("img").src;
-          const imageId = await findImageIdByUrl(imageUrl);
-          if (imageId) {
-            await db.collection('images').doc(imageId).delete();
-            container.remove();
-            return true;
-          }
-          return false;
-        });
-        await Promise.all(deletePromises);
-        toggleDeleteMode();
-      } catch (error) {
-        console.error('Error deleting images:', error);
-        alert(`Error deleting images: ${error.message}`);
-      }
-    }
-
-    /* Move Image Functions */
-    function toggleMoveMode() {
-      isMoveMode = !isMoveMode;
-      if (isMoveMode) {
-        const allImages = document.querySelectorAll(".image-container");
-        allImages.forEach(container => {
-          container.classList.add("move-selectable");
-          container.addEventListener("click", toggleImageMoveSelection);
-        });
-        moveControls.classList.add("active");
-        updateMoveSelectedCount();
-      } else {
-        const allImages = document.querySelectorAll(".image-container");
-        allImages.forEach(container => {
-          container.classList.remove("move-selectable");
-          container.classList.remove("move-selected");
-          container.removeEventListener("click", toggleImageMoveSelection);
-        });
-        moveControls.classList.remove("active");
-        selectedImagesForMove = [];
-      }
-    }
-
-    function toggleImageMoveSelection(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const container = e.currentTarget;
-      if (!isMoveMode) return;
-      if (container.classList.contains("move-selected")) {
-        container.classList.remove("move-selected");
-        const index = selectedImagesForMove.findIndex(img => img === container);
-        if (index !== -1) { selectedImagesForMove.splice(index, 1); }
-      } else {
-        container.classList.add("move-selected");
-        selectedImagesForMove.push(container);
-      }
-      updateMoveSelectedCount();
-    }
-
-    function updateMoveSelectedCount() {
-      moveSelectedCount.textContent = `${selectedImagesForMove.length} selected`;
-    }
-
-    function showMoveDestinationModal() {
-      if (selectedImagesForMove.length === 0) {
-        alert("Please select at least one image to move.");
-        return;
-      }
-      populateMoveDestinationSelect();
-      moveDestinationModal.classList.add("active");
-    }
-
-    function populateMoveDestinationSelect() {
-      moveDestinationSelect.innerHTML = "";
-      const allOption = document.createElement("option");
-      allOption.value = "all";
-      allOption.textContent = "All";
-      moveDestinationSelect.appendChild(allOption);
-      const structure = buildFolderStructure();
-      const parents = Object.keys(structure).sort();
-      parents.forEach(parent => {
-        const parentOpt = document.createElement("option");
-        parentOpt.value = parent;
-        parentOpt.textContent = parent;
-        moveDestinationSelect.appendChild(parentOpt);
-        if (structure[parent] && structure[parent].length > 0) {
-          structure[parent].forEach(child => {
-            const childOpt = document.createElement("option");
-            childOpt.value = parent + "/" + child;
-            childOpt.textContent = "— " + child;
-            moveDestinationSelect.appendChild(childOpt);
-          });
-        }
-      });
-    }
-
-    async function moveImagesToDestination() {
-      if (selectedImagesForMove.length === 0) return;
-      const destinationFolder = moveDestinationSelect.value;
-      if (!destinationFolder) {
-        alert("Please select a destination folder.");
-        return;
-      }
-      try {
-        const movePromises = selectedImagesForMove.map(async (container) => {
-          const imageUrl = container.querySelector("img").src;
-          const imageId = await findImageIdByUrl(imageUrl);
-          if (imageId) {
-            await db.collection('images').doc(imageId).update({ folder: destinationFolder });
-            container.setAttribute('data-category', destinationFolder);
-            return true;
-          }
-          return false;
-        });
-        await Promise.all(movePromises);
-        moveDestinationModal.classList.remove("active");
-        toggleMoveMode();
-        filterImages(currentFolderFilter);
-      } catch (error) {
-        console.error('Error moving images:', error);
-        alert(`Error moving images: ${error.message}`);
-      }
-    }
-
-    document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
-      if (e.target.id === "enlargeImageModal") { this.style.display = "none"; }
+    // Folder Modals
+    addFolderBtn.addEventListener("click", () => {
+      addFolderModal.classList.add("active");
     });
 
-    /* Event Listeners */
-    document.getElementById("closeFolderModalBtn").addEventListener("click", () => { folderModal.classList.remove("active"); });
-    folderModal.addEventListener("click", (e) => { if(e.target === folderModal) folderModal.classList.remove("active"); });
-    document.getElementById("closeImageModalBtn").addEventListener("click", () => { imageModal.classList.remove("active"); });
-    imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
+    closeAddFolderModalBtn.addEventListener("click", () => {
+      addFolderModal.classList.remove("active");
+    });
+
+    confirmAddFolderBtn.addEventListener("click", () => {
+      const folderName = newFolderNameInput.value;
+      if (folderName) {
+        addFolderToFirebase(folderName);
+        addFolderModal.classList.remove("active");
+        newFolderNameInput.value = "";
+      }
+    });
+
+    // Image Modals
+    addImageBtn.addEventListener("click", () => {
+      addImageModal.classList.add("active");
+      populateFolderSelects();
+    });
+
+    closeAddImageModalBtn.addEventListener("click", () => {
+      addImageModal.classList.remove("active");
+    });
+
+    confirmAddImageBtn.addEventListener("click", () => {
+      const imageFile = imageUploadInput.files[0];
+      const imageName = imageNameInput.value;
+      const folderId = imageFolderSelect.value;
+      if (imageFile && imageName && folderId) {
+        addImageToFirebase(imageFile, imageName, folderId);
+        addImageModal.classList.remove("active");
+        imageUploadInput.value = "";
+        imageNameInput.value = "";
+      }
+    });
+
+    // Rename Folder Modals
     renameFolderBtn.addEventListener("click", () => {
-      const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) { alert("Please select a folder to rename."); return; }
-      if (selectedEl.getAttribute("data-filter") === "all") { alert("Cannot rename 'All'."); return; }
-      renameFolderInput.value = selectedEl.textContent;
       renameFolderModal.classList.add("active");
+      populateFolderSelects();
     });
-    closeRenameFolderModalBtn.addEventListener("click", () => { renameFolderModal.classList.remove("active"); });
-    renameFolderModal.addEventListener("click", (e) => { if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); });
-    deleteFolderBtn.addEventListener("click", async () => {
-      const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) { alert("Please select a folder to delete."); return; }
-      const currentFullName = selectedEl.getAttribute("data-filter");
-      if (currentFullName === "all") { alert("Cannot delete 'All'."); return; }
-      if (!confirm(`Are you sure you want to delete folder "${currentFullName}"?`)) return;
-      if (!currentFullName.includes("/")) {
-        folders = folders.filter(f => f !== currentFullName && !f.startsWith(currentFullName + "/"));
-      } else {
-        folders = folders.filter(f => f !== currentFullName);
-      }
-      await deleteFolderFromFirebase(currentFullName);
-      renderFolders();
-    });
-    confirmRenameFolderBtn.addEventListener("click", async () => {
-      const newName = renameFolderInput.value.trim();
-      if (!newName) { alert("Please enter a new name."); return; }
-      const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) { alert("No folder selected."); return; }
-      const currentFullName = selectedEl.getAttribute("data-filter");
-      if (currentFullName === "all") { alert("Cannot rename 'All'."); return; }
-      let updatedFolders = [];
-      if (!currentFullName.includes("/")) {
-        updatedFolders = folders.map(f => {
-          if (f === currentFullName) return newName;
-          else if (f.startsWith(currentFullName + "/")) return newName + f.substring(currentFullName.length);
-          return f;
-        });
-        await renameFolderInFirebase(currentFullName, newName);
-      } else {
-        const parentPath = currentFullName.split('/')[0];
-        const newFullName = parentPath + '/' + newName;
-        updatedFolders = folders.map(f => (f === currentFullName ? newFullName : f));
-        await renameFolderInFirebase(currentFullName, newFullName);
-      }
-      folders = updatedFolders;
+
+    closeRenameFolderModalBtn.addEventListener("click", () => {
       renameFolderModal.classList.remove("active");
-      renderFolders();
     });
-    newFolderAdminBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
-    addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
-    confirmAddImageBtn.addEventListener("click", async () => {
-      if (!fileInput.files[0]) { alert("Please select an image file first."); return; }
-      const folderValue = folderSelect.value || 'all';
-      const keywords = imageKeywords.value.trim().toLowerCase();
-      const filename = fileInput.files[0].name;
-      try {
-        const imageUrl = await uploadImage(fileInput.files[0]);
-        addImageToGallery(imageUrl, folderValue, keywords, filename, Date.now());
-        await saveImageToFirebase(imageUrl, folderValue, keywords, filename);
-        fileInput.value = "";
-        folderSelect.value = "";
-        imageKeywords.value = "";
-        imageModal.classList.remove("active");
-      } catch (error) {
-        console.error('Upload failed:', error);
-        alert("Upload failed: " + error.message);
+
+    confirmRenameFolderBtn.addEventListener("click", () => {
+      const folderId = folderSelect.value;
+      const newFolderName = renameFolderNameInput.value;
+      if (newFolderName) {
+        renameFolderInFirebase(folderId, newFolderName);
+        renameFolderModal.classList.remove("active");
+        renameFolderNameInput.value = "";
       }
     });
-    deleteImageBtn.addEventListener("click", toggleDeleteMode);
-    confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
-    cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
-    moveImageBtn.addEventListener("click", toggleMoveMode);
-    confirmMoveImagesBtn.addEventListener("click", showMoveDestinationModal);
-    cancelMoveImagesBtn.addEventListener("click", toggleMoveMode);
-    closeMoveDestinationModalBtn.addEventListener("click", () => { moveDestinationModal.classList.remove("active"); });
-    moveDestinationModal.addEventListener("click", (e) => { if (e.target === moveDestinationModal) { moveDestinationModal.classList.remove("active"); } });
-    confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
-    imageSearch.addEventListener("input", searchImages);
-    filterButton.addEventListener("click", (e) => {
-      e.stopPropagation();
-      filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
+
+    // Move Image Modals
+    moveImageBtn.addEventListener("click", () => {
+      moveImageModal.classList.add("active");
+      populateImageSelect();
+      populateFolderSelects();
     });
-    document.addEventListener("click", (e) => {
-      if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) { filterMenu.style.display = "none"; }
+
+    closeMoveImageModalBtn.addEventListener("click", () => {
+      moveImageModal.classList.remove("active");
     });
-    const filterOptions = document.querySelectorAll(".filter-option");
-    filterOptions.forEach(opt => {
-      opt.addEventListener("click", () => {
-        const sortType = opt.getAttribute("data-sort");
-        sortGallery(sortType);
-        filterMenu.style.display = "none";
-      });
+
+    confirmMoveImageBtn.addEventListener("click", () => {
+      const imageId = imageSelect.value;
+      const newFolderId = destinationFolderSelect.value;
+      moveImageInFirebase(imageId, newFolderId);
+      moveImageModal.classList.remove("active");
     });
-    sizeIcons.forEach(icon => {
+
+    // Size Panel
+    sizePanel.querySelectorAll("img").forEach((icon) => {
       icon.addEventListener("click", () => {
-        sizeIcons.forEach(i => i.classList.remove("selected"));
-        icon.classList.add("selected");
         const newSize = icon.getAttribute("data-size");
         document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
       });
     });
 
     // ADMIN Login Event Listeners (using the sidebar admin button)
-    adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
-    closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
+    adminAccessBtn.addEventListener("click", () => {
+      adminModal.classList.add("active");
+    });
+
+    closeAdminModalBtn.addEventListener("click", () => {
+      adminModal.classList.remove("active");
+    });
+
     confirmAdminBtn.addEventListener("click", () => {
       const correctPassword = "admin123"; // Change as needed
       if (adminPasswordInput.value === correctPassword) {
-        editButtons.forEach(button => { button.style.display = "block"; });
-        separators.forEach(separator => { separator.style.display = "block"; });
+        editButtons.forEach((button) => {
+          button.style.display = "block";
+        });
+        separators.forEach((separator) => {
+          separator.style.display = "block";
+        });
         adminModal.classList.remove("active");
       } else {
         alert("Incorrect password. Please try again.");
@@ -1476,10 +643,14 @@ header {
     document.addEventListener("DOMContentLoaded", async () => {
       try {
         console.log("DOM loaded, initializing application...");
+        // Initialize Firebase (Placeholder)
+        initializeFirebase();
         await loadFoldersFromFirebase();
         await loadImagesFromFirebase();
         const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
-        if (allFolder) { allFolder.classList.add("selected"); }
+        if (allFolder) {
+          allFolder.classList.add("selected");
+        }
         console.log("App initialized successfully!");
       } catch (error) {
         console.error("Error initializing app:", error);
@@ -1488,4 +659,5 @@ header {
     });
   </script>
 </body>
+
 </html>
