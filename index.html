@@ -70,18 +70,19 @@
        Sidebar (Folders, Search & Filter)
          (Sidebar now automatically takes full viewport height)
     -------------------------------------------------- */
-    .sidebar {
-      width: fit-content;
-      min-width: 220px;
-      background-color: var(--side-bg);
-      border-right: 1px solid var(--border-color);
-      padding: 0.8rem;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      color: var(--side-text);
-      height: 100vh;
-    }
+   .sidebar {
+  width: fit-content;
+  min-width: 220px;
+  background-color: var(--side-bg);
+  border-right: 1px solid var(--border-color);
+  /* padding: 0.8rem; */ /* Remove this line */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  color: var(--side-text);
+  height: 100%;
+  /* top: 0; */ /* Add this line */
+}
     .search-bar-container {
       display: flex;
       align-items: center;
