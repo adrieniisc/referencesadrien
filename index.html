@@ -1333,7 +1333,7 @@ img.addEventListener("click", function(e) {
     });
 
     // Confirm Rename Folder button
-    confirmRenameFolderBtn.addEventListener("click", async () => {
+      confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
       if (!newName) { alert("Please enter a new name."); return; }
       const selectedEl = document.querySelector(".folder-list li.selected");
@@ -1354,10 +1354,9 @@ img.addEventListener("click", function(e) {
         updatedFolders = folders.map(f => (f === currentFullName ? newFullName : f));
         await renameFolderInFirebase(currentFullName, newFullName);
       }
-      folders = updatedFolders;
-      renameFolderModal.classList.remove("active");terMenu.style.display === "block") ? "none" : "block";
-    });
-      renderFolders();
+        folders = updatedFolders;
+        renameFolderModal.classList.remove("active");
+        renderFolders();
     });
 
     // New Admin Buttons to open modals
