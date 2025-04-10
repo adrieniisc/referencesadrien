@@ -917,13 +917,16 @@
       img.src = url;
       img.alt = filename;
       // Enlarge image on click
-      img.addEventListener("click", function(e) {
-          e.stopPropagation();
-          const enlargeModal = document.getElementById("enlargeImageModal");
-          const enlargeImg = document.getElementById("enlargeImage");
-          enlargeImg.src = url;
-          enlargeModal.style.display = "flex";
-      });
+img.addEventListener("click", function(e) {
+  // When in delete or move mode, don't trigger the enlarge modal.
+  if (isDeleteMode || isMoveMode) return;
+  e.stopPropagation();
+  const enlargeModal = document.getElementById("enlargeImageModal");
+  const enlargeImg = document.getElementById("enlargeImage");
+  enlargeImg.src = url;
+  enlargeModal.style.display = "flex";
+});
+
       
       const downloadLink = document.createElement('a');
       downloadLink.classList.add('download-btn');
