@@ -39,11 +39,10 @@
 
     /* --------------------------------------------------
        Fixed ADMIN Button in Top-Right Corner
-         (This button remains hidden; only the sidebar Admin Access button is shown.)
+         (This fixed button is hidden; only the sidebar Admin Access button is visible.)
     -------------------------------------------------- */
     #adminBtn {
       display: none;
-      /* Original padding: 0.4rem 0.6rem -> changed to 0.3rem 0.6rem */
       padding: 0.3rem 0.6rem;
       position: fixed;
       top: 10px;
@@ -69,7 +68,7 @@
 
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
-         (Sidebar spans full height)
+         (Sidebar now automatically takes full viewport height)
     -------------------------------------------------- */
     .sidebar {
       width: fit-content;
@@ -81,7 +80,7 @@
       flex-direction: column;
       position: relative;
       color: var(--side-text);
-      height: 100%;
+      height: 100vh;
     }
     .search-bar-container {
       display: flex;
@@ -199,7 +198,6 @@
       background-color: #444;
       color: #ddd;
       border: none;
-      /* Changed vertical padding from 0.4rem to 0.3rem, horizontal remains 0.5rem */
       padding: 0.3rem 0.5rem;
       border-radius: 6px;
       font-size: 0.9rem;
@@ -213,7 +211,6 @@
     .admin-top-buttons button {
       background-color: var(--highlight-color);
       color: #fff;
-      /* Inherit padding from parent if not defined specifically */
     }
     /* Admin bottom group: move images buttons in grey */
     .sidebar-footer button.move-btn {
@@ -235,7 +232,6 @@
       background-color: var(--highlight-color);
       color: #fff;
       border: none;
-      /* Changed padding vertically from 0.4rem to 0.3rem, horizontal remains 0.5rem */
       padding: 0.3rem 0.5rem;
       border-radius: 6px;
       font-size: 0.9rem;
@@ -457,7 +453,7 @@
       background-color: #ff3b30;
       color: white;
       border: none;
-      padding: 0.3rem 0.8rem; /* changed vertical padding to 0.3rem */
+      padding: 0.3rem 0.8rem;
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -508,7 +504,7 @@
       background-color: #2196f3;
       color: white;
       border: none;
-      padding: 0.3rem 0.8rem; /* changed vertical padding to 0.3rem */
+      padding: 0.3rem 0.8rem;
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -985,7 +981,6 @@
       const img = document.createElement('img');
       img.src = url;
       img.alt = filename;
-      // Enlarge image on click (unless in delete or move mode)
       img.addEventListener("click", function(e) {
         if (isDeleteMode || isMoveMode) return;
         e.stopPropagation();
