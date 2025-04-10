@@ -34,9 +34,12 @@
                    Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
       background-color: var(--main-bg);
       color: var(--main-text);
-    }
-    body { display: flex; flex-direction: column; }
-
+    body {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Ensure body takes full height */
+  margin: 0; /* Reset default body margins */
+}
     /* --------------------------------------------------
        Fixed ADMIN Button in Top-Right Corner
          (This fixed button is hidden; only the sidebar Admin Access button is visible.)
@@ -60,29 +63,30 @@
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
     -------------------------------------------------- */
-    .main-container {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
+   .main-container {
+  flex: 1; /* Allow main-container to grow and take remaining space */
+  display: flex;
+  overflow: hidden;
+  height: 100%; /* Ensure main-container takes full height */
+}
 
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
          (Sidebar now automatically takes full viewport height)
     -------------------------------------------------- */
-   .sidebar {
+ .sidebar {
   width: fit-content;
   min-width: 220px;
   background-color: var(--side-bg);
   border-right: 1px solid var(--border-color);
-  /* padding: 0.8rem; */ /* Remove this line */
+  padding: 0.8rem;
   display: flex;
   flex-direction: column;
   position: relative;
   color: var(--side-text);
-  height: 100%;
-  /* top: 0; */ /* Add this line */
+  height: 100%; /* Sidebar takes full height */
 }
+
     .search-bar-container {
       display: flex;
       align-items: center;
