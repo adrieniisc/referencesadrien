@@ -15,7 +15,7 @@
        - Sidebar: dark background (#000000) with light text (#f2f2f7)
     -------------------------------------------------- */
      :root {
-      --main-bg: #212121;      /* main area */
+      --main-bg: #232323;      /* main area */
       --main-text: #f2f2f7;      /* text for main area */
       --side-bg:    #171717;     /* sidebar */
       --side-text:  #f2f2f7;     /* text for sidebar */
@@ -518,33 +518,42 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
 
-/* Top bar for search */
+/* Updated Top bar for search with floating effect */
 .top-search-bar {
   width: 100%;
-  padding: 10px 0;
-  background-color: var(--main-bg);
+  padding: 15px 0;
+  background-color: transparent; /* Make background transparent */
   display: flex;
   justify-content: center;
   align-items: center;
-  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  z-index: 10;
 }
 
-/* Search container style - centered and with proper width */
+/* Search container style - centered with floating effect */
 .main-search-container {
-  width: 60%;
-  max-width: 800px;
+  width: 50%;
+  max-width: 700px;
   position: relative;
 }
 
-/* Style for the search input */
+/* Style for the floating search input */
 #mainImageSearch {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: #1c1c1e;
+  padding: 10px 16px;
+  border: none; /* Remove border */
+  border-radius: 12px; /* More rounded corners */
+  background-color: rgba(45, 45, 48, 0.9); /* Slightly transparent background */
   color: var(--main-text);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Subtle diffused shadow */
+  transition: all 0.2s ease;
+}
+
+#mainImageSearch:focus {
+  outline: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); /* Enhanced shadow on focus */
+  background-color: rgba(50, 50, 53, 0.95); /* Slightly lighter on focus */
 }
 
 /* Hide the sidebar search */
