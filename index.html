@@ -14,7 +14,7 @@
        - Main area: lighter background (#ffffff) and dark text (#1c1c1e)
        - Sidebar: dark background (#000000) with light text (#f2f2f7)
     -------------------------------------------------- */
-    :root {
+     :root {
       --main-bg: #232323;      /* main area */
       --main-text: #f2f2f7;      /* text for main area */
       --side-bg:    #171717;     /* sidebar */
@@ -23,6 +23,7 @@
       --highlight-color: #555555;
       --thumbnail-size: 360px;
     }
+
 
     /* --------------------------------------------------
        Base Reset & Body
@@ -39,12 +40,8 @@
 
     /* --------------------------------------------------
        Fixed ADMIN Button in Top-Right Corner
-         (This button remains hidden; only the sidebar Admin Access button is shown.)
     -------------------------------------------------- */
     #adminBtn {
-      display: none;
-      /* Original padding: 0.4rem 0.6rem -> changed to 0.3rem 0.6rem */
-      padding: 0.3rem 0.6rem;
       position: fixed;
       top: 10px;
       right: 10px;
@@ -52,6 +49,7 @@
       background-color: var(--highlight-color);
       color: #fff;
       border: none;
+      padding: 0.4rem 0.6rem;
       border-radius: 6px;
       font-size: 1.02rem;
       cursor: pointer;
@@ -69,7 +67,6 @@
 
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
-         (Sidebar spans full height)
     -------------------------------------------------- */
     .sidebar {
       width: fit-content;
@@ -81,7 +78,6 @@
       flex-direction: column;
       position: relative;
       color: var(--side-text);
-      height: 100%;
     }
     .search-bar-container {
       display: flex;
@@ -199,8 +195,7 @@
       background-color: #444;
       color: #ddd;
       border: none;
-      /* Changed vertical padding from 0.4rem to 0.3rem, horizontal remains 0.5rem */
-      padding: 0.3rem 0.5rem;
+      padding: 0.4rem 0.5rem;
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -213,7 +208,6 @@
     .admin-top-buttons button {
       background-color: var(--highlight-color);
       color: #fff;
-      /* Inherit padding from parent if not defined specifically */
     }
     /* Admin bottom group: move images buttons in grey */
     .sidebar-footer button.move-btn {
@@ -227,23 +221,6 @@
       background: #555;
       margin: 0.5rem 0;
     }
-    /* New admin button in the sidebar footer */
-    .sidebar-admin-section {
-      margin-top: 0.8rem;
-    }
-    .admin-access-btn {
-      background-color: var(--highlight-color);
-      color: #fff;
-      border: none;
-      /* Changed padding vertically from 0.4rem to 0.3rem, horizontal remains 0.5rem */
-      padding: 0.3rem 0.5rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      width: 100%;
-      text-align: center;
-    }
-    .admin-access-btn:hover { opacity: 0.9; }
 
     /* --------------------------------------------------
        Main Content (Gallery)
@@ -334,11 +311,13 @@
       color: var(--main-text);
       transition: background-color 0.2s, border-color 0.2s;
     }
+
     .size-icon.selected {
-      background-color: var(--highlight-color);
-      border-color: var(--highlight-color);
-      color: #fff;
-    }
+  background-color: var(--highlight-color);
+  border-color: var(--highlight-color);
+  color: #fff;
+}
+
 
     /* --------------------------------------------------
        Modal for Folder, Image, Rename, Admin
@@ -457,7 +436,7 @@
       background-color: #ff3b30;
       color: white;
       border: none;
-      padding: 0.3rem 0.8rem; /* changed vertical padding to 0.3rem */
+      padding: 0.4rem 0.8rem;
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -508,7 +487,7 @@
       background-color: #2196f3;
       color: white;
       border: none;
-      padding: 0.3rem 0.8rem; /* changed vertical padding to 0.3rem */
+      padding: 0.4rem 0.8rem;
       border-radius: 6px;
       font-size: 0.9rem;
       cursor: pointer;
@@ -539,55 +518,145 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
 
-    /* Updated Top bar for search with floating effect */
-    .top-search-bar {
-      width: 100%;
-      padding: 15px 0;
-      background-color: transparent;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-      z-index: 10;
-    }
-    .main-search-container {
-      width: 50%;
-      max-width: 700px;
-      position: relative;
-    }
-    #mainImageSearch {
-      width: 100%;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 12px;
-      background-color: rgba(45, 45, 48, 0.9);
-      color: var(--main-text);
-      font-size: 0.95rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      transition: all 0.2s ease;
-    }
-    #mainImageSearch:focus {
-      outline: none;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-      background-color: rgba(50, 50, 53, 0.95);
-    }
-    .sidebar .search-bar-container { display: none; }
-    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
-    body { display: flex; flex-direction: column; }
-    .main-container { display: flex; flex: 1; height: 100%; overflow: hidden; }
-    .sidebar { height: 100%; overflow-y: auto; }
-    .main-content { height: 100%; overflow-y: auto; padding-top: 60px; }
+/* Updated Top bar for search with floating effect */
+.top-search-bar {
+  width: 100%;
+  padding: 15px 0;
+  background-color: transparent; /* Make background transparent */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+}
+
+/* Search container style - centered with floating effect */
+.main-search-container {
+  width: 50%;
+  max-width: 700px;
+  position: relative;
+}
+
+/* Style for the floating search input */
+#mainImageSearch {
+  width: 100%;
+  padding: 10px 16px;
+  border: none; /* Remove border */
+  border-radius: 12px; /* More rounded corners */
+  background-color: rgba(45, 45, 48, 0.9); /* Slightly transparent background */
+  color: var(--main-text);
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Subtle diffused shadow */
+  transition: all 0.2s ease;
+}
+
+#mainImageSearch:focus {
+  outline: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); /* Enhanced shadow on focus */
+  background-color: rgba(50, 50, 53, 0.95); /* Slightly lighter on focus */
+}
+
+/* Hide the sidebar search */
+.sidebar .search-bar-container {
+  display: none;
+}
+
+/* Make body use the full viewport height */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrollbars on the body */
+}
+
+/* Reset the container structure to use the full page height */
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Position admin button absolutely to not affect the layout flow */
+#adminBtn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 10000;
+}
+
+/* Position the search bar absolutely */
+.top-search-bar {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+/* Make main container take full available height */
+.main-container {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Sidebar takes full height of its parent */
+.sidebar {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Main content area should also take full height */
+.main-content {
+  height: 100%;
+  overflow-y: auto;
+  padding-top: 60px; /* Make room for the floating search bar */
+}
+
+
+
+/* First, hide the original admin button */
+#adminBtn {
+  display: none;
+}
+
+/* Style for the new admin button in the sidebar */
+.admin-access-btn {
+  background-color: #444;
+  color: #ddd;
+  border: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  margin-top: 0.4rem;
+}
+
+.admin-access-btn:hover {
+  opacity: 0.9;
+}
+
+/* Add a bit more space above the admin button */
+.sidebar-admin-section {
+  margin-top: 0.8rem;
+}
+
+
+
+
   </style>
 </head>
 <body>
-  <!-- Fixed top-right admin button (hidden) -->
+  <!-- ADMIN Button (fixed top-right) -->
   <button id="adminBtn">ADMIN</button>
 
-  <div class="top-search-bar">
-    <div class="main-search-container">
-      <input type="search" id="mainImageSearch" placeholder="Search images...">
-    </div>
+<div class="top-search-bar">
+  <div class="main-search-container">
+    <input type="search" id="mainImageSearch" placeholder="Search images...">
   </div>
+</div>
 
   <!-- MAIN CONTAINER (Sidebar + Main Content) -->
   <div class="main-container">
@@ -624,9 +693,9 @@
           <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
         </div>
-        <hr class="separator">
+		<hr class="separator">
         <div class="sidebar-admin-section">
-          <button id="adminAccessBtn" class="admin-access-btn">ADMIN</button>
+          <button id="adminAccessBtn" class="admin-access-btn">Admin Access</button>
         </div>
       </div>
     </div>
@@ -742,7 +811,9 @@
       messagingSenderId: "954877853554",
       appId: "1:954877853554:web:4492547898026cf1afe7eb"
     };
-    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const db = firebase.firestore();
 
     // Initial variables
@@ -810,64 +881,93 @@
     const moveDestinationSelect = document.getElementById("moveDestinationSelect");
     const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
 
-    // Admin login related – only the sidebar admin button is visible
-    const adminAccessBtn = document.getElementById("adminAccessBtn");
+    // Admin sidebar buttons
+    const newFolderAdminBtn = document.getElementById("newFolderAdminBtn");
+    const addImageAdminBtn = document.getElementById("addImageAdminBtn");
 
     // Admin login elements
+    const adminBtn = document.getElementById("adminBtn");
     const adminModal = document.getElementById("adminModal");
     const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
     const adminPasswordInput = document.getElementById("adminPassword");
 
-    // All editing buttons in the sidebar footer except the adminAccessBtn, and the separators
-    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
+    // All editing buttons in the sidebar footer and separators
+    const editButtons = document.querySelectorAll(".sidebar-footer button");
     const separators = document.querySelectorAll(".separator");
 
-    // Hide editing buttons and separators by default
+    // Hide edit buttons and separators by default
     document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => { button.style.display = "none"; });
       separators.forEach(separator => { separator.style.display = "none"; });
     });
 
-    const mainImageSearch = document.getElementById("mainImageSearch");
-    mainImageSearch.addEventListener("input", searchImages);
+const mainImageSearch = document.getElementById("mainImageSearch");
 
-    function searchImages() {
-      const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
-      const allImages = document.querySelectorAll(".image-container");
-      if (query !== "") {
-        allImages.forEach(container => {
-          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-          const imgAlt = container.querySelector("img").alt.toLowerCase();
-          if (keywords.includes(query) || imgAlt.includes(query))
-            container.classList.remove("hidden");
-          else container.classList.add("hidden");
-        });
-      } else {
-        filterImages(currentFolderFilter);
-      }
-    }
+const adminAccessBtn = document.getElementById("adminAccessBtn");
+adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
 
+// Add the event listener for the new search box
+mainImageSearch.addEventListener("input", searchImages);
+
+
+// Update the searchImages function to use the new search input
+function searchImages() {
+  // Get the search query from either search input
+  const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
+  const allImages = document.querySelectorAll(".image-container");
+  
+  if (query !== "") {
+    allImages.forEach(container => {
+      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+      const imgAlt = container.querySelector("img").alt.toLowerCase();
+      if (keywords.includes(query) || imgAlt.includes(query))
+        container.classList.remove("hidden");
+      else container.classList.add("hidden");
+    });
+  } else {
+    filterImages(currentFolderFilter);
+  }
+}
+
+    /********************************************************
+     * Enlarge Image Modal Functionality
+     ********************************************************/
     document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
-      if (e.target.id === "enlargeImageModal") { this.style.display = "none"; }
+      if (e.target.id === "enlargeImageModal") {
+        this.style.display = "none";
+      }
     });
 
+    /********************************************************
+     * Netlify Upload Function
+     ********************************************************/
     async function uploadImage(file) {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch('/.netlify/functions/upload', { method: 'POST', body: formData });
+      const response = await fetch('/.netlify/functions/upload', {
+        method: 'POST',
+        body: formData,
+      });
       const data = await response.json();
       console.log('Upload response:', data);
       return data.url;
     }
 
+    /********************************************************
+     * Firebase Data Syncing
+     ********************************************************/
     async function loadFoldersFromFirebase() {
       try {
         const foldersSnapshot = await db.collection('folders').get();
         if (foldersSnapshot.empty) {
           console.log('No folders found, initializing defaults');
           folders.forEach(folder => {
-            db.collection('folders').add({ name: folder, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+            db.collection('folders').add({
+              name: folder,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
           });
         } else {
           folders = [];
@@ -881,7 +981,10 @@
 
     async function saveFolderToFirebase(folderName) {
       try {
-        await db.collection('folders').add({ name: folderName, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+        await db.collection('folders').add({
+          name: folderName,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
         console.log('Folder saved to Firestore:', folderName);
       } catch (error) {
         console.error('Error saving folder:', error);
@@ -951,8 +1054,8 @@
         imagesSnapshot.forEach(doc => {
           const imageData = doc.data();
           addImageToGallery(
-            imageData.url,
-            imageData.folder || 'all',
+            imageData.url, 
+            imageData.folder || 'all', 
             imageData.keywords || '',
             imageData.filename || 'image',
             imageData.addTime || Date.now()
@@ -975,6 +1078,9 @@
       }
     }
 
+    /********************************************************
+     * UI Functions
+     ********************************************************/
     function addImageToGallery(url, folder, keywords, filename, addTime) {
       const container = document.createElement('div');
       container.classList.add('image-container');
@@ -985,22 +1091,25 @@
       const img = document.createElement('img');
       img.src = url;
       img.alt = filename;
-      // Enlarge image on click (unless in delete or move mode)
-      img.addEventListener("click", function(e) {
-        if (isDeleteMode || isMoveMode) return;
-        e.stopPropagation();
-        const enlargeModal = document.getElementById("enlargeImageModal");
-        const enlargeImg = document.getElementById("enlargeImage");
-        enlargeImg.src = url;
-        enlargeModal.style.display = "flex";
-      });
+      // Enlarge image on click
+img.addEventListener("click", function(e) {
+  // When in delete or move mode, don't trigger the enlarge modal.
+  if (isDeleteMode || isMoveMode) return;
+  e.stopPropagation();
+  const enlargeModal = document.getElementById("enlargeImageModal");
+  const enlargeImg = document.getElementById("enlargeImage");
+  enlargeImg.src = url;
+  enlargeModal.style.display = "flex";
+});
 
+      
       const downloadLink = document.createElement('a');
       downloadLink.classList.add('download-btn');
       downloadLink.textContent = 'Download';
       downloadLink.href = url;
       downloadLink.download = filename;
       downloadLink.target = "_self";
+      // Prevent propagation so the image does not enlarge when clicking download.
       downloadLink.addEventListener("click", function(e) {
           e.stopPropagation();
       });
@@ -1165,9 +1274,12 @@
       imagesArray.forEach(img => gallery.appendChild(img));
     }
 
-    /* Delete Image Functions */
+    /********************************************************
+     * Delete Image Functions
+     ********************************************************/
     function toggleDeleteMode() {
       isDeleteMode = !isDeleteMode;
+      
       if (isDeleteMode) {
         const allImages = document.querySelectorAll(".image-container");
         allImages.forEach(container => {
@@ -1230,9 +1342,12 @@
       }
     }
 
-    /* Move Image Functions */
+    /********************************************************
+     * Move Image Functions
+     ********************************************************/
     function toggleMoveMode() {
       isMoveMode = !isMoveMode;
+      
       if (isMoveMode) {
         const allImages = document.querySelectorAll(".image-container");
         allImages.forEach(container => {
@@ -1318,7 +1433,9 @@
           const imageUrl = container.querySelector("img").src;
           const imageId = await findImageIdByUrl(imageUrl);
           if (imageId) {
-            await db.collection('images').doc(imageId).update({ folder: destinationFolder });
+            await db.collection('images').doc(imageId).update({
+              folder: destinationFolder
+            });
             container.setAttribute('data-category', destinationFolder);
             return true;
           }
@@ -1334,15 +1451,29 @@
       }
     }
 
+    /********************************************************
+     * Enlarge Image Modal Closure (click outside image)
+     ********************************************************/
     document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
       if (e.target.id === "enlargeImageModal") { this.style.display = "none"; }
     });
 
-    /* Event Listeners */
-    document.getElementById("closeFolderModalBtn").addEventListener("click", () => { folderModal.classList.remove("active"); });
+    /********************************************************
+     * Event Listeners
+     ********************************************************/
+    // Folder Modal handling
+    document.getElementById("closeFolderModalBtn").addEventListener("click", () => {
+      folderModal.classList.remove("active");
+    });
     folderModal.addEventListener("click", (e) => { if(e.target === folderModal) folderModal.classList.remove("active"); });
-    document.getElementById("closeImageModalBtn").addEventListener("click", () => { imageModal.classList.remove("active"); });
+
+    // Image Modal handling
+    document.getElementById("closeImageModalBtn").addEventListener("click", () => {
+      imageModal.classList.remove("active");
+    });
     imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
+
+    // Rename Folder Modal handling
     renameFolderBtn.addEventListener("click", () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
       if (!selectedEl) { alert("Please select a folder to rename."); return; }
@@ -1352,6 +1483,8 @@
     });
     closeRenameFolderModalBtn.addEventListener("click", () => { renameFolderModal.classList.remove("active"); });
     renameFolderModal.addEventListener("click", (e) => { if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); });
+
+    // Delete Folder button
     deleteFolderBtn.addEventListener("click", async () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
       if (!selectedEl) { alert("Please select a folder to delete."); return; }
@@ -1366,7 +1499,9 @@
       await deleteFolderFromFirebase(currentFullName);
       renderFolders();
     });
-    confirmRenameFolderBtn.addEventListener("click", async () => {
+
+    // Confirm Rename Folder button
+      confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
       if (!newName) { alert("Please enter a new name."); return; }
       const selectedEl = document.querySelector(".folder-list li.selected");
@@ -1387,12 +1522,16 @@
         updatedFolders = folders.map(f => (f === currentFullName ? newFullName : f));
         await renameFolderInFirebase(currentFullName, newFullName);
       }
-      folders = updatedFolders;
-      renameFolderModal.classList.remove("active");
-      renderFolders();
+        folders = updatedFolders;
+        renameFolderModal.classList.remove("active");
+        renderFolders();
     });
+
+    // New Admin Buttons to open modals
     newFolderAdminBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
     addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
+
+    // Confirm Add Image button
     confirmAddImageBtn.addEventListener("click", async () => {
       if (!fileInput.files[0]) { alert("Please select an image file first."); return; }
       const folderValue = folderSelect.value || 'all';
@@ -1411,16 +1550,22 @@
         alert("Upload failed: " + error.message);
       }
     });
+
+    // Delete and Move mode event listeners
     deleteImageBtn.addEventListener("click", toggleDeleteMode);
     confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
     cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
+
     moveImageBtn.addEventListener("click", toggleMoveMode);
     confirmMoveImagesBtn.addEventListener("click", showMoveDestinationModal);
     cancelMoveImagesBtn.addEventListener("click", toggleMoveMode);
+
     closeMoveDestinationModalBtn.addEventListener("click", () => { moveDestinationModal.classList.remove("active"); });
     moveDestinationModal.addEventListener("click", (e) => { if (e.target === moveDestinationModal) { moveDestinationModal.classList.remove("active"); } });
     confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
+
     imageSearch.addEventListener("input", searchImages);
+
     filterButton.addEventListener("click", (e) => {
       e.stopPropagation();
       filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
@@ -1445,8 +1590,8 @@
       });
     });
 
-    // ADMIN Login Event Listeners (using the sidebar admin button)
-    adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+    // ADMIN Login Event Listeners
+    adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
     closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
     confirmAdminBtn.addEventListener("click", () => {
       const correctPassword = "admin123"; // Change as needed
