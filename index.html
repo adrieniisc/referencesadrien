@@ -1548,19 +1548,48 @@
   }
 });
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      try {
-        console.log("DOM loaded, initializing application...");
-        await loadFoldersFromFirebase();
-        await loadImagesFromFirebase();
-        const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
-        if (allFolder) { allFolder.classList.add("selected"); }
-        console.log("App initialized successfully!");
-      } catch (error) {
-        console.error("Error initializing app:", error);
-        alert("Error initializing app: " + error.message);
-      }
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    console.log("DOM loaded, initializing application...");
+    
+    // Initialize Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    
+    // Set up admin button
+    adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+    adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+    
+    // Load data
+    await loadFoldersFromFirebase();
+    await loadImagesFromFirebase();
+    
+    // Select "All" folder by default
+    const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
+    if (allFolder) { 
+      allFolder.classList.add("selected"); 
+      allFolder.click(); // Trigger the click to load images
+    }
+    
+    // Set up size icons
+    const sizeIcons = document.querySelectorAll(".size-icon");
+    sizeIcons.forEach(icon => {
+      icon.addEventListener("click", () => {
+        sizeIcons.forEach(i => i.classList.remove("selected"));
+        icon.classList.add("selected");
+        const newSize = icon.getAttribute("data-size");
+        document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
+      });
     });
+    
+    console.log("App initialized successfully!");
+  } catch (error) {
+    console.error("Error initializing app:", error);
+    alert("Error initializing app: " + error.message);
+  }
+});
+
   </script>
 </body>
 </html>
