@@ -14,7 +14,7 @@
        - Main area: lighter background (#ffffff) and dark text (#1c1c1e)
        - Sidebar: dark background (#000000) with light text (#f2f2f7)
     -------------------------------------------------- */
-     :root {
+    :root {
       --main-bg: #232323;      /* main area */
       --main-text: #f2f2f7;      /* text for main area */
       --side-bg:    #171717;     /* sidebar */
@@ -38,10 +38,12 @@
     body { display: flex; flex-direction: column; }
 
     /* --------------------------------------------------
-       Fixed ADMIN Button in Top-Right Corner (removed)
-         (The fixed #adminBtn is now hidden.)
+       Fixed ADMIN Button in Top-Right Corner
+         (This fixed button is hidden in favor of the sidebar button.)
     -------------------------------------------------- */
-    #adminBtn { display: none; }
+    #adminBtn {
+      display: none;
+    }
 
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
@@ -54,7 +56,7 @@
 
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
-         (Sidebar is set to span full page height)
+         (Sidebar spans full height)
     -------------------------------------------------- */
     .sidebar {
       width: fit-content;
@@ -562,7 +564,8 @@
   </style>
 </head>
 <body>
-  <!-- The fixed top-right admin button (#adminBtn) is removed -->
+  <!-- Fixed top-right admin button (hidden) -->
+  <button id="adminBtn">ADMIN</button>
 
   <div class="top-search-bar">
     <div class="main-search-container">
@@ -724,9 +727,7 @@
       messagingSenderId: "954877853554",
       appId: "1:954877853554:web:4492547898026cf1afe7eb"
     };
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
     const db = firebase.firestore();
 
     // Initial variables
@@ -794,9 +795,7 @@
     const moveDestinationSelect = document.getElementById("moveDestinationSelect");
     const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
 
-    // Admin sidebar buttons (the admin access button in the sidebar footer)
-    const newFolderAdminBtn = document.getElementById("newFolderAdminBtn");
-    const addImageAdminBtn = document.getElementById("addImageAdminBtn");
+    // Admin sidebar button (visible by default)
     const adminAccessBtn = document.getElementById("adminAccessBtn");
 
     // Admin login elements
@@ -805,20 +804,17 @@
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
     const adminPasswordInput = document.getElementById("adminPassword");
 
-    // All editing buttons in the sidebar footer and separators
-    // Only select buttons that are NOT the adminAccessBtn
+    // All editing buttons in the sidebar footer except the adminAccessBtn, and the separators
     const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
     const separators = document.querySelectorAll(".separator");
 
-    // Hide editing buttons and separators by default (keeping the adminAccessBtn visible)
+    // Hide editing buttons and separators by default
     document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => { button.style.display = "none"; });
       separators.forEach(separator => { separator.style.display = "none"; });
     });
 
     const mainImageSearch = document.getElementById("mainImageSearch");
-
-    // New search box event
     mainImageSearch.addEventListener("input", searchImages);
 
     function searchImages() {
@@ -844,10 +840,7 @@
     async function uploadImage(file) {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch('/.netlify/functions/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await fetch('/.netlify/functions/upload', { method: 'POST', body: formData });
       const data = await response.json();
       console.log('Upload response:', data);
       return data.url;
@@ -859,10 +852,7 @@
         if (foldersSnapshot.empty) {
           console.log('No folders found, initializing defaults');
           folders.forEach(folder => {
-            db.collection('folders').add({
-              name: folder,
-              timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            db.collection('folders').add({ name: folder, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
           });
         } else {
           folders = [];
@@ -876,10 +866,7 @@
 
     async function saveFolderToFirebase(folderName) {
       try {
-        await db.collection('folders').add({
-          name: folderName,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        await db.collection('folders').add({ name: folderName, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
         console.log('Folder saved to Firestore:', folderName);
       } catch (error) {
         console.error('Error saving folder:', error);
@@ -949,8 +936,8 @@
         imagesSnapshot.forEach(doc => {
           const imageData = doc.data();
           addImageToGallery(
-            imageData.url, 
-            imageData.folder || 'all', 
+            imageData.url,
+            imageData.folder || 'all',
             imageData.keywords || '',
             imageData.filename || 'image',
             imageData.addTime || Date.now()
@@ -1083,7 +1070,7 @@
         parentOpt.value = parent;
         parentOpt.textContent = parent;
         folderSelect.appendChild(parentOpt);
-        
+
         if (structure[parent] && structure[parent].length > 0) {
           structure[parent].forEach(child => {
             const childOpt = document.createElement("option");
@@ -1337,16 +1324,10 @@
     });
 
     /* Event Listeners */
-    document.getElementById("closeFolderModalBtn").addEventListener("click", () => {
-      folderModal.classList.remove("active");
-    });
+    document.getElementById("closeFolderModalBtn").addEventListener("click", () => { folderModal.classList.remove("active"); });
     folderModal.addEventListener("click", (e) => { if(e.target === folderModal) folderModal.classList.remove("active"); });
-
-    document.getElementById("closeImageModalBtn").addEventListener("click", () => {
-      imageModal.classList.remove("active");
-    });
+    document.getElementById("closeImageModalBtn").addEventListener("click", () => { imageModal.classList.remove("active"); });
     imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
-
     renameFolderBtn.addEventListener("click", () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
       if (!selectedEl) { alert("Please select a folder to rename."); return; }
@@ -1356,7 +1337,6 @@
     });
     closeRenameFolderModalBtn.addEventListener("click", () => { renameFolderModal.classList.remove("active"); });
     renameFolderModal.addEventListener("click", (e) => { if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); });
-
     deleteFolderBtn.addEventListener("click", async () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
       if (!selectedEl) { alert("Please select a folder to delete."); return; }
@@ -1371,7 +1351,6 @@
       await deleteFolderFromFirebase(currentFullName);
       renderFolders();
     });
-
     confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
       if (!newName) { alert("Please enter a new name."); return; }
@@ -1397,10 +1376,8 @@
       renameFolderModal.classList.remove("active");
       renderFolders();
     });
-
     newFolderAdminBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
     addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
-
     confirmAddImageBtn.addEventListener("click", async () => {
       if (!fileInput.files[0]) { alert("Please select an image file first."); return; }
       const folderValue = folderSelect.value || 'all';
@@ -1419,21 +1396,16 @@
         alert("Upload failed: " + error.message);
       }
     });
-
     deleteImageBtn.addEventListener("click", toggleDeleteMode);
     confirmDeleteImagesBtn.addEventListener("click", deleteSelectedImages);
     cancelDeleteImagesBtn.addEventListener("click", toggleDeleteMode);
-
     moveImageBtn.addEventListener("click", toggleMoveMode);
     confirmMoveImagesBtn.addEventListener("click", showMoveDestinationModal);
     cancelMoveImagesBtn.addEventListener("click", toggleMoveMode);
-
     closeMoveDestinationModalBtn.addEventListener("click", () => { moveDestinationModal.classList.remove("active"); });
     moveDestinationModal.addEventListener("click", (e) => { if (e.target === moveDestinationModal) { moveDestinationModal.classList.remove("active"); } });
     confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
-
     imageSearch.addEventListener("input", searchImages);
-
     filterButton.addEventListener("click", (e) => {
       e.stopPropagation();
       filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
@@ -1459,12 +1431,13 @@
     });
 
     // ADMIN Login Event Listeners (using the sidebar admin button)
+    // Only attach to adminAccessBtn (the fixed #adminBtn is hidden)
+    adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
     closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
     confirmAdminBtn.addEventListener("click", () => {
       const correctPassword = "admin123"; // Change as needed
       if (adminPasswordInput.value === correctPassword) {
-        // Reveal all the hidden editing buttons except the adminAccessBtn
-        document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)").forEach(button => { button.style.display = "block"; });
+        editButtons.forEach(button => { button.style.display = "block"; });
         separators.forEach(separator => { separator.style.display = "block"; });
         adminModal.classList.remove("active");
       } else {
