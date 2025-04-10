@@ -573,6 +573,7 @@
       width: 100%;
       text-align: center;
       margin-top: 0.4rem;
+      display: block !important;
     }
 
     .admin-access-btn:hover {
@@ -581,6 +582,7 @@
 
     /* Add a bit more space above the admin button */
     .sidebar-admin-section {
+      display: block !important;
       margin-top: 0.8rem;
     }
   </style>
@@ -616,23 +618,25 @@
         <!-- Folder items will be generated dynamically -->
       </ul>
       <!-- SIDEBAR FOOTER: Admin Editing Controls -->
-      <div class="sidebar-footer">
-        <div class="admin-top-buttons">
-          <button id="newFolderAdminBtn">Add Folder</button>
-          <button id="addImageAdminBtn">Add Image</button>
-        </div>
-        <hr class="separator">
-        <div class="admin-bottom-buttons">
-          <button id="moveImageBtn" class="move-btn">Move Images</button>
-          <button id="renameFolderBtn">Rename Folder</button>
-          <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
-          <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
-        </div>
-        <hr class="separator">
-        <div class="sidebar-admin-section">
-          <button id="adminAccessBtn" class="admin-access-btn">Admin Access</button>
-        </div>
-      </div>
+     <div class="sidebar-footer">
+  <!-- These will be hidden by default -->
+  <div class="admin-top-buttons">
+    <button id="newFolderAdminBtn">Add Folder</button>
+    <button id="addImageAdminBtn">Add Image</button>
+  </div>
+  <hr class="separator">
+  <div class="admin-bottom-buttons">
+    <button id="moveImageBtn" class="move-btn">Move Images</button>
+    <button id="renameFolderBtn">Rename Folder</button>
+    <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
+    <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
+  </div>
+  <hr class="separator">
+  <!-- This will always be visible -->
+  <div class="sidebar-admin-section">
+    <button id="adminAccessBtn" class="admin-access-btn">Admin Access</button>
+  </div>
+</div>
     </div>
     <!-- Move Controls -->
     <div class="move-controls" id="moveControls">
@@ -831,11 +835,16 @@
     const editButtons = document.querySelectorAll(".sidebar-footer button");
     const separators = document.querySelectorAll(".separator");
 
-    // Hide edit buttons and separators by default
-    document.addEventListener("DOMContentLoaded", () => {
-      editButtons.forEach(button => { button.style.display = "none"; });
-      separators.forEach(separator => { separator.style.display = "none"; });
-    });
+
+    // Hide all admin buttons EXCEPT the admin access button
+    
+  document.addEventListener("DOMContentLoaded", () => {  
+  document.querySelectorAll('.admin-top-buttons button, .admin-bottom-buttons button').forEach(button => { 
+    button.style.display = "none"; 
+  });
+  // Hide separators too if needed
+  separators.forEach(separator => { separator.style.display = "none"; });
+});
 
     const mainImageSearch = document.getElementById("mainImageSearch");
 
@@ -1525,17 +1534,19 @@
 
     // ADMIN Login Event Listeners
     adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
-    closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
     confirmAdminBtn.addEventListener("click", () => {
-      const correctPassword = "admin123"; // Change as needed
-      if (adminPasswordInput.value === correctPassword) {
-        editButtons.forEach(button => { button.style.display = "block"; });
-        separators.forEach(separator => { separator.style.display = "block"; });
-        adminModal.classList.remove("active");
-      } else {
-        alert("Incorrect password. Please try again.");
-      }
+  const correctPassword = "admin123"; // Change as needed
+  if (adminPasswordInput.value === correctPassword) {
+    // Show all admin buttons (except the access button which is always visible)
+    document.querySelectorAll('.admin-top-buttons button, .admin-bottom-buttons button').forEach(button => { 
+      button.style.display = "block"; 
     });
+    separators.forEach(separator => { separator.style.display = "block"; });
+    adminModal.classList.remove("active");
+  } else {
+    alert("Incorrect password. Please try again.");
+  }
+});
 
     document.addEventListener("DOMContentLoaded", async () => {
       try {
