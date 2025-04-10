@@ -517,11 +517,52 @@
       max-height: 90%;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
+
+/* Top bar for search */
+.top-search-bar {
+  width: 100%;
+  padding: 10px 0;
+  background-color: var(--main-bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Search container style - centered and with proper width */
+.main-search-container {
+  width: 60%;
+  max-width: 800px;
+  position: relative;
+}
+
+/* Style for the search input */
+#mainImageSearch {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: #1c1c1e;
+  color: var(--main-text);
+  font-size: 0.9rem;
+}
+
+/* Hide the sidebar search */
+.sidebar .search-bar-container {
+  display: none;
+}
+
   </style>
 </head>
 <body>
   <!-- ADMIN Button (fixed top-right) -->
   <button id="adminBtn">ADMIN</button>
+
+<div class="top-search-bar">
+  <div class="main-search-container">
+    <input type="search" id="mainImageSearch" placeholder="Search images...">
+  </div>
+</div>
 
   <!-- MAIN CONTAINER (Sidebar + Main Content) -->
   <div class="main-container">
@@ -762,6 +803,30 @@
       editButtons.forEach(button => { button.style.display = "none"; });
       separators.forEach(separator => { separator.style.display = "none"; });
     });
+
+const mainImageSearch = document.getElementById("mainImageSearch");
+
+// Add the event listener for the new search box
+mainImageSearch.addEventListener("input", searchImages);
+
+// Update the searchImages function to use the new search input
+function searchImages() {
+  // Get the search query from either search input
+  const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
+  const allImages = document.querySelectorAll(".image-container");
+  
+  if (query !== "") {
+    allImages.forEach(container => {
+      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+      const imgAlt = container.querySelector("img").alt.toLowerCase();
+      if (keywords.includes(query) || imgAlt.includes(query))
+        container.classList.remove("hidden");
+      else container.classList.add("hidden");
+    });
+  } else {
+    filterImages(currentFolderFilter);
+  }
+}
 
     /********************************************************
      * Enlarge Image Modal Functionality
