@@ -20,7 +20,7 @@
       --side-bg:    #1c1c1e;     /* sidebar */
       --side-text:  #f2f2f7;     /* text for sidebar */
       --border-color: #3a3a3c;
-      --highlight-color: #0a84ff;
+      --highlight-color: #555555;
       --thumbnail-size: 360px;
     }
 
@@ -311,6 +311,13 @@
       color: var(--main-text);
       transition: background-color 0.2s, border-color 0.2s;
     }
+
+    .size-icon.selected {
+  background-color: var(--highlight-color);
+  border-color: var(--highlight-color);
+  color: #fff;
+}
+
 
     /* --------------------------------------------------
        Modal for Folder, Image, Rename, Admin
@@ -917,13 +924,16 @@
       img.src = url;
       img.alt = filename;
       // Enlarge image on click
-      img.addEventListener("click", function(e) {
-          e.stopPropagation();
-          const enlargeModal = document.getElementById("enlargeImageModal");
-          const enlargeImg = document.getElementById("enlargeImage");
-          enlargeImg.src = url;
-          enlargeModal.style.display = "flex";
-      });
+img.addEventListener("click", function(e) {
+  // When in delete or move mode, don't trigger the enlarge modal.
+  if (isDeleteMode || isMoveMode) return;
+  e.stopPropagation();
+  const enlargeModal = document.getElementById("enlargeImageModal");
+  const enlargeImg = document.getElementById("enlargeImage");
+  enlargeImg.src = url;
+  enlargeModal.style.display = "flex";
+});
+
       
       const downloadLink = document.createElement('a');
       downloadLink.classList.add('download-btn');
@@ -1345,7 +1355,8 @@
         await renameFolderInFirebase(currentFullName, newFullName);
       }
       folders = updatedFolders;
-      renameFolderModal.classList.remove("active");
+      renameFolderModal.classList.remove("active");terMenu.style.display === "block") ? "none" : "block";
+    });
       renderFolders();
     });
 
