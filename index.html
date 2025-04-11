@@ -1702,7 +1702,10 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
    document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("DOM loaded, initializing application...");
-    document.getElementById("customizeUIBtn").style.display = "block"; // Make sure UI button is shown
+    document.getElementById("customizeUIBtn").style.display = "block";
+    const customizeBtn = document.getElementById("customizeUIBtn");
+    customizeBtn.style.display = "block";
+    customizeBtn.style.backgroundColor = "#2c2c2e";
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
     const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
