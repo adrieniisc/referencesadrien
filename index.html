@@ -1056,25 +1056,45 @@
         enlargeModal.style.display = "flex";
       });
 
-      const downloadLink = document.createElement('a');
+// Replace your existing download link creation code with this:
+const downloadLink = document.createElement('a');
 downloadLink.classList.add('download-btn');
 downloadLink.textContent = 'Download';
 downloadLink.href = url;
-downloadLink.download = filename; // This attribute is key for downloads
-downloadLink.target = "_blank"; // Change to _blank
-// Prevent propagation so the image does not enlarge when clicking download.
+downloadLink.download = filename; // Set the download attribute
+downloadLink.target = "_blank"; 
+
+// Use this event handler to force download behavior
 downloadLink.addEventListener("click", function(e) {
-    e.stopPropagation();
-    // Force download using a temporary link
-    const tempLink = document.createElement('a');
-    tempLink.href = url;
-    tempLink.setAttribute('download', filename);
-    tempLink.style.display = 'none';
-    document.body.appendChild(tempLink);
-    tempLink.click();
-    document.body.removeChild(tempLink);
-    // Prevent default navigation
-    e.preventDefault();
+    e.preventDefault(); // Prevent the default navigation
+    e.stopPropagation(); // Prevent enlarging the image
+    
+    // Use fetch to get the image as a blob
+    fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+            // Create an object URL from the blob
+            const blobUrl = URL.createObjectURL(blob);
+            
+            // Create a temporary link and trigger download
+            const tempLink = document.createElement('a');
+            tempLink.href = blobUrl;
+            tempLink.download = filename;
+            tempLink.style.display = 'none';
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(tempLink);
+                URL.revokeObjectURL(blobUrl);
+            }, 100);
+        })
+        .catch(error => {
+            console.error('Download failed:', error);
+            // Fallback to opening in new tab if fetch fails
+            window.open(url, '_blank');
+        });
 });
 
       container.appendChild(img);
