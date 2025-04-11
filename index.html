@@ -57,19 +57,20 @@
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
-    .sidebar {
-      width: fit-content;
-      min-width: 220px;
-      background-color: var(--side-bg);
-      padding: 0.8rem;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      color: var(--side-text);
-      z-index: 1100;
-      height: 100%;
-      overflow-y: auto;
-    }
+.sidebar {
+  width: fit-content;
+  min-width: 270px; /* Increased from 220px to 270px (+50px) */
+  background-color: var(--side-bg);
+  /* border-right: 1px solid var(--border-color); */ /* Already removed as per previous request */
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  color: var(--side-text);
+  z-index: 1100;
+  height: 100%;
+  overflow-y: auto;
+}
     .search-bar-container {
       display: none; /* Hide the sidebar search */
     }
@@ -517,23 +518,23 @@
     /* --------------------------------------------------
        Top Search Bar
     -------------------------------------------------- */
-    .top-search-bar {
-      position: absolute;
-      top: 15px;
-      left: 240px; /* Match sidebar width */
-      right: 0;
-      z-index: 1000;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-    }
+.top-search-bar {
+  position: absolute;
+  top: 15px;
+  left: 290px; /* Updated from 240px to 290px (+50px) to match new sidebar width */
+  right: 0;
+  z-index: 1000;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
 
-    .main-search-container {
-      width: calc(100% - 260px); /* Account for sidebar */
-      max-width: 700px;
-      margin: 0 auto;
-      position: relative;
-    }
+.main-search-container {
+  width: calc(100% - 310px); /* Updated from 260px to 310px (+50px) */
+  max-width: 700px;
+  margin: 0 auto;
+  position: relative;
+}
 
     #mainImageSearch {
       width: 100%;
