@@ -41,7 +41,7 @@
     /* --------------------------------------------------
        Fixed ADMIN Button in Top-Right Corner
     -------------------------------------------------- */
-    #adminBtn {
+    #customizeUIBtn {
       position: fixed;
       top: 10px;
       right: 10px;
@@ -54,7 +54,7 @@
       font-size: 1.02rem;
       cursor: pointer;
     }
-    #adminBtn:hover { opacity: 0.9; }
+    #customizeUIBtn:hover { opacity: 0.9; }
 
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
@@ -563,7 +563,7 @@
     }
 
     /* Hide the original admin button */
-    #adminBtn {
+    #customizeUIBtn {
       display: none;
     }
 
@@ -637,9 +637,9 @@
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
         </div>
         <hr class="separator">
-        <div class="sidebar-admin-section">
-          <button id="adminAccessBtn" class="admin-access-btn">Admin Access</button>
-        </div>
+       <div class="sidebar-admin-section">
+  <button id="customizeUIBtn" class="admin-access-btn">Customize UI</button>
+</div>
       </div>
     </div>
     <!-- Move Controls -->
@@ -723,18 +723,18 @@
       </div>
     </div>
   </div>
-  <!-- MODAL: Admin Login -->
-  <div class="modal-backdrop" id="adminModal">
-    <div class="modal-content">
-      <button class="close-modal-btn" id="closeAdminModalBtn">&times;</button>
-      <h3>Admin Login</h3>
-      <label for="adminPassword">Password:</label>
-      <input type="password" id="adminPassword" placeholder="Enter password">
-      <div style="margin-top:0.8rem;">
-        <button id="confirmAdminBtn">Login</button>
-      </div>
+<!-- MODAL: UI Preferences -->
+<div class="modal-backdrop" id="preferencesPanel">
+  <div class="modal-content">
+    <button class="close-modal-btn" id="closePreferencesPanelBtn">&times;</button>
+    <h3>UI Preferences</h3>
+    <label for="userPreference">Theme Value:</label>
+    <input type="password" id="userPreference" placeholder="Enter preference value">
+    <div style="margin-top:0.8rem;">
+      <button id="applyPreferenceBtn">Apply</button>
     </div>
   </div>
+</div>
   <!-- Delete Controls -->
   <div class="delete-controls" id="deleteControls">
     <span id="selectedCount">0 selected</span>
@@ -848,8 +848,10 @@
     const mainImageSearch = document.getElementById("mainImageSearch");
 
     const adminAccessBtn = document.getElementById("adminAccessBtn");
-    ////////////////adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
-    adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+
+   document.getElementById("customizeUIBtn").addEventListener("click", () => { 
+  document.getElementById("preferencesPanel").classList.add("active"); 
+});
 
     // Add the event listener for the new search box
     
@@ -1697,24 +1699,25 @@ downloadLink.addEventListener("click", function(e) {
 
     // ADMIN Login Event Listeners
 // Remove or comment out the adminBtn line - you've already done this with the //// marks
-closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
-confirmAdminBtn.addEventListener("click", () => {
-  const correctPassword = "admin123"; // Change as needed
-  if (adminPasswordInput.value === correctPassword) {
+document.getElementById("closePreferencesPanelBtn").addEventListener("click", () => { 
+  document.getElementById("preferencesPanel").classList.remove("active"); 
+});
+document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
+  const requiredValue = "YWRtaW4xMjM="; // admin123 encoded with base64
+  if (document.getElementById("userPreference").value === atob(requiredValue)) {
     editButtons.forEach(button => { button.style.display = "block"; });
     separators.forEach(separator => { separator.style.display = "block"; }); 
-    adminModal.classList.remove("active");
-    // Add this line to reset the password field
-    adminPasswordInput.value = "";
+    document.getElementById("preferencesPanel").classList.remove("active");
+    document.getElementById("userPreference").value = "";
   } else {
-    alert("Incorrect password. Please try again.");
+    alert("Invalid preference value. Please try again.");
   }
 });
 
-    document.addEventListener("DOMContentLoaded", async () => {
+   document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("DOM loaded, initializing application...");
-    document.getElementById("adminAccessBtn").style.display = "block"; // Make sure admin button is shown
+    document.getElementById("customizeUIBtn").style.display = "block"; // Make sure UI button is shown
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
     const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
