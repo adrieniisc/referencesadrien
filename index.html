@@ -946,23 +946,22 @@
       }
     }
 
-    async function deleteFolderFromFirebase(folderName) {
-      try {
-        const querySnapshot = await db.collection('folders').where('name', '==', folderName).get();
-        querySnapshot.forEach(doc => { doc.ref.delete(); });
-        if (!folderName.includes('/')) {
-          const childSnapshot = await db.collection('folders')
-            .where('name', '>=', folderName + '/')
-            .where('name', '<', folderName + '0')
-            .get();
-          childSnapshot.forEach(doc => { doc.ref.delete(); });
-        }
-        console.log('Folder deleted from Firestore:', folderName);
-      } catch (error) {
-        console.error('Error deleting folder:', error);
-      }
+   async function deleteFolderFromFirebase(folderName) {
+  try {
+    const querySnapshot = await db.collection('folders').where('name', '==', folderName).get();
+    querySnapshot.forEach(doc => { doc.ref.delete(); });
+    if (!folderName.includes('/')) {
+      const childSnapshot = await db.collection('folders')
+        .where('name', '>=', folderName + '/')
+        .where('name', '<', folderName + '0')
+        .get();
+      childSnapshot.forEach(doc => { doc.ref.delete(); });
     }
-
+    console.log('Folder deleted from Firestore:', folderName);
+  } catch (error) {
+    console.error('Error deleting folder:', error);
+  }
+}
     async function renameFolderInFirebase(oldName, newName) {
       try {
         const folderSnapshot = await db.collection('folders').where('name', '==', oldName).get();
@@ -1489,20 +1488,92 @@
     renameFolderModal.addEventListener("click", (e) => { if(e.target === renameFolderModal) renameFolderModal.classList.remove("active"); });
 
     // Delete Folder button
-    deleteFolderBtn.addEventListener("click", async () => {
-      const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) { alert("Please select a folder to delete."); return; }
-      const currentFullName = selectedEl.getAttribute("data-filter");
-      if (currentFullName === "all") { alert("Cannot delete 'All'."); return; }
-      if (!confirm(`Are you sure you want to delete folder "${currentFullName}"?`)) return;
-      if (!currentFullName.includes("/")) {
-        folders = folders.filter(f => f !== currentFullName && !f.startsWith(currentFullName + "/"));
-      } else {
-        folders = folders.filter(f => f !== currentFullName);
+   deleteFolderBtn.addEventListener("click", async () => {
+  // Get the selected folder
+  const selectedEl = document.querySelector(".folder-list li.selected");
+  if (!selectedEl) { 
+    alert("Please select a folder to delete."); 
+    return; 
+  }
+  
+  // Get the folder name to delete
+  const folderToDelete = selectedEl.getAttribute("data-filter");
+  if (folderToDelete === "all") { 
+    alert("Cannot delete 'All'."); 
+    return; 
+  }
+  
+  // Confirm deletion
+  if (!confirm(`Are you sure you want to delete folder "${folderToDelete}"?`)) {
+    return;
+  }
+  
+  try {
+    // Create a batch to handle multiple database operations
+    console.log(`Updating images from folder: ${folderToDelete}`);
+    const batch = db.batch();
+    
+    // Handle images directly in this folder
+    const imagesQuery = await db.collection('images').where('folder', '==', folderToDelete).get();
+    if (!imagesQuery.empty) {
+      console.log(`Found ${imagesQuery.size} images to update`);
+      imagesQuery.forEach(doc => {
+        batch.update(doc.ref, { folder: 'all' });
+      });
+    }
+    
+    // Handle images in subfolders if this is a parent folder
+    if (!folderToDelete.includes("/")) {
+      const subfoldersPrefix = folderToDelete + "/";
+      const subfoldersImagesQuery = await db.collection('images')
+        .where('folder', '>=', subfoldersPrefix)
+        .where('folder', '<', subfoldersPrefix + '\uf8ff')
+        .get();
+      
+      if (!subfoldersImagesQuery.empty) {
+        console.log(`Found ${subfoldersImagesQuery.size} images in subfolders to update`);
+        subfoldersImagesQuery.forEach(doc => {
+          batch.update(doc.ref, { folder: 'all' });
+        });
       }
-      await deleteFolderFromFirebase(currentFullName);
-      renderFolders();
-    });
+    }
+    
+    // Execute all batched operations if there are any
+    if (!imagesQuery.empty || (typeof subfoldersImagesQuery !== 'undefined' && !subfoldersImagesQuery.empty)) {
+      await batch.commit();
+      console.log(`Updated images folder attribute successfully`);
+    }
+    
+    // Now delete the folder from Firebase
+    await deleteFolderFromFirebase(folderToDelete);
+    
+    // Update the local folders array
+    if (!folderToDelete.includes("/")) {
+      folders = folders.filter(f => f !== folderToDelete && !f.startsWith(folderToDelete + "/"));
+    } else {
+      folders = folders.filter(f => f !== folderToDelete);
+    }
+    
+    // Refresh the UI
+    renderFolders();
+    
+    // Reload images to reflect the changes
+    await loadImagesFromFirebase();
+    
+    // Set the selection back to 'All'
+    const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
+    if (allFolder) {
+      allFolder.classList.add("selected");
+      currentFolderFilter = "all";
+      filterImages("all");
+    }
+    
+    console.log(`Folder "${folderToDelete}" deleted successfully`);
+  } catch (error) {
+    console.error('Error deleting folder:', error);
+    alert(`Error deleting folder: ${error.message}`);
+  }
+});
 
     // Confirm Rename Folder button
     confirmRenameFolderBtn.addEventListener("click", async () => {
