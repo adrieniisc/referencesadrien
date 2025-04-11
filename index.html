@@ -852,9 +852,7 @@
     adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
 
     // Add the event listener for the new search box
-    mainImageSearch.addEventListener("input", function(e) {
-  console.log("Search input changed:", e.target.value);
-  searchImages();
+    mainImageSearch.addEventListener("input", performSearch);
 });
     // Update the searchImages function to use the new search input
     function searchImages() {
@@ -1425,6 +1423,36 @@
         alert(`Error moving images: ${error.message}`);
       }
     }
+
+    function performSearch() {
+  const searchTerm = mainImageSearch.value.toLowerCase();
+  const allImages = document.querySelectorAll(".image-container");
+  
+  console.log("Performing search with term:", searchTerm);
+  
+  allImages.forEach(imgContainer => {
+    const imgName = imgContainer.querySelector("img").alt.toLowerCase();
+    const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
+    
+    // If search is empty, respect the folder filter
+    if (searchTerm === "") {
+      const category = imgContainer.getAttribute("data-category");
+      if (currentFolderFilter === "all" || category === currentFolderFilter) {
+        imgContainer.style.display = "flex";
+      } else {
+        imgContainer.style.display = "none";
+      }
+    } 
+    // Otherwise filter by search term
+    else {
+      if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
+        imgContainer.style.display = "flex";
+      } else {
+        imgContainer.style.display = "none";
+      }
+    }
+  });
+}
 
     /********************************************************
      * Enlarge Image Modal Closure (click outside image)
