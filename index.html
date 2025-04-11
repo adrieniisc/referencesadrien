@@ -567,17 +567,18 @@
 
     /* Style for the new admin button in the sidebar */
     .admin-access-btn {
-      background-color: #444;
-      color: #ddd;
-      border: none;
-      padding: 0.4rem 0.5rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      width: 100%;
-      text-align: center;
-      margin-top: 0.4rem;
-    }
+  background-color: #444;
+  color: #ddd;
+  border: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  margin-top: 0.4rem;
+  display: block !important;
+}
 
     .admin-access-btn:hover {
       opacity: 0.9;
@@ -833,7 +834,7 @@
     const adminPasswordInput = document.getElementById("adminPassword");
 
     // All editing buttons in the sidebar footer and separators
-    const editButtons = document.querySelectorAll(".sidebar-footer button");
+    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
     const separators = document.querySelectorAll(".separator");
 
     // Hide edit buttons and separators by default
@@ -845,7 +846,7 @@
     const mainImageSearch = document.getElementById("mainImageSearch");
 
     const adminAccessBtn = document.getElementById("adminAccessBtn");
-    adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
+    ////////////////adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
     adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
 
     // Add the event listener for the new search box
@@ -1212,6 +1213,26 @@
       imagesArray.forEach(img => gallery.appendChild(img));
     }
 
+    function addFolder() {
+  const name = newFolderName.value.trim();
+  if (!name) { alert("Please enter a folder name."); return; }
+  
+  const parent = parentFolderSelect.value;
+  const folderPath = parent ? parent + "/" + name : name;
+  
+  if (folders.includes(folderPath)) {
+    alert("This folder already exists.");
+    return;
+  }
+  
+  folders.push(folderPath);
+  saveFolderToFirebase(folderPath);
+  renderFolders();
+  newFolderName.value = "";
+  parentFolderSelect.value = "";
+  folderModal.classList.remove("active");
+}
+
     /********************************************************
      * Delete Image Functions
      ********************************************************/
@@ -1535,7 +1556,7 @@
       const correctPassword = "admin123"; // Change as needed
       if (adminPasswordInput.value === correctPassword) {
         editButtons.forEach(button => { button.style.display = "block"; });
-        separators.forEach(separator => { separator.style.display = "block"; });
+        separators.forEach(separator => { separator.style.display = "block"; }); 
         adminModal.classList.remove("active");
       } else {
         alert("Incorrect password. Please try again.");
@@ -1555,6 +1576,9 @@
         alert("Error initializing app: " + error.message);
       }
     });
+
+    addFolderBtn.addEventListener("click", addFolder);
+    
   </script>
 </body>
 </html>
