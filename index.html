@@ -1550,32 +1550,40 @@
     });
 
     // ADMIN Login Event Listeners
-    adminBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
-    closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
-    confirmAdminBtn.addEventListener("click", () => {
-      const correctPassword = "admin123"; // Change as needed
-      if (adminPasswordInput.value === correctPassword) {
-        editButtons.forEach(button => { button.style.display = "block"; });
-        separators.forEach(separator => { separator.style.display = "block"; }); 
-        adminModal.classList.remove("active");
-      } else {
-        alert("Incorrect password. Please try again.");
-      }
-    });
+// Remove or comment out the adminBtn line - you've already done this with the //// marks
+closeAdminModalBtn.addEventListener("click", () => { adminModal.classList.remove("active"); });
+confirmAdminBtn.addEventListener("click", () => {
+  const correctPassword = "admin123"; // Change as needed
+  if (adminPasswordInput.value === correctPassword) {
+    editButtons.forEach(button => { button.style.display = "block"; });
+    separators.forEach(separator => { separator.style.display = "block"; }); 
+    adminModal.classList.remove("active");
+    // Add this line to reset the password field
+    adminPasswordInput.value = "";
+  } else {
+    alert("Incorrect password. Please try again.");
+  }
+});
 
     document.addEventListener("DOMContentLoaded", async () => {
-      try {
-        console.log("DOM loaded, initializing application...");
-        await loadFoldersFromFirebase();
-        await loadImagesFromFirebase();
-        const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
-        if (allFolder) { allFolder.classList.add("selected"); }
-        console.log("App initialized successfully!");
-      } catch (error) {
-        console.error("Error initializing app:", error);
-        alert("Error initializing app: " + error.message);
-      }
-    });
+  try {
+    console.log("DOM loaded, initializing application...");
+    document.getElementById("adminAccessBtn").style.display = "block"; // Make sure admin button is shown
+    await loadFoldersFromFirebase();
+    await loadImagesFromFirebase();
+    const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
+    if (allFolder) { 
+      allFolder.classList.add("selected");
+      console.log("Selected 'All' folder");
+    } else {
+      console.error("Could not find 'All' folder item");
+    }
+    console.log("App initialized successfully!");
+  } catch (error) {
+    console.error("Error initializing app:", error);
+    alert("Error initializing app: " + error.message);
+  }
+});
 
     addFolderBtn.addEventListener("click", addFolder);
     
