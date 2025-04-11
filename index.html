@@ -276,7 +276,9 @@
       line-height: 1.4;
     }
     .image-container:hover .download-btn { display: block; }
-    .hidden { display: none; }
+    .hidden {
+  display: none !important;
+}
 
     /* --------------------------------------------------
        Floating Size Panel
@@ -850,10 +852,15 @@
     adminAccessBtn.addEventListener("click", () => { adminModal.classList.add("active"); });
 
     // Add the event listener for the new search box
-    mainImageSearch.addEventListener("input", searchImages);
-
+    mainImageSearch.addEventListener("input", function(e) {
+  console.log("Search input changed:", e.target.value);
+  searchImages();
+});
     // Update the searchImages function to use the new search input
     function searchImages() {
+  // Debug message to confirm function is being called
+  console.log("Search function called with query:", mainImageSearch.value);
+  
   // Get the search query from either search input
   const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
   const allImages = document.querySelectorAll(".image-container");
@@ -864,7 +871,7 @@
       const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
       const imgAlt = container.querySelector("img").alt.toLowerCase();
       
-      // Show image if either keywords or filename contains the query
+      // Check if the image name or keywords contain the query
       if (keywords.includes(query) || imgAlt.includes(query)) {
         container.classList.remove("hidden");
         matchCount++;
