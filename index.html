@@ -1056,16 +1056,26 @@
         enlargeModal.style.display = "flex";
       });
 
-      const downloadLink = document.createElement('a');
-      downloadLink.classList.add('download-btn');
-      downloadLink.textContent = 'Download';
-      downloadLink.href = url;
-      downloadLink.download = filename;
-      downloadLink.target = "_self";
-      // Prevent propagation so the image does not enlarge when clicking download.
-      downloadLink.addEventListener("click", function(e) {
-          e.stopPropagation();
-      });
+      cconst downloadLink = document.createElement('a');
+downloadLink.classList.add('download-btn');
+downloadLink.textContent = 'Download';
+downloadLink.href = url;
+downloadLink.download = filename; // This attribute is key for downloads
+downloadLink.target = "_blank"; // Change to _blank
+// Prevent propagation so the image does not enlarge when clicking download.
+downloadLink.addEventListener("click", function(e) {
+    e.stopPropagation();
+    // Force download using a temporary link
+    const tempLink = document.createElement('a');
+    tempLink.href = url;
+    tempLink.setAttribute('download', filename);
+    tempLink.style.display = 'none';
+    document.body.appendChild(tempLink);
+    tempLink.click();
+    document.body.removeChild(tempLink);
+    // Prevent default navigation
+    e.preventDefault();
+});
 
       container.appendChild(img);
       container.appendChild(downloadLink);
