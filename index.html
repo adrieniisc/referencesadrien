@@ -575,6 +575,45 @@
     .sidebar-admin-section {
       margin-top: 0.8rem;
     }
+
+    .upload-progress-container {
+  margin-top: 0.8rem;
+  display: none;
+}
+
+.upload-item {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.progress-bar {
+  height: 8px;
+  background-color: #444;
+  border-radius: 4px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #2c2c2e;
+  width: 0%;
+  transition: width 0.2s;
+}
+
+.upload-status {
+  font-size: 0.8rem;
+  margin-top: 2px;
+  color: #aaa;
+}
+
+.upload-success .upload-status {
+  color: #4cd964;
+}
+
+.upload-error .upload-status {
+  color: #ff3b30;
+}
   </style>
 </head>
 <body>
@@ -674,12 +713,13 @@
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
       <h3>Add Image</h3>
       <label for="fileInput">Select Image:</label>
-      <input type="file" id="fileInput" accept="image/*">
+      <input type="file" id="fileInput" accept="image/*" multiple>
       <label for="folderSelect">Location:</label>
       <select id="folderSelect"></select>
       <label for="imageKeywords">Keywords:</label>
       <input type="text" id="imageKeywords" placeholder="e.g., red, green">
       <div style="margin-top:0.8rem;">
+      <div id="uploadProgress" class="upload-progress-container"></div>
         <button id="confirmAddImageBtn">Add</button>
       </div>
     </div>
@@ -1488,9 +1528,23 @@ downloadLink.addEventListener("click", function(e) {
     folderModal.addEventListener("click", (e) => { if(e.target === folderModal) folderModal.classList.remove("active"); });
 
     // Image Modal handling
-    document.getElementById("closeImageModalBtn").addEventListener("click", () => {
+    closeImageModalBtn.addEventListener("click", () => {
+  const uploadProgress = document.getElementById("uploadProgress");
+  if (uploadProgress.style.display === "block" && 
+      !uploadProgress.querySelector(".upload-success") && 
+      !uploadProgress.querySelector(".upload-error")) {
+    if (confirm("Uploads in progress. Are you sure you want to cancel?")) {
       imageModal.classList.remove("active");
-    });
+      uploadProgress.style.display = "none";
+    }
+  } else {
+    imageModal.classList.remove("active");
+    // Reset the upload progress display
+    uploadProgress.style.display = "none";
+    uploadProgress.innerHTML = "";
+  }
+});
+    
     imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
 
     // Rename Folder Modal handling
@@ -1624,24 +1678,73 @@ downloadLink.addEventListener("click", function(e) {
     addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
 
     // Confirm Add Image button
-    confirmAddImageBtn.addEventListener("click", async () => {
-      if (!fileInput.files[0]) { alert("Please select an image file first."); return; }
-      const folderValue = folderSelect.value || 'all';
-      const keywords = imageKeywords.value.trim().toLowerCase();
-      const filename = fileInput.files[0].name;
-      try {
-        const imageUrl = await uploadImage(fileInput.files[0]);
-        addImageToGallery(imageUrl, folderValue, keywords, filename, Date.now());
-        await saveImageToFirebase(imageUrl, folderValue, keywords, filename);
-        fileInput.value = "";
-        folderSelect.value = "";
-        imageKeywords.value = "";
-        imageModal.classList.remove("active");
-      } catch (error) {
-        console.error('Upload failed:', error);
-        alert("Upload failed: " + error.message);
-      }
-    });
+   confirmAddImageBtn.addEventListener("click", async () => {
+  const files = fileInput.files;
+  
+  if (!files || files.length === 0) { 
+    alert("Please select at least one image file first."); 
+    return; 
+  }
+  
+  const folderValue = folderSelect.value || 'all';
+  const keywords = imageKeywords.value.trim().toLowerCase();
+  
+  // Show the progress container
+  const uploadProgress = document.getElementById("uploadProgress");
+  uploadProgress.style.display = "block";
+  uploadProgress.innerHTML = ""; // Clear previous uploads
+  
+  // Create progress elements for each file
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const progressItem = document.createElement("div");
+    progressItem.classList.add("upload-item");
+    progressItem.innerHTML = `
+      <div>${file.name}</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-${i}"></div>
+      </div>
+      <div class="upload-status" id="status-${i}">Waiting...</div>
+    `;
+    uploadProgress.appendChild(progressItem);
+  }
+  
+  // Process each file one by one
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const progressFill = document.getElementById(`progress-${i}`);
+    const statusElem = document.getElementById(`status-${i}`);
+    
+    try {
+      // Update status
+      statusElem.textContent = "Uploading...";
+      progressFill.style.width = "30%";
+      
+      // Upload the file
+      const imageUrl = await uploadImage(file);
+      
+      // Update progress
+      progressFill.style.width = "70%";
+      statusElem.textContent = "Saving to database...";
+      
+      // Save to Firebase
+      await saveImageToFirebase(imageUrl, folderValue, keywords, file.name);
+      
+      // Add to gallery
+      addImageToGallery(imageUrl, folderValue, keywords, file.name, Date.now());
+      
+      // Complete
+      progressFill.style.width = "100%";
+      statusElem.textContent = "Complete!";
+      statusElem.parentElement.classList.add("upload-success");
+    } catch (error) {
+      console.error(`Upload failed for ${file.name}:`, error);
+      progressFill.style.width = "100%";
+      statusElem.textContent = `Error: ${error.message}`;
+      statusElem.parentElement.classList.add("upload-error");
+    }
+  }
+});
 
     // Delete and Move mode event listeners
     deleteImageBtn.addEventListener("click", toggleDeleteMode);
