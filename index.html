@@ -854,22 +854,31 @@
 
     // Update the searchImages function to use the new search input
     function searchImages() {
-      // Get the search query from either search input
-      const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
-      const allImages = document.querySelectorAll(".image-container");
+  // Get the search query from either search input
+  const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
+  const allImages = document.querySelectorAll(".image-container");
+  
+  if (query !== "") {
+    let matchCount = 0;
+    allImages.forEach(container => {
+      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+      const imgAlt = container.querySelector("img").alt.toLowerCase();
       
-      if (query !== "") {
-        allImages.forEach(container => {
-          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-          const imgAlt = container.querySelector("img").alt.toLowerCase();
-          if (keywords.includes(query) || imgAlt.includes(query))
-            container.classList.remove("hidden");
-          else container.classList.add("hidden");
-        });
+      // Show image if either keywords or filename contains the query
+      if (keywords.includes(query) || imgAlt.includes(query)) {
+        container.classList.remove("hidden");
+        matchCount++;
       } else {
-        filterImages(currentFolderFilter);
+        container.classList.add("hidden");
       }
-    }
+    });
+    
+    console.log(`Found ${matchCount} images matching "${query}"`);
+  } else {
+    // If search is empty, show all images in the current category
+    filterImages(currentFolderFilter);
+  }
+}
 
     /********************************************************
      * Enlarge Image Modal Functionality
