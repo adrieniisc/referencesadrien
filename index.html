@@ -591,18 +591,22 @@
   font-size: 0.9rem;
 }
 
+/* --------------------------------------------------
+   Floating Upload Dock
+-------------------------------------------------- */
 .upload-dock {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background-color: rgba(44,44,46,0.95);
-  border-top: 1px solid #3a3a3c;
-  z-index: 1200;
+  bottom: 18px;
+  left: 18px;  /* Positioned at bottom left */
+  width: auto;  /* Auto width instead of 100% */
+  max-width: 320px;  /* Maximum width */
+  background-color: rgba(44,44,46,0.9);
+  border-radius: 10px;  /* Rounded corners like size panel */
+  z-index: 1100;  /* High z-index but below the size selector */
   max-height: 200px;
   overflow-y: auto;
   display: none; /* Hidden by default */
-  box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
 .upload-dock.active {
@@ -613,10 +617,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 12px;
-  background-color: #1c1c1e;
+  padding: 8px 12px;
+  background-color: rgba(28,28,30,0.7);
   color: #f2f2f7;
   font-weight: 500;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
 }
 
 .minimize-dock-btn {
@@ -633,9 +639,9 @@
 }
 
 .upload-dock-item {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #3a3a3c;
+  border-bottom: 1px solid rgba(58,58,60,0.5);
 }
 
 .upload-dock-item:last-child {
@@ -661,12 +667,16 @@
 .upload-dock-item-details {
   color: #8e8e93;
   font-size: 0.85rem;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .upload-dock-progress {
-  height: 8px;
+  height: 6px; /* Slightly smaller progress bar */
   background-color: #444;
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
@@ -683,6 +693,13 @@
 
 .upload-error .upload-dock-progress-fill {
   background-color: #ff3b30;
+}
+
+/* Ensure the size panel and upload dock don't overlap */
+@media (max-height: 500px) {
+  .upload-dock {
+    bottom: 70px; /* Move it up when screen height is small */
+  }
 }
     
   </style>
