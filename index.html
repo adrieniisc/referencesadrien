@@ -42,7 +42,7 @@
        Fixed ADMIN Button in Top-Right Corner
     -------------------------------------------------- */
 
-    #adminaccessbtn:hover { opacity: 0.9; }
+    #customizeUIBtn:hover { opacity: 0.9; }
 
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
@@ -591,100 +591,34 @@
   font-size: 0.9rem;
 }
 
-.upload-dock {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background-color: rgba(44,44,46,0.95);
-  border-top: 1px solid #3a3a3c;
-  z-index: 1200;
-  max-height: 200px;
-  overflow-y: auto;
-  display: none; /* Hidden by default */
-  box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
-}
-
-.upload-dock.active {
-  display: block;
-}
-
-.upload-dock-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 12px;
-  background-color: #1c1c1e;
-  color: #f2f2f7;
-  font-weight: 500;
-}
-
-.minimize-dock-btn {
-  background: none;
-  border: none;
-  color: #f2f2f7;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 6px;
-}
-
-.upload-dock-content {
-  padding: 8px 12px;
-}
-
-.upload-dock-item {
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #3a3a3c;
-}
-
-.upload-dock-item:last-child {
-  margin-bottom: 0;
-  border-bottom: none;
-}
-
-.upload-dock-item-info {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.upload-dock-item-filename {
-  font-weight: 500;
-  color: #f2f2f7;
-  max-width: 70%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.upload-dock-item-details {
-  color: #8e8e93;
-  font-size: 0.85rem;
-}
-
-.upload-dock-progress {
+.progress-bar {
   height: 8px;
   background-color: #444;
   border-radius: 4px;
+  margin-top: 4px;
   overflow: hidden;
 }
 
-.upload-dock-progress-fill {
+.progress-fill {
   height: 100%;
-  background-color: #2196f3;
+  background-color: #2c2c2e;
   width: 0%;
-  transition: width 0.3s ease;
+  transition: width 0.2s;
 }
 
-.upload-success .upload-dock-progress-fill {
-  background-color: #4cd964;
+.upload-status {
+  font-size: 0.8rem;
+  margin-top: 2px;
+  color: #aaa;
 }
 
-.upload-error .upload-dock-progress-fill {
-  background-color: #ff3b30;
+.upload-success .upload-status {
+  color: #4cd964;
 }
-    
+
+.upload-error .upload-status {
+  color: #ff3b30;
+}
   </style>
 </head>
 <body>
@@ -733,7 +667,7 @@
         </div>
         <hr class="separator">
        <div class="sidebar-admin-section">
-  <button id="adminaccessbtn" class="admin-access-btn">ADMIN ACCESS</button>
+  <button id="customizeUIBtn" class="admin-access-btn">Customize UI</button>
 </div>
       </div>
     </div>
@@ -749,11 +683,11 @@
     </div>
   </div>
   <!-- FLOATING SIZE PANEL -->
- <div class="floating-size-panel">
+  <div class="floating-size-panel">
     <div class="size-icon-container">
-      <div class="size-icon selected" data-size="250"><span>XS</span></div>
+      <div class="size-icon" data-size="250"><span>XS</span></div>
       <div class="size-icon" data-size="400"><span>S</span></div>
-      <div class="size-icon" data-size="650"><span>M</span></div>
+      <div class="size-icon selected" data-size="650"><span>M</span></div>
       <div class="size-icon" data-size="750"><span>L</span></div>
       <div class="size-icon" data-size="950"><span>XL</span></div>
     </div>
@@ -929,70 +863,25 @@
     const adminModal = document.getElementById("adminModal");
     const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
+    const adminPasswordInput = document.getElementById("adminPassword");
 
     // All editing buttons in the sidebar footer and separators
-    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminaccessBtn)");
+    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
     const separators = document.querySelectorAll(".separator");
 
-    
-
     // Hide edit buttons and separators by default
+    document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => { button.style.display = "none"; });
       separators.forEach(separator => { separator.style.display = "none"; });
-  
+    });
 
     const mainImageSearch = document.getElementById("mainImageSearch");
 
-    const adminAccessBtn = document.getElementById("adminaccessbtn");
+    const adminAccessBtn = document.getElementById("adminAccessBtn");
 
-   document.getElementById("adminaccessbtn").addEventListener("click", () => { 
-   document.getElementById("preferencesPanel").classList.add("active"); 
+   document.getElementById("customizeUIBtn").addEventListener("click", () => { 
+  document.getElementById("preferencesPanel").classList.add("active"); 
 });
-
-    function performSearch() {
-  const searchTerm = mainImageSearch.value.toLowerCase();
-  const allImages = document.querySelectorAll(".image-container");
-  
-  console.log("Performing search with term:", searchTerm);
-  
-  allImages.forEach(imgContainer => {
-    const imgName = imgContainer.querySelector("img").alt.toLowerCase();
-    const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
-    
-    // If search is empty, respect the folder filter
-    if (searchTerm === "") {
-      const category = imgContainer.getAttribute("data-category");
-      
-      if (currentFolderFilter === "all") {
-        imgContainer.style.display = "flex";
-      } 
-      else if (!currentFolderFilter.includes("/")) {
-        // For parent folders, show images from this folder AND any subfolders
-        if (category === currentFolderFilter || category.startsWith(currentFolderFilter + "/")) {
-          imgContainer.style.display = "flex";
-        } else {
-          imgContainer.style.display = "none";
-        }
-      }
-      else {
-        // For subfolders, only show exact matches
-        if (category === currentFolderFilter) {
-          imgContainer.style.display = "flex";
-        } else {
-          imgContainer.style.display = "none";
-        }
-      }
-    } 
-    // Otherwise filter by search term
-    else {
-      if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
-        imgContainer.style.display = "flex";
-      } else {
-        imgContainer.style.display = "none";
-      }
-    }
-  });
-}
 
     // Add the event listener for the new search box
     
@@ -1615,7 +1504,76 @@ downloadLink.addEventListener("click", function(e) {
       }
     }
 
-   
+    function performSearch() {
+  const searchTerm = mainImageSearch.value.toLowerCase();
+  const allImages = document.querySelectorAll(".image-container");
+  
+  console.log("Performing search with term:", searchTerm);
+  
+  allImages.forEach(imgContainer => {
+    const imgName = imgContainer.querySelector("img").alt.toLowerCase();
+    const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
+    
+    // If search is empty, respect the folder filter
+    if (searchTerm === "") {
+      const category = imgContainer.getAttribute("data-category");
+      
+      if (currentFolderFilter === "all") {
+        imgContainer.style.display = "flex";
+      } 
+      else if (!currentFolderFilter.includes("/")) {
+        // For parent folders, show images from this folder AND any subfolders
+        if (category === currentFolderFilter || category.startsWith(currentFolderFilter + "/")) {
+          imgContainer.style.display = "flex";
+        } else {
+          imgContainer.style.display = "none";
+        }
+      }
+      else {
+        // For subfolders, only show exact matches
+        if (category === currentFolderFilter) {
+          imgContainer.style.display = "flex";
+        } else {
+          imgContainer.style.display = "none";
+        }
+      }
+    } 
+    // Otherwise filter by search term
+    else {
+      if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
+        imgContainer.style.display = "flex";
+      } else {
+        imgContainer.style.display = "none";
+      }
+    }
+  });
+}
+  
+  console.log("Performing search with term:", searchTerm);
+  
+  allImages.forEach(imgContainer => {
+    const imgName = imgContainer.querySelector("img").alt.toLowerCase();
+    const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
+    
+    // If search is empty, respect the folder filter
+    if (searchTerm === "") {
+      const category = imgContainer.getAttribute("data-category");
+      if (currentFolderFilter === "all" || category === currentFolderFilter) {
+        imgContainer.style.display = "flex";
+      } else {
+        imgContainer.style.display = "none";
+      }
+    } 
+    // Otherwise filter by search term
+    else {
+      if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
+        imgContainer.style.display = "flex";
+      } else {
+        imgContainer.style.display = "none";
+      }
+    }
+  });
+}
 
     /********************************************************
      * Enlarge Image Modal Closure (click outside image)
@@ -1626,14 +1584,7 @@ downloadLink.addEventListener("click", function(e) {
 
     /********************************************************
      * Event Listeners
-
-     
      ********************************************************/
-
-    document.getElementById("minimizeUploadDock").addEventListener("click", function() {
-  const uploadDock = document.getElementById("uploadDock");
-  uploadDock.classList.remove("active");
-});
     // Folder Modal handling
     document.getElementById("closeFolderModalBtn").addEventListener("click", () => {
       folderModal.classList.remove("active");
@@ -1799,114 +1750,65 @@ downloadLink.addEventListener("click", function(e) {
     return; 
   }
   
-  // Check if admin mode is active
-  const isAdminMode = editButtons[0].style.display === "block";
-  if (!isAdminMode) {
-    alert("You need admin access to upload files.");
-    return;
-  }
-  
   const folderValue = folderSelect.value || 'all';
   const keywords = imageKeywords.value.trim().toLowerCase();
   
-  // Create a new batch of uploads
-  const uploadBatchId = Date.now();
+  // Show the progress container
+  const uploadProgress = document.getElementById("uploadProgress");
+  uploadProgress.style.display = "block";
+  uploadProgress.innerHTML = ""; // Clear previous uploads
   
-  // Show the upload dock
-  const uploadDock = document.getElementById("uploadDock");
-  uploadDock.classList.add("active");
-  
-  // Close the modal - we don't need to wait for uploads to complete
-  imageModal.classList.remove("active");
-  
-  // Reset file input to allow new selections in subsequent uploads
-  fileInput.value = "";
-  
-  // Process each file
+  // Create progress elements for each file
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    
-    // Create upload item in the dock
-    const uploadItemId = `upload-${uploadBatchId}-${i}`;
-    const uploadDockContent = document.querySelector(".upload-dock-content");
-    
-    const uploadItem = document.createElement("div");
-    uploadItem.classList.add("upload-dock-item");
-    uploadItem.id = uploadItemId;
-    uploadItem.innerHTML = `
-      <div class="upload-dock-item-info">
-        <div class="upload-dock-item-filename">${file.name}</div>
-        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''}</div>
+    const progressItem = document.createElement("div");
+    progressItem.classList.add("upload-item");
+    progressItem.innerHTML = `
+      <div>${file.name}</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-${i}"></div>
       </div>
-      <div class="upload-dock-progress">
-        <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
-      </div>
+      <div class="upload-status" id="status-${i}">Waiting...</div>
     `;
-    
-    uploadDockContent.appendChild(uploadItem);
-    
-    // Actually call the processUpload function with the file
-    processUpload(file, folderValue, keywords, uploadItemId);
+    uploadProgress.appendChild(progressItem);
   }
-
-     <div id="uploadDock" class="upload-dock">
-  <div class="upload-dock-header">
-    <span>Upload Progress</span>
-    <button id="minimizeUploadDock" class="minimize-dock-btn">▼</button>
-  </div>
-  <div class="upload-dock-content">
-    <!-- Upload items will be added here dynamically -->
-  </div>
-</div>
-                                       
-});
-    
-    // Start upload (non-blocking)
-    async function processUpload(file, folderValue, keywords, uploadItemId) {
-  const progressFill = document.getElementById(`progress-${uploadItemId}`);
-  const uploadItem = document.getElementById(uploadItemId);
   
-  try {
-    // Update progress to 30%
-    progressFill.style.width = "30%";
+  // Process each file one by one
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const progressFill = document.getElementById(`progress-${i}`);
+    const statusElem = document.getElementById(`status-${i}`);
     
-    // Upload the file
-    const imageUrl = await uploadImage(file);
-    
-    // Update progress to 70%
-    progressFill.style.width = "70%";
-    
-    // Save to Firebase
-    await saveImageToFirebase(imageUrl, folderValue, keywords, file.name);
-    
-    // Add to gallery
-    addImageToGallery(imageUrl, folderValue, keywords, file.name, Date.now());
-    
-    // Complete
-    progressFill.style.width = "100%";
-    uploadItem.classList.add("upload-success");
-    
-    // Remove the item after 5 seconds if successful
-    setTimeout(() => {
-      uploadItem.remove();
+    try {
+      // Update status
+      statusElem.textContent = "Uploading...";
+      progressFill.style.width = "30%";
       
-      // Check if dock is empty and hide it if so
-      if (document.querySelector(".upload-dock-content").children.length === 0) {
-        document.getElementById("uploadDock").classList.remove("active");
-      }
-    }, 5000);
-    
-  } catch (error) {
-    console.error(`Upload failed for ${file.name}:`, error);
-    progressFill.style.width = "100%";
-    uploadItem.classList.add("upload-error");
-    
-    // Add error message
-    const details = uploadItem.querySelector(".upload-dock-item-details");
-    details.textContent = `Error: ${error.message}`;
-    details.style.color = "#ff3b30";
+      // Upload the file
+      const imageUrl = await uploadImage(file);
+      
+      // Update progress
+      progressFill.style.width = "70%";
+      statusElem.textContent = "Saving to database...";
+      
+      // Save to Firebase
+      await saveImageToFirebase(imageUrl, folderValue, keywords, file.name);
+      
+      // Add to gallery
+      addImageToGallery(imageUrl, folderValue, keywords, file.name, Date.now());
+      
+      // Complete
+      progressFill.style.width = "100%";
+      statusElem.textContent = "Complete!";
+      statusElem.parentElement.classList.add("upload-success");
+    } catch (error) {
+      console.error(`Upload failed for ${file.name}:`, error);
+      progressFill.style.width = "100%";
+      statusElem.textContent = `Error: ${error.message}`;
+      statusElem.parentElement.classList.add("upload-error");
+    }
   }
-}
+});
 
     // Delete and Move mode event listeners
     deleteImageBtn.addEventListener("click", toggleDeleteMode);
@@ -1947,12 +1849,13 @@ downloadLink.addEventListener("click", function(e) {
       });
     });
 
-   
+    // ADMIN Login Event Listeners
+// Remove or comment out the adminBtn line - you've already done this with the //// marks
 document.getElementById("closePreferencesPanelBtn").addEventListener("click", () => { 
   document.getElementById("preferencesPanel").classList.remove("active"); 
 });
 document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
-  const requiredValue = "YWRtaW4xMjM=";
+  const requiredValue = "YWRtaW4xMjM="; // admin123 encoded with base64
   if (document.getElementById("userPreference").value === atob(requiredValue)) {
     editButtons.forEach(button => { button.style.display = "block"; });
     separators.forEach(separator => { separator.style.display = "block"; }); 
@@ -1966,33 +1869,16 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
    document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("DOM loaded, initializing application...");
-    // Hide admin buttons by default
-    const adminButtons = document.querySelectorAll(".sidebar-footer button:not(#adminaccessbtn)");
-    adminButtons.forEach(button => { button.style.display = "none"; });
-    
-    const seps = document.querySelectorAll(".separator");
-    seps.forEach(separator => { separator.style.display = "none"; });
-    
-    // Make sure admin access button is visible
-    const adminBtn = document.getElementById("adminaccessbtn");
-    if (adminBtn) {
-      adminBtn.style.display = "block";
-      console.log("Admin access button displayed");
-    } else {
-      console.error("Could not find admin access button");
-    }
-    
-    // Load data
+    document.getElementById("customizeUIBtn").style.display = "block";
+    const customizeBtn = document.getElementById("customizeUIBtn");
+    customizeBtn.style.display = "block";
+    customizeBtn.style.backgroundColor = "#2c2c2e";
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
-    
-    // Select 'All' folder
     const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
     if (allFolder) { 
       allFolder.classList.add("selected");
-      currentFolderFilter = "all";
-      filterImages("all");
-      console.log("All folder selected");
+      console.log("Selected 'All' folder");
     } else {
       console.error("Could not find 'All' folder item");
     }
@@ -2006,5 +1892,5 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     addFolderBtn.addEventListener("click", addFolder);
     
   </script>
-  </body>
+</body>
 </html>
