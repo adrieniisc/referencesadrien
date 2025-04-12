@@ -516,6 +516,28 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
 
+    .enlarged-download-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: white;
+  color: black;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 15001; /* One higher than the modal */
+  display: none; /* Hidden by default */
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.enlarged-download-btn:hover {
+  background-color: #f0f0f0;
+}
+
     /* --------------------------------------------------
        Top Search Bar
     -------------------------------------------------- */
@@ -778,8 +800,9 @@
   </div>
   <!-- Enlarge Image Modal -->
   <div id="enlargeImageModal">
-    <img id="enlargeImage" src="" alt="">
-  </div>
+  <img id="enlargeImage" src="" alt="">
+  <a id="enlargedDownloadBtn" class="enlarged-download-btn" href="#" download>Download</a>
+</div>
   <!-- MODAL: New Folder -->
   <div class="modal-backdrop" id="folderModal">
     <div class="modal-content">
@@ -1226,10 +1249,7 @@
         // When in delete or move mode, don't trigger the enlarge modal.
         if (isDeleteMode || isMoveMode) return;
         e.stopPropagation();
-        const enlargeModal = document.getElementById("enlargeImageModal");
-        const enlargeImg = document.getElementById("enlargeImage");
-        enlargeImg.src = url;
-        enlargeModal.style.display = "flex";
+        enlargeImage(url, filename);
       });
 
 // Replace your existing download link creation code with this:
@@ -1653,9 +1673,71 @@ downloadLink.addEventListener("click", function(e) {
     /********************************************************
      * Enlarge Image Modal Closure (click outside image)
      ********************************************************/
+
+    function enlargeImage(url, filename) {
+  const enlargeModal = document.getElementById("enlargeImageModal");
+  const enlargeImg = document.getElementById("enlargeImage");
+  const downloadBtn = document.getElementById("enlargedDownloadBtn");
+  
+  enlargeImg.src = url;
+  enlargeImg.alt = filename;
+  enlargeModal.style.display = "flex";
+  
+  // Set download button attributes and show it
+  downloadBtn.href = url;
+  downloadBtn.download = filename;
+  downloadBtn.style.display = "block";
+  
+  // Add force download functionality
+  downloadBtn.addEventListener("click", function(e) {
+    e.preventDefault(); // Prevent default navigation
+    e.stopPropagation(); // Prevent modal from closing
+    
+    // Use fetch to get the image as a blob
+    fetch(url)
+      .then(response => response.blob())
+      .then(blob => {
+        // Create an object URL from the blob
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // Create a temporary link and trigger download
+        const tempLink = document.createElement('a');
+        tempLink.href = blobUrl;
+        tempLink.download = filename;
+        tempLink.style.display = 'none';
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(tempLink);
+          URL.revokeObjectURL(blobUrl);
+        }, 100);
+      })
+      .catch(error => {
+        console.error('Download failed:', error);
+        // Fallback to opening in new tab if fetch fails
+        window.open(url, '_blank');
+      });
+  });
+}
+
+function closeEnlargeModal() {
+  const enlargeModal = document.getElementById("enlargeImageModal");
+  const downloadBtn = document.getElementById("enlargedDownloadBtn");
+  
+  enlargeModal.style.display = "none";
+  if (downloadBtn) {
+    downloadBtn.style.display = "none";
+  }
+}
+
+    
     document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
-      if (e.target.id === "enlargeImageModal") { this.style.display = "none"; }
-    });
+  if (e.target.id === "enlargeImageModal") {
+    closeEnlargeModal();
+  }
+});
 
     /********************************************************
      * Event Listeners
