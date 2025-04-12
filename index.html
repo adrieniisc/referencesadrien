@@ -234,15 +234,15 @@
     }
     .gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--thumbnail-size) * 0.8), var(--thumbnail-size)));
+  /* This will create as many columns as possible while respecting the minimum width */
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--thumbnail-size) * 0.9), 1fr));
   gap: 0.8rem;
   width: 100%;
-  justify-content: space-between;
 }
 
 .image-container {
   position: relative;
-  width: 100%; /* Takes full width of its grid cell */
+  width: 100%; /* Take full width of grid cell */
   display: flex;
   align-items: center;
   justify-content: center;
