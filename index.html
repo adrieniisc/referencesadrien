@@ -184,15 +184,16 @@
   height: 8px;
   border-right: 2px solid var(--side-text);
   border-bottom: 2px solid var(--side-text);
-  transform: rotate(-45deg);
+  transform: rotate(-45deg); /* Change this to point right */
+  transform: rotate(-135deg); /* This makes it point right */
   display: inline-block;
-  margin-left: 8px;
+  margin-right: 8px; /* Changed from margin-left to margin-right */
   transition: transform 0.2s ease;
-  border-radius: 1px; /* Slightly rounded corners as requested */
+  border-radius: 1px;
 }
 
 .folder-arrow.open {
-  transform: rotate(45deg);
+  transform: rotate(45deg); /* This makes it point down when open */
 }
 
 /* Update folder list items to support the arrows */
