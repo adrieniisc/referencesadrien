@@ -609,35 +609,82 @@
   display: block;
 }
 
+.upload-dock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background-color: #1c1c1e;
+  color: #f2f2f7;
+  font-weight: 500;
+}
 
-.progress-bar {
+.minimize-dock-btn {
+  background: none;
+  border: none;
+  color: #f2f2f7;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+
+.upload-dock-content {
+  padding: 8px 12px;
+}
+
+.upload-dock-item {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #3a3a3c;
+}
+
+.upload-dock-item:last-child {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.upload-dock-item-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.upload-dock-item-filename {
+  font-weight: 500;
+  color: #f2f2f7;
+  max-width: 70%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upload-dock-item-details {
+  color: #8e8e93;
+  font-size: 0.85rem;
+}
+
+.upload-dock-progress {
   height: 8px;
   background-color: #444;
   border-radius: 4px;
-  margin-top: 4px;
   overflow: hidden;
 }
 
-.progress-fill {
+.upload-dock-progress-fill {
   height: 100%;
-  background-color: #2c2c2e;
+  background-color: #2196f3;
   width: 0%;
-  transition: width 0.2s;
+  transition: width 0.3s ease;
 }
 
-.upload-status {
-  font-size: 0.8rem;
-  margin-top: 2px;
-  color: #aaa;
+.upload-success .upload-dock-progress-fill {
+  background-color: #4cd964;
 }
 
-.upload-success .upload-status {
-  color: #4cd964;
+.upload-error .upload-dock-progress-fill {
+  background-color: #ff3b30;
 }
-
-.upload-error .upload-status {
-  color: #ff3b30;
-}
+    
   </style>
 </head>
 <body>
@@ -887,6 +934,53 @@
     // All editing buttons in the sidebar footer and separators
     const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
     const separators = document.querySelectorAll(".separator");
+
+    // Add this function outside other functions, but inside the <script> tag
+async function processUpload(file, folderValue, keywords, uploadItemId) {
+  const progressFill = document.getElementById(`progress-${uploadItemId}`);
+  const uploadItem = document.getElementById(uploadItemId);
+  
+  try {
+    // Update progress to 30%
+    progressFill.style.width = "30%";
+    
+    // Upload the file
+    const imageUrl = await uploadImage(file);
+    
+    // Update progress to 70%
+    progressFill.style.width = "70%";
+    
+    // Save to Firebase
+    await saveImageToFirebase(imageUrl, folderValue, keywords, file.name);
+    
+    // Add to gallery
+    addImageToGallery(imageUrl, folderValue, keywords, file.name, Date.now());
+    
+    // Complete
+    progressFill.style.width = "100%";
+    uploadItem.classList.add("upload-success");
+    
+    // Remove the item after 5 seconds if successful
+    setTimeout(() => {
+      uploadItem.remove();
+      
+      // Check if dock is empty and hide it if so
+      if (document.querySelector(".upload-dock-content").children.length === 0) {
+        document.getElementById("uploadDock").classList.remove("active");
+      }
+    }, 5000);
+    
+  } catch (error) {
+    console.error(`Upload failed for ${file.name}:`, error);
+    progressFill.style.width = "100%";
+    uploadItem.classList.add("upload-error");
+    
+    // Add error message
+    const details = uploadItem.querySelector(".upload-dock-item-details");
+    details.textContent = `Error: ${error.message}`;
+    details.style.color = "#ff3b30";
+  }
+}
 
     // Hide edit buttons and separators by default
     document.addEventListener("DOMContentLoaded", () => {
@@ -1763,7 +1857,7 @@ downloadLink.addEventListener("click", function(e) {
   // Create a new batch of uploads
   const uploadBatchId = Date.now();
   
-  // Only now show the upload dock for this active upload
+  // Show the upload dock
   const uploadDock = document.getElementById("uploadDock");
   uploadDock.classList.add("active");
   
@@ -1790,16 +1884,21 @@ downloadLink.addEventListener("click", function(e) {
         <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''}</div>
       </div>
       <div class="upload-dock-progress">
-        <div class="upload-dock-progress-fill" id="progress-${uploadItemId}"></div>
+        <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
       </div>
     `;
     
     uploadDockContent.appendChild(uploadItem);
     
+    // Actually call the processUpload function with the file
+    processUpload(file, folderValue, keywords, uploadItemId);
+  }
+});
+    
     // Start upload (non-blocking)
     async function processUpload(file, folderValue, keywords, uploadItemId) {
-  const progressFill = document.getElementById(`progress-${uploadItemId}`);
-  const uploadItem = document.getElementById(uploadItemId);
+  const progressFill = adminPassword(`progress-${uploadItemId}`);
+  const uploadItem = adminPassword(uploadItemId);
   
   try {
     // Update progress to 30%
@@ -1827,7 +1926,7 @@ downloadLink.addEventListener("click", function(e) {
       
       // Check if dock is empty and hide it if so
       if (document.querySelector(".upload-dock-content").children.length === 0) {
-        document.getElementById("uploadDock").classList.remove("active");
+        adminPassword("uploadDock").classList.remove("active");
       }
     }, 5000);
     
@@ -1883,16 +1982,16 @@ downloadLink.addEventListener("click", function(e) {
     });
 
    
-document.getElementById("closePreferencesPanelBtn").addEventListener("click", () => { 
-  document.getElementById("preferencesPanel").classList.remove("active"); 
+adminPassword("closePreferencesPanelBtn").addEventListener("click", () => { 
+  adminPassword("preferencesPanel").classList.remove("active"); 
 });
-document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
+adminPassword("applyPreferenceBtn").addEventListener("click", () => {
   const requiredValue = "YWRtaW4xMjM=";
-  if (document.getElementById("userPreference").value === atob(requiredValue)) {
+  if (adminPassword("userPreference").value === atob(requiredValue)) {
     editButtons.forEach(button => { button.style.display = "block"; });
     separators.forEach(separator => { separator.style.display = "block"; }); 
-    document.getElementById("preferencesPanel").classList.remove("active");
-    document.getElementById("userPreference").value = "";
+    adminPassword("preferencesPanel").classList.remove("active");
+    adminPassword("userPreference").value = "";
   } else {
     alert("Invalid preference value. Please try again.");
   }
@@ -1924,7 +2023,7 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     addFolderBtn.addEventListener("click", addFolder);
     
   </script>
-
+  
 <div id="uploadDock" class="upload-dock">
   <div class="upload-dock-header">
     <span>Upload Progress</span>
@@ -1934,6 +2033,13 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     <!-- Upload items will be added here dynamically -->
   </div>
 </div>
+
+  <script>
+document.getElementById("minimizeUploadDock").addEventListener("click", function() {
+  const uploadDock = document.getElementById("uploadDock");
+  uploadDock.classList.remove("active");
+});
+</script>
   
 </body>
 </html>
