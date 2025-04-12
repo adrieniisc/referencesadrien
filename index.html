@@ -178,6 +178,30 @@
       color: #fff;
     }
 
+    /* Folder arrow indicator */
+.folder-arrow {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--side-text);
+  border-bottom: 2px solid var(--side-text);
+  transform: rotate(-45deg);
+  display: inline-block;
+  margin-left: 8px;
+  transition: transform 0.2s ease;
+  border-radius: 1px; /* Slightly rounded corners as requested */
+}
+
+.folder-arrow.open {
+  transform: rotate(45deg);
+}
+
+/* Update folder list items to support the arrows */
+.folder-list > li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
     /* --------------------------------------------------
        Sidebar Footer with Admin Editing Controls
     -------------------------------------------------- */
@@ -1372,12 +1396,24 @@ downloadLink.addEventListener("click", function(e) {
       const parents = Object.keys(structure).sort();
 
       parents.forEach(parent => {
-        const parentLi = document.createElement("li");
-        parentLi.textContent = parent;
-        parentLi.setAttribute("data-filter", parent);
+  const parentLi = document.createElement("li");
+  
+  // Create a span for the folder name
+  const folderNameSpan = document.createElement("span");
+  folderNameSpan.textContent = parent;
+  parentLi.appendChild(folderNameSpan);
+  
+  parentLi.setAttribute("data-filter", parent);
 
-        const subUl = document.createElement("ul");
-        subUl.classList.add("subfolder-list");
+  // Add arrow indicator if folder has subfolders
+  if (structure[parent] && structure[parent].length > 0) {
+    const arrowSpan = document.createElement("span");
+    arrowSpan.classList.add("folder-arrow");
+    parentLi.appendChild(arrowSpan);
+  }
+
+  const subUl = document.createElement("ul");
+  subUl.classList.add("subfolder-list");
 
         if (structure[parent] && structure[parent].length > 0) {
           structure[parent].sort().forEach(child => {
@@ -1395,11 +1431,11 @@ downloadLink.addEventListener("click", function(e) {
         }
 
         parentLi.addEventListener("click", () => {
-          highlightSelected(parentLi);
-          toggleSubfolders(subUl);
-          currentFolderFilter = parent;
-          filterImages(parent);
-        });
+  highlightSelected(parentLi);
+  toggleSubfolders(subUl, parentLi);  // Updated to pass parentLi
+  currentFolderFilter = parent;
+  filterImages(parent);
+});
 
         folderList.appendChild(parentLi);
         folderList.appendChild(subUl);
@@ -1434,11 +1470,31 @@ downloadLink.addEventListener("click", function(e) {
       allSubUls.forEach(ul => { ul.style.display = "none"; });
     }
 
-    function toggleSubfolders(currentUl) {
-      const allSubUls = folderList.querySelectorAll(".subfolder-list");
-      allSubUls.forEach(ul => { if (ul !== currentUl) ul.style.display = "none"; });
-      currentUl.style.display = (currentUl.style.display === "none" || !currentUl.style.display) ? "block" : "none";
+    function toggleSubfolders(currentUl, parentLi) {
+  const allSubUls = folderList.querySelectorAll(".subfolder-list");
+  allSubUls.forEach(ul => { 
+    if (ul !== currentUl) ul.style.display = "none";
+    
+    // Reset all other arrows
+    const parentElement = ul.previousElementSibling;
+    if (parentElement && parentElement.querySelector(".folder-arrow")) {
+      parentElement.querySelector(".folder-arrow").classList.remove("open");
     }
+  });
+  
+  // Toggle current subfolder visibility
+  currentUl.style.display = (currentUl.style.display === "none" || !currentUl.style.display) ? "block" : "none";
+  
+  // Toggle arrow direction
+  if (parentLi && parentLi.querySelector(".folder-arrow")) {
+    const arrow = parentLi.querySelector(".folder-arrow");
+    if (currentUl.style.display === "block") {
+      arrow.classList.add("open");
+    } else {
+      arrow.classList.remove("open");
+    }
+  }
+}
 
     function highlightSelected(li) {
       const allItems = folderList.querySelectorAll("li");
