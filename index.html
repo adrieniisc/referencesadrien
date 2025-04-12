@@ -553,29 +553,37 @@
 }
 
 .main-search-container {
-  width: calc(100% - 310px); /* Updated from 260px to 310px (+50px) */
+  width: calc(100% - 310px); /* Keep existing width */
   max-width: 700px;
   margin: 0 auto;
   position: relative;
+  /* Add a subtle reflection effect */
+  border-radius: 12px;
 }
 
     #mainImageSearch {
-      width: 100%;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 12px;
-      background-color: rgba(45, 45, 48, 0.9);
-      color: var(--main-text);
-      font-size: 0.95rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      transition: all 0.2s ease;
-    }
-
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 12px;
+  /* Change to transparent background */
+  background-color: rgba(45, 45, 48, 0.6); /* More transparent */
+  color: var(--main-text);
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  /* Add backdrop-filter for blur effect */
+  backdrop-filter: blur(8px);
+  /* For Safari compatibility */
+  -webkit-backdrop-filter: blur(8px);
+}
     #mainImageSearch:focus {
-      outline: none;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-      background-color: rgba(50, 50, 53, 0.95);
-    }
+  outline: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  background-color: rgba(50, 50, 53, 0.65); /* A bit darker but still transparent */
+  backdrop-filter: blur(10px); /* Slightly stronger blur on focus */
+  -webkit-backdrop-filter: blur(10px);
+}
 
 
 
@@ -592,6 +600,15 @@
   text-align: center;
   margin-top: 0.4rem;
   display: block !important;
+}
+    /* Add a fallback for browsers that don't support backdrop-filter */
+@supports not (backdrop-filter: blur(8px)) {
+  #mainImageSearch {
+    background-color: rgba(45, 45, 48, 0.9); /* More opaque fallback */
+  }
+  #mainImageSearch:focus {
+    background-color: rgba(50, 50, 53, 0.95);
+  }
 }
 
     .admin-access-btn:hover {
