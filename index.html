@@ -1823,13 +1823,12 @@ downloadLink.addEventListener("click", function(e) {
       });
     });
 
-    // ADMIN Login Event Listeners
-// Remove or comment out the adminBtn line - you've already done this with the //// marks
+   
 document.getElementById("closePreferencesPanelBtn").addEventListener("click", () => { 
   document.getElementById("preferencesPanel").classList.remove("active"); 
 });
 document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
-  const requiredValue = "YWRtaW4xMjM="; // admin123 encoded with base64
+  const requiredValue = "YWRtaW4xMjM=";
   if (document.getElementById("userPreference").value === atob(requiredValue)) {
     editButtons.forEach(button => { button.style.display = "block"; });
     separators.forEach(separator => { separator.style.display = "block"; }); 
