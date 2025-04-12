@@ -233,18 +233,20 @@
       height: 100%;
     }
     .gallery {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.8rem;
-    }
-    .image-container {
-      position: relative;
-      width: var(--thumbnail-size);
-      min-width: var(--thumbnail-size);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--thumbnail-size) * 0.8), var(--thumbnail-size)));
+  gap: 0.8rem;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.image-container {
+  position: relative;
+  width: 100%; /* Takes full width of its grid cell */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
     .image-container img {
       width: 100%;
       height: auto;
