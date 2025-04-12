@@ -1848,6 +1848,17 @@ downloadLink.addEventListener("click", function(e) {
     // Actually call the processUpload function with the file
     processUpload(file, folderValue, keywords, uploadItemId);
   }
+
+     <div id="uploadDock" class="upload-dock">
+  <div class="upload-dock-header">
+    <span>Upload Progress</span>
+    <button id="minimizeUploadDock" class="minimize-dock-btn">▼</button>
+  </div>
+  <div class="upload-dock-content">
+    <!-- Upload items will be added here dynamically -->
+  </div>
+</div>
+                                       
 });
     
     // Start upload (non-blocking)
@@ -1995,17 +2006,5 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     addFolderBtn.addEventListener("click", addFolder);
     
   </script>
-  
-<div id="uploadDock" class="upload-dock">
-  <div class="upload-dock-header">
-    <span>Upload Progress</span>
-    <button id="minimizeUploadDock" class="minimize-dock-btn">▼</button>
-  </div>
-  <div class="upload-dock-content">
-    <!-- Upload items will be added here dynamically -->
-  </div>
-</div>
-</script>
-  
-</body>
+  </body>
 </html>
