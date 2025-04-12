@@ -1548,32 +1548,6 @@ downloadLink.addEventListener("click", function(e) {
     }
   });
 }
-  
-  console.log("Performing search with term:", searchTerm);
-  
-  allImages.forEach(imgContainer => {
-    const imgName = imgContainer.querySelector("img").alt.toLowerCase();
-    const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
-    
-    // If search is empty, respect the folder filter
-    if (searchTerm === "") {
-      const category = imgContainer.getAttribute("data-category");
-      if (currentFolderFilter === "all" || category === currentFolderFilter) {
-        imgContainer.style.display = "flex";
-      } else {
-        imgContainer.style.display = "none";
-      }
-    } 
-    // Otherwise filter by search term
-    else {
-      if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
-        imgContainer.style.display = "flex";
-      } else {
-        imgContainer.style.display = "none";
-      }
-    }
-  });
-}
 
     /********************************************************
      * Enlarge Image Modal Closure (click outside image)
