@@ -935,53 +935,6 @@
     const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
     const separators = document.querySelectorAll(".separator");
 
-    // Add this function outside other functions, but inside the <script> tag
-async function processUpload(file, folderValue, keywords, uploadItemId) {
-  const progressFill = document.getElementById(`progress-${uploadItemId}`);
-  const uploadItem = document.getElementById(uploadItemId);
-  
-  try {
-    // Update progress to 30%
-    progressFill.style.width = "30%";
-    
-    // Upload the file
-    const imageUrl = await uploadImage(file);
-    
-    // Update progress to 70%
-    progressFill.style.width = "70%";
-    
-    // Save to Firebase
-    await saveImageToFirebase(imageUrl, folderValue, keywords, file.name);
-    
-    // Add to gallery
-    addImageToGallery(imageUrl, folderValue, keywords, file.name, Date.now());
-    
-    // Complete
-    progressFill.style.width = "100%";
-    uploadItem.classList.add("upload-success");
-    
-    // Remove the item after 5 seconds if successful
-    setTimeout(() => {
-      uploadItem.remove();
-      
-      // Check if dock is empty and hide it if so
-      if (document.querySelector(".upload-dock-content").children.length === 0) {
-        document.getElementById("uploadDock").classList.remove("active");
-      }
-    }, 5000);
-    
-  } catch (error) {
-    console.error(`Upload failed for ${file.name}:`, error);
-    progressFill.style.width = "100%";
-    uploadItem.classList.add("upload-error");
-    
-    // Add error message
-    const details = uploadItem.querySelector(".upload-dock-item-details");
-    details.textContent = `Error: ${error.message}`;
-    details.style.color = "#ff3b30";
-  }
-}
-
     // Hide edit buttons and separators by default
     document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => { button.style.display = "none"; });
@@ -1897,8 +1850,8 @@ downloadLink.addEventListener("click", function(e) {
     
     // Start upload (non-blocking)
     async function processUpload(file, folderValue, keywords, uploadItemId) {
-  const progressFill = adminPassword(`progress-${uploadItemId}`);
-  const uploadItem = adminPassword(uploadItemId);
+  const progressFill = document.getElementById(`progress-${uploadItemId}`);
+  const uploadItem = document.getElementById(uploadItemId);
   
   try {
     // Update progress to 30%
@@ -1926,7 +1879,7 @@ downloadLink.addEventListener("click", function(e) {
       
       // Check if dock is empty and hide it if so
       if (document.querySelector(".upload-dock-content").children.length === 0) {
-        adminPassword("uploadDock").classList.remove("active");
+        document.getElementById("uploadDock").classList.remove("active");
       }
     }, 5000);
     
@@ -1982,16 +1935,16 @@ downloadLink.addEventListener("click", function(e) {
     });
 
    
-adminPassword("closePreferencesPanelBtn").addEventListener("click", () => { 
-  adminPassword("preferencesPanel").classList.remove("active"); 
+document.getElementById("closePreferencesPanelBtn").addEventListener("click", () => { 
+  document.getElementById("preferencesPanel").classList.remove("active"); 
 });
-adminPassword("applyPreferenceBtn").addEventListener("click", () => {
+document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
   const requiredValue = "YWRtaW4xMjM=";
-  if (adminPassword("userPreference").value === atob(requiredValue)) {
+  if (document.getElementById("userPreference").value === atob(requiredValue)) {
     editButtons.forEach(button => { button.style.display = "block"; });
     separators.forEach(separator => { separator.style.display = "block"; }); 
-    adminPassword("preferencesPanel").classList.remove("active");
-    adminPassword("userPreference").value = "";
+    document.getElementById("preferencesPanel").classList.remove("active");
+    document.getElementById("userPreference").value = "";
   } else {
     alert("Invalid preference value. Please try again.");
   }
@@ -2033,12 +1986,6 @@ adminPassword("applyPreferenceBtn").addEventListener("click", () => {
     <!-- Upload items will be added here dynamically -->
   </div>
 </div>
-
-  <script>
-document.getElementById("minimizeUploadDock").addEventListener("click", function() {
-  const uploadDock = document.getElementById("uploadDock");
-  uploadDock.classList.remove("active");
-});
 </script>
   
 </body>
