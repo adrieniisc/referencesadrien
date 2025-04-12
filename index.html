@@ -597,8 +597,9 @@
 .upload-dock {
   position: fixed;
   bottom: 18px;
-  left: 18px;  /* Positioned at bottom left */
-  width: auto;  /* Auto width instead of 100% */
+  left: 50%;  /* Position at 50% from the left */
+  transform: translateX(-50%);  /* Center it by moving back half its width */
+  width: auto;  /* Auto width */
   max-width: 320px;  /* Maximum width */
   background-color: rgba(44,44,46,0.9);
   border-radius: 10px;  /* Rounded corners like size panel */
