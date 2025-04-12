@@ -929,7 +929,6 @@
     const adminModal = document.getElementById("adminModal");
     const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
-    const document.getElementByIdInput = document.getElementById("document.getElementById");
 
     // All editing buttons in the sidebar footer and separators
     const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
@@ -945,10 +944,10 @@
 
     const mainImageSearch = document.getElementById("mainImageSearch");
 
-    const adminAccessBtn = document.getElementById("adminAccessBtn");
+    const adminAccessBtn = document.getElementById("adminaccessbtn");
 
    document.getElementById("adminaccessbtn").addEventListener("click", () => { 
-  document.getElementById("preferencesPanel").classList.add("active"); 
+   document.getElementById("preferencesPanel").classList.add("active"); 
 });
 
     function performSearch() {
@@ -1957,16 +1956,26 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
    document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("DOM loaded, initializing application...");
-    document.getElementById("adminaccessbtn").style.display = "block";
-    const customizeBtn = document.getElementById("adminaccessbtn");
-    customizeBtn.style.display = "block";
-    customizeBtn.style.backgroundColor = "#2c2c2e";
+    // Hide admin buttons by default
+    editButtons.forEach(button => { button.style.display = "none"; });
+    separators.forEach(separator => { separator.style.display = "none"; });
+    
+    // Make sure admin button is visible
+    const adminBtn = document.getElementById("adminaccessbtn");
+    if (adminBtn) {
+      adminBtn.style.display = "block";
+      adminBtn.style.backgroundColor = "#2c2c2e";
+    }
+    
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
+    
+    // Select 'All' folder
     const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
     if (allFolder) { 
       allFolder.classList.add("selected");
-      console.log("Selected 'All' folder");
+      currentFolderFilter = "all";
+      filterImages("all");
     } else {
       console.error("Could not find 'All' folder item");
     }
