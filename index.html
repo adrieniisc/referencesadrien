@@ -1042,16 +1042,31 @@
      * Netlify Upload Function
      ********************************************************/
     async function uploadImage(file) {
-      const formData = new FormData();
-      formData.append('file', file);
-      const response = await fetch('/.netlify/functions/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      console.log('Upload response:', data);
-      return data.url;
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch('/.netlify/functions/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Upload failed with status: ${response.status}`);
     }
+    
+    const data = await response.json();
+    console.log('Upload response:', data);
+    
+    if (!data.url) {
+      throw new Error('No URL returned from upload service');
+    }
+    
+    return data.url;
+  } catch (error) {
+    console.error('Upload error:', error);
+    throw error; // Re-throw to handle in the calling function
+  }
+}
 
     /********************************************************
      * Firebase Data Syncing
@@ -1630,9 +1645,11 @@ downloadLink.addEventListener("click", function(e) {
      
      ********************************************************/
 
-    document.getElementById("minimizeUploadDock").addEventListener("click", function() {
+    document.getElementById("minimizeUploadDock")?.addEventListener("click", function() {
   const uploadDock = document.getElementById("uploadDock");
-  uploadDock.classList.remove("active");
+  if (uploadDock) {
+    uploadDock.classList.remove("active");
+  }
 });
     // Folder Modal handling
     document.getElementById("closeFolderModalBtn").addEventListener("click", () => {
@@ -1791,7 +1808,7 @@ downloadLink.addEventListener("click", function(e) {
     addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
 
     // Confirm Add Image button
-   confirmAddImageBtn.addEventListener("click", async () => {
+  confirmAddImageBtn.addEventListener("click", async () => {
   const files = fileInput.files;
   
   if (!files || files.length === 0) { 
@@ -1814,6 +1831,12 @@ downloadLink.addEventListener("click", function(e) {
   
   // Show the upload dock
   const uploadDock = document.getElementById("uploadDock");
+  if (!uploadDock) {
+    console.error("Upload dock element not found");
+    alert("Upload system error: Could not find upload dock element");
+    return;
+  }
+  
   uploadDock.classList.add("active");
   
   // Close the modal - we don't need to wait for uploads to complete
@@ -1822,13 +1845,20 @@ downloadLink.addEventListener("click", function(e) {
   // Reset file input to allow new selections in subsequent uploads
   fileInput.value = "";
   
+  // Get upload dock content
+  const uploadDockContent = document.querySelector(".upload-dock-content");
+  if (!uploadDockContent) {
+    console.error("Upload dock content element not found");
+    alert("Upload system error: Could not find upload dock content element");
+    return;
+  }
+  
   // Process each file
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     
     // Create upload item in the dock
     const uploadItemId = `upload-${uploadBatchId}-${i}`;
-    const uploadDockContent = document.querySelector(".upload-dock-content");
     
     const uploadItem = document.createElement("div");
     uploadItem.classList.add("upload-dock-item");
@@ -1851,9 +1881,14 @@ downloadLink.addEventListener("click", function(e) {
 });
     
     // Start upload (non-blocking)
-    async function processUpload(file, folderValue, keywords, uploadItemId) {
+   async function processUpload(file, folderValue, keywords, uploadItemId) {
   const progressFill = document.getElementById(`progress-${uploadItemId}`);
   const uploadItem = document.getElementById(uploadItemId);
+  
+  if (!progressFill || !uploadItem) {
+    console.error(`Missing DOM elements for upload ${uploadItemId}`);
+    return;
+  }
   
   try {
     // Update progress to 30%
@@ -1877,23 +1912,31 @@ downloadLink.addEventListener("click", function(e) {
     
     // Remove the item after 5 seconds if successful
     setTimeout(() => {
-      uploadItem.remove();
-      
-      // Check if dock is empty and hide it if so
-      if (document.querySelector(".upload-dock-content").children.length === 0) {
-        document.getElementById("uploadDock").classList.remove("active");
+      if (uploadItem && uploadItem.parentNode) {
+        uploadItem.remove();
+        
+        // Check if dock is empty and hide it if so
+        const uploadDockContent = document.querySelector(".upload-dock-content");
+        if (uploadDockContent && uploadDockContent.children.length === 0) {
+          const uploadDock = document.getElementById("uploadDock");
+          if (uploadDock) {
+            uploadDock.classList.remove("active");
+          }
+        }
       }
     }, 5000);
     
   } catch (error) {
     console.error(`Upload failed for ${file.name}:`, error);
-    progressFill.style.width = "100%";
-    uploadItem.classList.add("upload-error");
+    if (progressFill) progressFill.style.width = "100%";
+    if (uploadItem) uploadItem.classList.add("upload-error");
     
     // Add error message
-    const details = uploadItem.querySelector(".upload-dock-item-details");
-    details.textContent = `Error: ${error.message}`;
-    details.style.color = "#ff3b30";
+    const details = uploadItem?.querySelector(".upload-dock-item-details");
+    if (details) {
+      details.textContent = `Error: ${error.message || 'Unknown error'}`;
+      details.style.color = "#ff3b30";
+    }
   }
 }
 
@@ -1971,6 +2014,14 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
       console.error("Could not find admin access button");
     }
     
+    // Initialize the upload dock
+    const uploadDock = document.getElementById("uploadDock");
+    if (uploadDock) {
+      console.log("Upload dock initialized");
+    } else {
+      console.error("Could not find upload dock element");
+    }
+    
     // Load data
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
@@ -1994,7 +2045,7 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
 
     addFolderBtn.addEventListener("click", addFolder);
     
-  </script>
+
   
 <div id="uploadDock" class="upload-dock">
   <div class="upload-dock-header">
