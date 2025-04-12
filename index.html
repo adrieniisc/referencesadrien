@@ -42,7 +42,7 @@
        Fixed ADMIN Button in Top-Right Corner
     -------------------------------------------------- */
 
-    #customizeUIBtn:hover { opacity: 0.9; }
+    #adminaccessbtn:hover { opacity: 0.9; }
 
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
@@ -733,7 +733,7 @@
         </div>
         <hr class="separator">
        <div class="sidebar-admin-section">
-  <button id="customizeUIBtn" class="admin-access-btn">ADMIN ACCESS</button>
+  <button id="adminaccessbtn" class="admin-access-btn">ADMIN ACCESS</button>
 </div>
       </div>
     </div>
@@ -935,6 +935,8 @@
     const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
     const separators = document.querySelectorAll(".separator");
 
+    
+
     // Hide edit buttons and separators by default
     document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => { button.style.display = "none"; });
@@ -945,9 +947,54 @@
 
     const adminAccessBtn = document.getElementById("adminAccessBtn");
 
-   document.getElementById("customizeUIBtn").addEventListener("click", () => { 
+   document.getElementById("adminaccessbtn").addEventListener("click", () => { 
   document.getElementById("preferencesPanel").classList.add("active"); 
 });
+
+    function performSearch() {
+  const searchTerm = mainImageSearch.value.toLowerCase();
+  const allImages = document.querySelectorAll(".image-container");
+  
+  console.log("Performing search with term:", searchTerm);
+  
+  allImages.forEach(imgContainer => {
+    const imgName = imgContainer.querySelector("img").alt.toLowerCase();
+    const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
+    
+    // If search is empty, respect the folder filter
+    if (searchTerm === "") {
+      const category = imgContainer.getAttribute("data-category");
+      
+      if (currentFolderFilter === "all") {
+        imgContainer.style.display = "flex";
+      } 
+      else if (!currentFolderFilter.includes("/")) {
+        // For parent folders, show images from this folder AND any subfolders
+        if (category === currentFolderFilter || category.startsWith(currentFolderFilter + "/")) {
+          imgContainer.style.display = "flex";
+        } else {
+          imgContainer.style.display = "none";
+        }
+      }
+      else {
+        // For subfolders, only show exact matches
+        if (category === currentFolderFilter) {
+          imgContainer.style.display = "flex";
+        } else {
+          imgContainer.style.display = "none";
+        }
+      }
+    } 
+    // Otherwise filter by search term
+    else {
+      if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
+        imgContainer.style.display = "flex";
+      } else {
+        imgContainer.style.display = "none";
+      }
+    }
+  });
+}
 
     // Add the event listener for the new search box
     
@@ -1570,50 +1617,7 @@ downloadLink.addEventListener("click", function(e) {
       }
     }
 
-    function performSearch() {
-  const searchTerm = mainImageSearch.value.toLowerCase();
-  const allImages = document.querySelectorAll(".image-container");
-  
-  console.log("Performing search with term:", searchTerm);
-  
-  allImages.forEach(imgContainer => {
-    const imgName = imgContainer.querySelector("img").alt.toLowerCase();
-    const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
-    
-    // If search is empty, respect the folder filter
-    if (searchTerm === "") {
-      const category = imgContainer.getAttribute("data-category");
-      
-      if (currentFolderFilter === "all") {
-        imgContainer.style.display = "flex";
-      } 
-      else if (!currentFolderFilter.includes("/")) {
-        // For parent folders, show images from this folder AND any subfolders
-        if (category === currentFolderFilter || category.startsWith(currentFolderFilter + "/")) {
-          imgContainer.style.display = "flex";
-        } else {
-          imgContainer.style.display = "none";
-        }
-      }
-      else {
-        // For subfolders, only show exact matches
-        if (category === currentFolderFilter) {
-          imgContainer.style.display = "flex";
-        } else {
-          imgContainer.style.display = "none";
-        }
-      }
-    } 
-    // Otherwise filter by search term
-    else {
-      if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
-        imgContainer.style.display = "flex";
-      } else {
-        imgContainer.style.display = "none";
-      }
-    }
-  });
-}
+   
 
     /********************************************************
      * Enlarge Image Modal Closure (click outside image)
@@ -1953,8 +1957,8 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
    document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("DOM loaded, initializing application...");
-    document.getElementById("customizeUIBtn").style.display = "block";
-    const customizeBtn = document.getElementById("customizeUIBtn");
+    document.getElementById("adminaccessbtn").style.display = "block";
+    const customizeBtn = document.getElementById("adminaccessbtn");
     customizeBtn.style.display = "block";
     customizeBtn.style.backgroundColor = "#2c2c2e";
     await loadFoldersFromFirebase();
