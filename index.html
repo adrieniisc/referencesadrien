@@ -931,13 +931,12 @@
     const confirmAdminBtn = document.getElementById("confirmAdminBtn");
 
     // All editing buttons in the sidebar footer and separators
-    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminAccessBtn)");
+    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminaccessBtn)");
     const separators = document.querySelectorAll(".separator");
 
     
 
     // Hide edit buttons and separators by default
-    document.addEventListener("DOMContentLoaded", () => {
       editButtons.forEach(button => { button.style.display = "none"; });
       separators.forEach(separator => { separator.style.display = "none"; });
     });
@@ -1957,16 +1956,22 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
   try {
     console.log("DOM loaded, initializing application...");
     // Hide admin buttons by default
-    editButtons.forEach(button => { button.style.display = "none"; });
-    separators.forEach(separator => { separator.style.display = "none"; });
+    const adminButtons = document.querySelectorAll(".sidebar-footer button:not(#adminaccessbtn)");
+    adminButtons.forEach(button => { button.style.display = "none"; });
     
-    // Make sure admin button is visible
+    const seps = document.querySelectorAll(".separator");
+    seps.forEach(separator => { separator.style.display = "none"; });
+    
+    // Make sure admin access button is visible
     const adminBtn = document.getElementById("adminaccessbtn");
     if (adminBtn) {
       adminBtn.style.display = "block";
-      adminBtn.style.backgroundColor = "#2c2c2e";
+      console.log("Admin access button displayed");
+    } else {
+      console.error("Could not find admin access button");
     }
     
+    // Load data
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
     
@@ -1976,6 +1981,7 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
       allFolder.classList.add("selected");
       currentFolderFilter = "all";
       filterImages("all");
+      console.log("All folder selected");
     } else {
       console.error("Could not find 'All' folder item");
     }
