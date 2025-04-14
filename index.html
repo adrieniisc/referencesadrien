@@ -860,6 +860,10 @@
 }
     
   </style>
+
+ <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+ <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+  
 </head>
 <body>
 
@@ -2183,9 +2187,33 @@ function closeEnlargeModal() {
     processUpload(file, folderValue, keywords, uploadItemId);
   }
 });
+
+    // Add this function just before your processUpload function
+async function generateImageTags(imageElement) {
+  try {
+    // Load the MobileNet model
+    const model = await mobilenet.load();
+    
+    // Classify the image
+    const predictions = await model.classify(imageElement);
+    
+    // Extract the top 3 predictions as tags
+    const tags = predictions
+      .slice(0, 3)
+      .map(p => p.className.toLowerCase().replace(/,/g, '').split(' '))
+      .flat()
+      .filter((tag, index, self) => self.indexOf(tag) === index && tag.length > 2)
+      .join(', ');
+    
+    return tags;
+  } catch (error) {
+    console.error('Error generating image tags:', error);
+    return '';
+  }
+}
     
     // Start upload (non-blocking)
-   async function processUpload(file, folderValue, keywords, uploadItemId) {
+  async function processUpload(file, folderValue, keywords, uploadItemId) {
   const progressFill = document.getElementById(`progress-${uploadItemId}`);
   const uploadItem = document.getElementById(uploadItemId);
   
@@ -2201,18 +2229,42 @@ function closeEnlargeModal() {
     // Upload the file
     const imageUrl = await uploadImage(file);
     
+    // Create a temporary image element to analyze
+    const img = document.createElement('img');
+    img.crossOrigin = 'anonymous';
+    
+    // Wait for the image to load
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = imageUrl;
+    });
+    
+    // Generate tags using machine learning
+    const autoTags = await generateImageTags(img);
+    
     // Update progress to 70%
     progressFill.style.width = "70%";
     
-    // Save to Firebase
-    await saveImageToFirebase(imageUrl, folderValue, keywords, file.name);
+    // Combine all keywords
+    const combinedKeywords = keywords ? 
+      `${keywords}, ${autoTags}` : autoTags;
+    
+    // Save to Firebase with auto-generated tags
+    await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, file.name);
     
     // Add to gallery
-    addImageToGallery(imageUrl, folderValue, keywords, file.name, Date.now());
+    addImageToGallery(imageUrl, folderValue, combinedKeywords, file.name, Date.now());
     
     // Complete
     progressFill.style.width = "100%";
     uploadItem.classList.add("upload-success");
+    
+    // Update the display to show the tags that were generated
+    const details = uploadItem?.querySelector(".upload-dock-item-details");
+    if (details) {
+      details.textContent = `To: ${folderValue} | Auto tags: ${autoTags} ${keywords ? '| Manual tags: ' + keywords : ''}`;
+    }
     
     // Remove the item after 5 seconds if successful
     setTimeout(() => {
