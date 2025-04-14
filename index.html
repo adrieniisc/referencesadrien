@@ -655,6 +655,49 @@
   background-color: #f0f0f0;
 }
 
+    
+    /* --------------------------------------------------
+      Enlarged tags 
+    -------------------------------------------------- */
+
+.enlarged-tags-container {
+  position: absolute;
+  bottom: 15px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  padding: 5px 0;
+  opacity: 0.2;
+  transition: opacity 0.3s ease;
+}
+
+.enlarged-tags-container:hover {
+  opacity: 0.6; /* Increase opacity on hover for better readability */
+}
+
+.enlarged-tags {
+  display: inline-block;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 0.9rem;
+  padding: 8px 16px;
+  border-radius: 20px;
+  max-width: 80%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Add this to the enlarged image container to allow proper positioning */
+.enlarged-image-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 90%;
+  max-height: 90%;
+}
+
     /* --------------------------------------------------
        Top Search Bar
     -------------------------------------------------- */
@@ -955,10 +998,19 @@
     </div>
   </div>
   <!-- Enlarge Image Modal -->
+
+  
   <div id="enlargeImageModal">
-  <img id="enlargeImage" src="" alt="">
+  <div class="enlarged-image-container">
+    <img id="enlargeImage" src="" alt="">
+    <div class="enlarged-tags-container">
+      <div class="enlarged-tags" id="enlargedTags"></div>
+    </div>
+  </div>
   <a id="enlargedDownloadBtn" class="enlarged-download-btn" href="#" download>Download</a>
 </div>
+
+  
   <!-- MODAL: New Folder -->
   <div class="modal-backdrop" id="folderModal">
     <div class="modal-content">
@@ -1886,15 +1938,26 @@ downloadLink.addEventListener("click", function(e) {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
+  const tagsElement = document.getElementById("enlargedTags");
   
+  // Find the image container by URL to get its keywords
+  const imageContainer = document.querySelector(`.image-container img[src="${url}"]`).parentNode;
+  const keywords = imageContainer.getAttribute("data-keywords") || "";
+  
+  // Set image source and alt
   enlargeImg.src = url;
   enlargeImg.alt = filename;
-  enlargeModal.style.display = "flex";
   
   // Set download button attributes and show it
   downloadBtn.href = url;
   downloadBtn.download = filename;
   downloadBtn.style.display = "block";
+  
+  // Display keywords/tags
+  tagsElement.textContent = keywords;
+  
+  // Show the modal
+  enlargeModal.style.display = "flex";
   
   // Add force download functionality
   downloadBtn.addEventListener("click", function(e) {
