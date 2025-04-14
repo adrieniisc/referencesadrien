@@ -861,8 +861,8 @@
     
   </style>
 
- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
- <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+ <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
+ <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
   
 </head>
 <body>
@@ -2136,6 +2136,32 @@ function closeEnlargeModal() {
   
   // Create a new batch of uploads
   const uploadBatchId = Date.now();
+
+    // Ensure the TensorFlow libraries are loaded
+  let tensorflowReady = false;
+  try {
+    // Check if TensorFlow is available
+    if (typeof tf !== 'undefined' && typeof mobilenet !== 'undefined') {
+      console.log("TensorFlow and MobileNet are available");
+      tensorflowReady = true;
+    } else {
+      console.warn("TensorFlow or MobileNet is not available, auto-tagging will be disabled");
+    }
+  } catch (e) {
+    console.error("Error checking TensorFlow availability:", e);
+  }
+    const uploadItem = document.createElement("div");
+    uploadItem.classList.add("upload-dock-item");
+    uploadItem.id = uploadItemId;
+    uploadItem.innerHTML = `
+      <div class="upload-dock-item-info">
+        <div class="upload-dock-item-filename">${file.name}</div>
+        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
+      </div>
+      <div class="upload-dock-progress">
+        <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
+      </div>
+    `;
   
   // Show the upload dock
   const uploadDock = document.getElementById("uploadDock");
@@ -2189,13 +2215,44 @@ function closeEnlargeModal() {
 });
 
     // Add this function just before your processUpload function
-async function generateImageTags(imageElement) {
+async function generateImageTags(imageUrl) {
   try {
-    // Load the MobileNet model
-    const model = await mobilenet.load();
+    console.log("Starting tag generation for image:", imageUrl);
+    
+    // Create a new image element
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    // Wait for the image to load
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = (e) => {
+        console.error("Image loading error:", e);
+        reject(new Error("Failed to load image"));
+      };
+      img.src = imageUrl;
+      
+      // Add a timeout in case the image doesn't load
+      setTimeout(() => reject(new Error("Image load timeout")), 10000);
+    });
+    
+    console.log("Image loaded successfully, size:", img.width, "x", img.height);
+    
+    // Use preloaded model if available
+    let model;
+    if (window.preloadedMobileNetModel) {
+      console.log("Using preloaded MobileNet model");
+      model = window.preloadedMobileNetModel;
+    } else {
+      console.log("Loading MobileNet model...");
+      model = await mobilenet.load();
+      console.log("Model loaded successfully");
+    }
     
     // Classify the image
-    const predictions = await model.classify(imageElement);
+    console.log("Classifying image...");
+    const predictions = await model.classify(img);
+    console.log("Classification results:", predictions);
     
     // Extract the top 3 predictions as tags
     const tags = predictions
@@ -2205,15 +2262,16 @@ async function generateImageTags(imageElement) {
       .filter((tag, index, self) => self.indexOf(tag) === index && tag.length > 2)
       .join(', ');
     
+    console.log("Generated tags:", tags);
     return tags;
   } catch (error) {
     console.error('Error generating image tags:', error);
-    return '';
+    return ''; // Return empty string if tagging fails
   }
 }
     
     // Start upload (non-blocking)
-  async function processUpload(file, folderValue, keywords, uploadItemId) {
+async function processUpload(file, folderValue, keywords, uploadItemId) {
   const progressFill = document.getElementById(`progress-${uploadItemId}`);
   const uploadItem = document.getElementById(uploadItemId);
   
@@ -2223,38 +2281,47 @@ async function generateImageTags(imageElement) {
   }
   
   try {
+    console.log(`Starting upload process for ${file.name}`);
+    
     // Update progress to 30%
     progressFill.style.width = "30%";
     
     // Upload the file
+    console.log(`Uploading ${file.name}...`);
     const imageUrl = await uploadImage(file);
+    console.log(`File uploaded successfully, URL: ${imageUrl}`);
     
-    // Create a temporary image element to analyze
-    const img = document.createElement('img');
-    img.crossOrigin = 'anonymous';
-    
-    // Wait for the image to load
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = imageUrl;
-    });
+    // Update progress to 50%
+    progressFill.style.width = "50%";
     
     // Generate tags using machine learning
-    const autoTags = await generateImageTags(img);
+    console.log(`Generating tags for ${file.name}...`);
+    let autoTags = '';
+    try {
+      autoTags = await generateImageTags(imageUrl);
+      console.log(`Tags generated: ${autoTags}`);
+    } catch (tagError) {
+      console.error(`Tag generation failed: ${tagError.message}`);
+      autoTags = ''; // Fail gracefully if tag generation fails
+    }
     
     // Update progress to 70%
     progressFill.style.width = "70%";
     
     // Combine all keywords
     const combinedKeywords = keywords ? 
-      `${keywords}, ${autoTags}` : autoTags;
+      (autoTags ? `${keywords}, ${autoTags}` : keywords) : 
+      autoTags;
+    
+    console.log(`Combined keywords: ${combinedKeywords}`);
     
     // Save to Firebase with auto-generated tags
     await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, file.name);
+    console.log(`Image saved to Firebase`);
     
     // Add to gallery
     addImageToGallery(imageUrl, folderValue, combinedKeywords, file.name, Date.now());
+    console.log(`Image added to gallery`);
     
     // Complete
     progressFill.style.width = "100%";
@@ -2263,7 +2330,11 @@ async function generateImageTags(imageElement) {
     // Update the display to show the tags that were generated
     const details = uploadItem?.querySelector(".upload-dock-item-details");
     if (details) {
-      details.textContent = `To: ${folderValue} | Auto tags: ${autoTags} ${keywords ? '| Manual tags: ' + keywords : ''}`;
+      if (autoTags) {
+        details.textContent = `To: ${folderValue} | Auto tags: ${autoTags} ${keywords ? '| Manual tags: ' + keywords : ''}`;
+      } else {
+        details.textContent = `To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''}`;
+      }
     }
     
     // Remove the item after 5 seconds if successful
@@ -2377,6 +2448,31 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     } else {
       console.error("Could not find upload dock element");
     }
+
+    // Preload the TensorFlow and MobileNet models to speed up first upload
+try {
+  console.log("Preloading TensorFlow and MobileNet models...");
+  // Check if we have access to the libraries
+  if (typeof tf !== 'undefined' && typeof mobilenet !== 'undefined') {
+    // We don't await this, as it can take time and we don't want to block initialization
+    // This will just start the process in the background
+    setTimeout(async () => {
+      try {
+        const model = await mobilenet.load();
+        console.log("MobileNet model preloaded successfully");
+        window.preloadedMobileNetModel = model; // Store for future use
+      } catch (e) {
+        console.warn("MobileNet preloading failed:", e);
+        // This is fine, we'll try again when needed
+      }
+    }, 1000);
+  } else {
+    console.warn("TensorFlow or MobileNet libraries not available for preloading");
+  }
+} catch (e) {
+  console.warn("Error during TensorFlow preloading:", e);
+  // Non-critical error, continue initialization
+}
     
     // Load data
     await loadFoldersFromFirebase();
