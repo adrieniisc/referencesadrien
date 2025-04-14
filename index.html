@@ -2137,7 +2137,7 @@ function closeEnlargeModal() {
   // Create a new batch of uploads
   const uploadBatchId = Date.now();
 
-    // Ensure the TensorFlow libraries are loaded
+  // Ensure the TensorFlow libraries are loaded
   let tensorflowReady = false;
   try {
     // Check if TensorFlow is available
@@ -2178,18 +2178,6 @@ function closeEnlargeModal() {
   // Process each file
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-
-    // Add this to your confirmAddImageBtn event listener, right after creating the upload dock:///////////////////////////////////////////////////////////////////////////////////////////////
-const debugItem = document.createElement("div");
-debugItem.classList.add("upload-dock-item");
-debugItem.innerHTML = `
-  <div class="upload-dock-item-info">
-    <div class="upload-dock-item-filename">Debug Info</div>
-    <div class="upload-dock-item-details">TensorFlow ready: ${tensorflowReady ? "Yes" : "No"} | Files to upload: ${files.length}</div>
-  </div>
-`;
-uploadDockContent.appendChild(debugItem);
-    
     
     // Create upload item in the dock
     const uploadItemId = `upload-${uploadBatchId}-${i}`;
@@ -2198,14 +2186,14 @@ uploadDockContent.appendChild(debugItem);
     uploadItem.classList.add("upload-dock-item");
     uploadItem.id = uploadItemId;
     uploadItem.innerHTML = `
-  <div class="upload-dock-item-info">
-    <div class="upload-dock-item-filename">${file.name}</div>
-    <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
-  </div>
-  <div class="upload-dock-progress">
-    <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
-  </div>
-`;
+      <div class="upload-dock-item-info">
+        <div class="upload-dock-item-filename">${file.name}</div>
+        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
+      </div>
+      <div class="upload-dock-progress">
+        <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
+      </div>
+    `;
     
     uploadDockContent.appendChild(uploadItem);
     
