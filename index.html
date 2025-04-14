@@ -40,39 +40,27 @@
 
 
     /* About Button CSS */
-    
 .about-btn {
   position: absolute;
-  top: 15px; /* Same top position as the search bar */
-  right: 40px; /* More space from the right edge */
-  background-color: rgba(255, 255, 255, 0.85); /* 85% white */
-  color: #000; /* Black text */
+  top: 15px;
+  right: 80px; /* Position to the left of admin button */
+  background-color: #171717;
+  color: #ddd;
   border: none;
-  padding: 10px 16px; /* Match search bar padding (from #mainImageSearch) */
-  border-radius: 12px; /* Match search bar border-radius */
-  font-size: 0.95rem; /* Match search bar font-size */
-  font-weight: 500; /* Medium weight for better readability */
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
   cursor: pointer;
-  width: 120px; /* Fixed width */
+  width: calc(33.33% * 240px / 100); /* One third the width of admin button */
   text-align: center;
   z-index: 1200;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Match search bar shadow */
-  /* Add backdrop filter to match search bar */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  height: 40px; /* Fixed height to match the search bar */
-  line-height: 20px; /* Center text vertically */
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .about-btn:hover {
-  background-color: rgba(255, 255, 255, 0.95); /* Slightly whiter on hover */
-  opacity: 1; /* Keep full opacity on hover */
+  opacity: 0.9;
 }
 
-/* Updated About Modal with blur effect */
+/* About Modal with blur effect */
 #aboutModal {
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
@@ -91,26 +79,12 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  max-width: 500px; /* Increased from 400px */
-  width: 90%;
-  padding: 1.5rem 2rem; /* Increased padding from 0.8rem 1.2rem */
-}
-
-#aboutModal .modal-content h3 {
-  margin-bottom: 1.2rem; /* Increased from 0.8rem */
-  font-weight: 600;
-  font-size: 1.3rem; /* Slightly larger heading */
-}
-
-#aboutModal .modal-content p {
-  margin-bottom: 1rem; /* Added space between paragraphs */
-  line-height: 1.5; /* Increased line height for less compact text */
-  font-size: 0.95rem; /* Slightly larger text */
 }
 
 #aboutModal .modal-content:hover {
   background-color: rgba(50, 50, 53, 0.65);
 }
+
     /* --------------------------------------------------
        Fixed ADMIN Button in Top-Right Corner
     -------------------------------------------------- */
@@ -876,13 +850,12 @@
 <div class="modal-backdrop" id="aboutModal">
   <div class="modal-content">
     <button class="close-modal-btn" id="closeAboutModalBtn">&times;</button>
-    <h3>Welcome to my website !</h3>
+    <h3>About This App</h3>
     <div id="aboutContent">
       <!-- Your about text will go here -->
-      <p>This is an open website for everyone searching for references, textures or anything that could be usefull to you.</p>
-      <p>You can browse by folder, search by keywords, and easily download any images for your work, freely and without restrictions.</p>
-      <p>Have fun :)</p>
-      <p>Adrien</p>
+      <p>This is a reference image browser application. It allows you to organize and search through texture and reference images for your projects.</p>
+      <p>You can browse by folder, search by keywords, and easily download images for your work.</p>
+      <p>Created for creative professionals who need quick access to visual references.</p>
     </div>
   </div>
 </div>
