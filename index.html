@@ -38,6 +38,79 @@
     }
     body { display: flex; flex-direction: column; }
 
+
+    /* About Button CSS */
+    
+.about-btn {
+  position: absolute;
+  top: 15px; /* Same top position as the search bar */
+  right: 40px; /* More space from the right edge */
+  background-color: rgba(255, 255, 255, 0.85); /* 85% white */
+  color: #000; /* Black text */
+  border: none;
+  padding: 10px 16px; /* Match search bar padding (from #mainImageSearch) */
+  border-radius: 12px; /* Match search bar border-radius */
+  font-size: 0.95rem; /* Match search bar font-size */
+  font-weight: 500; /* Medium weight for better readability */
+  cursor: pointer;
+  width: 120px; /* Fixed width */
+  text-align: center;
+  z-index: 1200;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Match search bar shadow */
+  /* Add backdrop filter to match search bar */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  height: 40px; /* Fixed height to match the search bar */
+  line-height: 20px; /* Center text vertically */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-btn:hover {
+  background-color: rgba(255, 255, 255, 0.95); /* Slightly whiter on hover */
+  opacity: 1; /* Keep full opacity on hover */
+}
+
+/* Updated About Modal with blur effect */
+#aboutModal {
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+}
+
+/* Fallback for browsers that don't support backdrop-filter */
+@supports not (backdrop-filter: blur(15px)) {
+  #aboutModal {
+    background: rgba(0,0,0,0.9); /* More opaque fallback */
+  }
+}
+
+/* Style the about content modal */
+#aboutModal .modal-content {
+  background-color: rgba(45, 45, 48, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  max-width: 500px; /* Increased from 400px */
+  width: 90%;
+  padding: 1.5rem 2rem; /* Increased padding from 0.8rem 1.2rem */
+}
+
+#aboutModal .modal-content h3 {
+  margin-bottom: 1.2rem; /* Increased from 0.8rem */
+  font-weight: 600;
+  font-size: 1.3rem; /* Slightly larger heading */
+}
+
+#aboutModal .modal-content p {
+  margin-bottom: 1rem; /* Added space between paragraphs */
+  line-height: 1.5; /* Increased line height for less compact text */
+  font-size: 0.95rem; /* Slightly larger text */
+}
+
+#aboutModal .modal-content:hover {
+  background-color: rgba(50, 50, 53, 0.65);
+}
     /* --------------------------------------------------
        Fixed ADMIN Button in Top-Right Corner
     -------------------------------------------------- */
@@ -787,9 +860,14 @@
 }
     
   </style>
+
+ <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
+ <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
+  
 </head>
 <body>
 
+    <button id="aboutBtn" class="about-btn">About</button>
 
   <div class="top-search-bar">
     <div class="main-search-container">
@@ -797,6 +875,23 @@
     </div>
   </div>
 
+
+  <!-- MODAL: About -->
+<div class="modal-backdrop" id="aboutModal">
+  <div class="modal-content">
+    <button class="close-modal-btn" id="closeAboutModalBtn">&times;</button>
+    <h3>Welcome to my website !</h3>
+    <div id="aboutContent">
+      <!-- Your about text will go here -->
+      <p>This is an open website for everyone searching for references, textures or anything that could be usefull to you.</p>
+      <p>You can browse by folder, search by keywords, and easily download any images for your work, freely and without restrictions.</p>
+      <p>Have fun :)</p>
+      <p>Adrien</p>
+    </div>
+  </div>
+</div>
+
+  
   <!-- MAIN CONTAINER (Sidebar + Main Content) -->
   <div class="main-container">
     <!-- SIDEBAR -->
@@ -1139,6 +1234,26 @@
         this.style.display = "none";
       }
     });
+
+    /** ABOUT JavaScipt **/
+
+const aboutBtn = document.getElementById("aboutBtn");
+const aboutModal = document.getElementById("aboutModal");
+const closeAboutModalBtn = document.getElementById("closeAboutModalBtn");
+
+aboutBtn.addEventListener("click", () => {
+  aboutModal.classList.add("active");
+});
+
+closeAboutModalBtn.addEventListener("click", () => {
+  aboutModal.classList.remove("active");
+});
+
+aboutModal.addEventListener("click", (e) => {
+  if (e.target === aboutModal) {
+    aboutModal.classList.remove("active");
+  }
+});
 
     /********************************************************
      * Netlify Upload Function
@@ -2021,6 +2136,20 @@ function closeEnlargeModal() {
   
   // Create a new batch of uploads
   const uploadBatchId = Date.now();
+
+  // Ensure the TensorFlow libraries are loaded
+  let tensorflowReady = false;
+  try {
+    // Check if TensorFlow is available
+    if (typeof tf !== 'undefined' && typeof mobilenet !== 'undefined') {
+      console.log("TensorFlow and MobileNet are available");
+      tensorflowReady = true;
+    } else {
+      console.warn("TensorFlow or MobileNet is not available, auto-tagging will be disabled");
+    }
+  } catch (e) {
+    console.error("Error checking TensorFlow availability:", e);
+  }
   
   // Show the upload dock
   const uploadDock = document.getElementById("uploadDock");
@@ -2059,7 +2188,7 @@ function closeEnlargeModal() {
     uploadItem.innerHTML = `
       <div class="upload-dock-item-info">
         <div class="upload-dock-item-filename">${file.name}</div>
-        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''}</div>
+        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
       </div>
       <div class="upload-dock-progress">
         <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
@@ -2072,9 +2201,65 @@ function closeEnlargeModal() {
     processUpload(file, folderValue, keywords, uploadItemId);
   }
 });
+
+    // Add this function just before your processUpload function
+async function generateImageTags(imageUrl) {
+  try {
+    console.log("Starting tag generation for image:", imageUrl);
+    
+    // Create a new image element
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    // Wait for the image to load
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = (e) => {
+        console.error("Image loading error:", e);
+        reject(new Error("Failed to load image"));
+      };
+      img.src = imageUrl;
+      
+      // Add a timeout in case the image doesn't load
+      setTimeout(() => reject(new Error("Image load timeout")), 10000);
+    });
+    
+    console.log("Image loaded successfully, size:", img.width, "x", img.height);
+    
+    // Use preloaded model if available
+    let model;
+    if (window.preloadedMobileNetModel) {
+      console.log("Using preloaded MobileNet model");
+      model = window.preloadedMobileNetModel;
+    } else {
+      console.log("Loading MobileNet model...");
+      model = await mobilenet.load();
+      console.log("Model loaded successfully");
+    }
+    
+    // Classify the image
+    console.log("Classifying image...");
+    const predictions = await model.classify(img);
+    console.log("Classification results:", predictions);
+    
+    // Extract the top 3 predictions as tags
+    const tags = predictions
+      .slice(0, 3)
+      .map(p => p.className.toLowerCase().replace(/,/g, '').split(' '))
+      .flat()
+      .filter((tag, index, self) => self.indexOf(tag) === index && tag.length > 2)
+      .join(', ');
+    
+    console.log("Generated tags:", tags);
+    return tags;
+  } catch (error) {
+    console.error('Error generating image tags:', error);
+    return ''; // Return empty string if tagging fails
+  }
+}
     
     // Start upload (non-blocking)
-   async function processUpload(file, folderValue, keywords, uploadItemId) {
+async function processUpload(file, folderValue, keywords, uploadItemId) {
   const progressFill = document.getElementById(`progress-${uploadItemId}`);
   const uploadItem = document.getElementById(uploadItemId);
   
@@ -2084,24 +2269,61 @@ function closeEnlargeModal() {
   }
   
   try {
+    console.log(`Starting upload process for ${file.name}`);
+    
     // Update progress to 30%
     progressFill.style.width = "30%";
     
     // Upload the file
+    console.log(`Uploading ${file.name}...`);
     const imageUrl = await uploadImage(file);
+    console.log(`File uploaded successfully, URL: ${imageUrl}`);
+    
+    // Update progress to 50%
+    progressFill.style.width = "50%";
+    
+    // Generate tags using machine learning
+    console.log(`Generating tags for ${file.name}...`);
+    let autoTags = '';
+    try {
+      autoTags = await generateImageTags(imageUrl);
+      console.log(`Tags generated: ${autoTags}`);
+    } catch (tagError) {
+      console.error(`Tag generation failed: ${tagError.message}`);
+      autoTags = ''; // Fail gracefully if tag generation fails
+    }
     
     // Update progress to 70%
     progressFill.style.width = "70%";
     
-    // Save to Firebase
-    await saveImageToFirebase(imageUrl, folderValue, keywords, file.name);
+    // Combine all keywords
+    const combinedKeywords = keywords ? 
+      (autoTags ? `${keywords}, ${autoTags}` : keywords) : 
+      autoTags;
+    
+    console.log(`Combined keywords: ${combinedKeywords}`);
+    
+    // Save to Firebase with auto-generated tags
+    await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, file.name);
+    console.log(`Image saved to Firebase`);
     
     // Add to gallery
-    addImageToGallery(imageUrl, folderValue, keywords, file.name, Date.now());
+    addImageToGallery(imageUrl, folderValue, combinedKeywords, file.name, Date.now());
+    console.log(`Image added to gallery`);
     
     // Complete
     progressFill.style.width = "100%";
     uploadItem.classList.add("upload-success");
+    
+    // Update the display to show the tags that were generated
+    const details = uploadItem?.querySelector(".upload-dock-item-details");
+    if (details) {
+      if (autoTags) {
+        details.textContent = `To: ${folderValue} | Auto tags: ${autoTags} ${keywords ? '| Manual tags: ' + keywords : ''}`;
+      } else {
+        details.textContent = `To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''}`;
+      }
+    }
     
     // Remove the item after 5 seconds if successful
     setTimeout(() => {
@@ -2214,6 +2436,31 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     } else {
       console.error("Could not find upload dock element");
     }
+
+    // Preload the TensorFlow and MobileNet models to speed up first upload
+try {
+  console.log("Preloading TensorFlow and MobileNet models...");
+  // Check if we have access to the libraries
+  if (typeof tf !== 'undefined' && typeof mobilenet !== 'undefined') {
+    // We don't await this, as it can take time and we don't want to block initialization
+    // This will just start the process in the background
+    setTimeout(async () => {
+      try {
+        const model = await mobilenet.load();
+        console.log("MobileNet model preloaded successfully");
+        window.preloadedMobileNetModel = model; // Store for future use
+      } catch (e) {
+        console.warn("MobileNet preloading failed:", e);
+        // This is fine, we'll try again when needed
+      }
+    }, 1000);
+  } else {
+    console.warn("TensorFlow or MobileNet libraries not available for preloading");
+  }
+} catch (e) {
+  console.warn("Error during TensorFlow preloading:", e);
+  // Non-critical error, continue initialization
+}
     
     // Load data
     await loadFoldersFromFirebase();
