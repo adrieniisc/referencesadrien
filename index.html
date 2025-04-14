@@ -2244,7 +2244,8 @@ async function generateImageTags(imageUrl) {
     
     // Extract the top 3 predictions as tags
     const tags = predictions
-      .slice(0, 3)
+      .filter(p => p.probability > 0.3) // Only keep predictions with >20% confidence
+      .slice(0, 5)
       .map(p => p.className.toLowerCase().replace(/,/g, '').split(' '))
       .flat()
       .filter((tag, index, self) => self.indexOf(tag) === index && tag.length > 2)
