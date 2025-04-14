@@ -40,24 +40,29 @@
 
 
     /* About Button CSS */
+    
 .about-btn {
   position: absolute;
   top: 15px;
-  right: 80px; /* Position to the left of admin button */
-  background-color: #171717;
-  color: #ddd;
+  right: 20px; /* Moved further to the right */
+  background-color: rgba(255, 255, 255, 0.85); /* 85% white */
+  color: #000; /* Black text */
   border: none;
-  padding: 0.4rem 0.5rem;
+  padding: 0.5rem 0.6rem; /* Slightly increased padding */
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 1.08rem; /* 20% larger than the original 0.9rem */
+  font-weight: 500; /* Medium weight for better readability on light background */
   cursor: pointer;
-  width: calc(33.33% * 240px / 100); /* One third the width of admin button */
+  width: auto; /* Auto width to accommodate the content */
   text-align: center;
   z-index: 1200;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Added subtle shadow for depth */
 }
 
 .about-btn:hover {
-  opacity: 0.9;
+  background-color: rgba(255, 255, 255, 0.95); /* Slightly whiter on hover */
+  transform: translateY(-1px); /* Subtle lift effect */
+  transition: all 0.2s ease;
 }
 
 /* About Modal with blur effect */
