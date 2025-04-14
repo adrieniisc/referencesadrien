@@ -43,20 +43,28 @@
     
 .about-btn {
   position: absolute;
-  top: 15px;
+  top: 15px; /* Same top position as the search bar */
   right: 40px; /* More space from the right edge */
   background-color: rgba(255, 255, 255, 0.85); /* 85% white */
   color: #000; /* Black text */
   border: none;
-  padding: 0.4rem 0.5rem; /* Original vertical padding */
-  border-radius: 6px;
-  font-size: 0.9rem; /* Original font size */
-  font-weight: 500; /* Medium weight for better readability on light background */
+  padding: 10px 16px; /* Match search bar padding (from #mainImageSearch) */
+  border-radius: 12px; /* Match search bar border-radius */
+  font-size: 0.95rem; /* Match search bar font-size */
+  font-weight: 500; /* Medium weight for better readability */
   cursor: pointer;
-  width: 120px; /* Fixed width to make it 20% wider */
+  width: 120px; /* Fixed width */
   text-align: center;
   z-index: 1200;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Added subtle shadow for depth */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Match search bar shadow */
+  /* Add backdrop filter to match search bar */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  height: 40px; /* Fixed height to match the search bar */
+  line-height: 20px; /* Center text vertically */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .about-btn:hover {
