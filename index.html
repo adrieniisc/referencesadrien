@@ -44,16 +44,16 @@
 .about-btn {
   position: absolute;
   top: 15px;
-  right: 20px; /* Moved further to the right */
+  right: 40px; /* More space from the right edge */
   background-color: rgba(255, 255, 255, 0.85); /* 85% white */
   color: #000; /* Black text */
   border: none;
-  padding: 0.5rem 0.6rem; /* Slightly increased padding */
+  padding: 0.4rem 0.5rem; /* Original vertical padding */
   border-radius: 6px;
-  font-size: 1.08rem; /* 20% larger than the original 0.9rem */
+  font-size: 0.9rem; /* Original font size */
   font-weight: 500; /* Medium weight for better readability on light background */
   cursor: pointer;
-  width: auto; /* Auto width to accommodate the content */
+  width: 120px; /* Fixed width to make it 20% wider */
   text-align: center;
   z-index: 1200;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Added subtle shadow for depth */
@@ -61,8 +61,7 @@
 
 .about-btn:hover {
   background-color: rgba(255, 255, 255, 0.95); /* Slightly whiter on hover */
-  transform: translateY(-1px); /* Subtle lift effect */
-  transition: all 0.2s ease;
+  opacity: 1; /* Keep full opacity on hover */
 }
 
 /* About Modal with blur effect */
