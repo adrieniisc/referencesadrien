@@ -2150,18 +2150,6 @@ function closeEnlargeModal() {
   } catch (e) {
     console.error("Error checking TensorFlow availability:", e);
   }
-    const uploadItem = document.createElement("div");
-    uploadItem.classList.add("upload-dock-item");
-    uploadItem.id = uploadItemId;
-    uploadItem.innerHTML = `
-      <div class="upload-dock-item-info">
-        <div class="upload-dock-item-filename">${file.name}</div>
-        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
-      </div>
-      <div class="upload-dock-progress">
-        <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
-      </div>
-    `;
   
   // Show the upload dock
   const uploadDock = document.getElementById("uploadDock");
@@ -2198,14 +2186,14 @@ function closeEnlargeModal() {
     uploadItem.classList.add("upload-dock-item");
     uploadItem.id = uploadItemId;
     uploadItem.innerHTML = `
-      <div class="upload-dock-item-info">
-        <div class="upload-dock-item-filename">${file.name}</div>
-        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''}</div>
-      </div>
-      <div class="upload-dock-progress">
-        <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
-      </div>
-    `;
+  <div class="upload-dock-item-info">
+    <div class="upload-dock-item-filename">${file.name}</div>
+    <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
+  </div>
+  <div class="upload-dock-progress">
+    <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
+  </div>
+`;
     
     uploadDockContent.appendChild(uploadItem);
     
