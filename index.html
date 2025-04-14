@@ -38,53 +38,6 @@
     }
     body { display: flex; flex-direction: column; }
 
-
-    /* About Button CSS */
-.about-btn {
-  position: absolute;
-  top: 15px;
-  right: 80px; /* Position to the left of admin button */
-  background-color: #171717;
-  color: #ddd;
-  border: none;
-  padding: 0.4rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  width: calc(33.33% * 240px / 100); /* One third the width of admin button */
-  text-align: center;
-  z-index: 1200;
-}
-
-.about-btn:hover {
-  opacity: 0.9;
-}
-
-/* About Modal with blur effect */
-#aboutModal {
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-}
-
-/* Fallback for browsers that don't support backdrop-filter */
-@supports not (backdrop-filter: blur(15px)) {
-  #aboutModal {
-    background: rgba(0,0,0,0.9); /* More opaque fallback */
-  }
-}
-
-/* Style the about content modal */
-#aboutModal .modal-content {
-  background-color: rgba(45, 45, 48, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-#aboutModal .modal-content:hover {
-  background-color: rgba(50, 50, 53, 0.65);
-}
-
     /* --------------------------------------------------
        Fixed ADMIN Button in Top-Right Corner
     -------------------------------------------------- */
@@ -837,7 +790,6 @@
 </head>
 <body>
 
-    <button id="aboutBtn" class="about-btn">About</button>
 
   <div class="top-search-bar">
     <div class="main-search-container">
@@ -845,22 +797,6 @@
     </div>
   </div>
 
-
-  <!-- MODAL: About -->
-<div class="modal-backdrop" id="aboutModal">
-  <div class="modal-content">
-    <button class="close-modal-btn" id="closeAboutModalBtn">&times;</button>
-    <h3>About This App</h3>
-    <div id="aboutContent">
-      <!-- Your about text will go here -->
-      <p>This is a reference image browser application. It allows you to organize and search through texture and reference images for your projects.</p>
-      <p>You can browse by folder, search by keywords, and easily download images for your work.</p>
-      <p>Created for creative professionals who need quick access to visual references.</p>
-    </div>
-  </div>
-</div>
-
-  
   <!-- MAIN CONTAINER (Sidebar + Main Content) -->
   <div class="main-container">
     <!-- SIDEBAR -->
@@ -1203,26 +1139,6 @@
         this.style.display = "none";
       }
     });
-
-    /** ABOUT JavaScipt **/
-
-const aboutBtn = document.getElementById("aboutBtn");
-const aboutModal = document.getElementById("aboutModal");
-const closeAboutModalBtn = document.getElementById("closeAboutModalBtn");
-
-aboutBtn.addEventListener("click", () => {
-  aboutModal.classList.add("active");
-});
-
-closeAboutModalBtn.addEventListener("click", () => {
-  aboutModal.classList.remove("active");
-});
-
-aboutModal.addEventListener("click", (e) => {
-  if (e.target === aboutModal) {
-    aboutModal.classList.remove("active");
-  }
-});
 
     /********************************************************
      * Netlify Upload Function
