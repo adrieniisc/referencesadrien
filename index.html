@@ -2305,14 +2305,51 @@ async function generateImageTags(imageUrl) {
     const predictions = await model.classify(img);
     console.log("Classification results:", predictions);
     
-    // Extract the top 3 predictions as tags
-    const tags = predictions
-      .filter(p => p.probability > 0.3) // Only keep predictions with >20% confidence
-      .slice(0, 5)
-      .map(p => p.className.toLowerCase().replace(/,/g, '').split(' '))
+    // Define common incorrect classifications to filter out
+    const filtersToRemove = [
+      'envelope', 'mailbox', 'letter', 'web site', 'website', 'computer', 'screen',
+      'digital', 'display', 'monitor', 'window', 'frame', 'book', 'page'
+    ];
+    
+    // Define categories to favor for reference images
+    const textureCategories = [
+      'brick', 'stone', 'wood', 'metal', 'concrete', 'fabric', 'leather', 
+      'grass', 'dirt', 'sand', 'rock', 'water', 'sky', 'cloud', 'fire',
+      'rust', 'paint', 'glass', 'ceramic', 'plastic', 'paper', 'cardboard'
+    ];
+    
+    // Filter and process the predictions
+    let processedTags = predictions
+      // Higher threshold - only keep predictions with >40% confidence
+      .filter(p => p.probability > 0.4)
+      .slice(0, 8) // Get more initial predictions to work with
+      .map(p => {
+        // Split the class names and filter out unwanted terms
+        return p.className.toLowerCase()
+          .replace(/,/g, '')
+          .split(' ')
+          .filter(tag => 
+            // Filter out common incorrect classifications
+            !filtersToRemove.some(filter => tag.includes(filter)) &&
+            tag.length > 2 // Minimum length for a tag
+          );
+      })
       .flat()
-      .filter((tag, index, self) => self.indexOf(tag) === index && tag.length > 2)
-      .join(', ');
+      // Remove duplicates
+      .filter((tag, index, self) => self.indexOf(tag) === index);
+    
+    // Boost texture-related tags to the front
+    processedTags.sort((a, b) => {
+      const aIsTexture = textureCategories.some(cat => a.includes(cat));
+      const bIsTexture = textureCategories.some(cat => b.includes(cat));
+      
+      if (aIsTexture && !bIsTexture) return -1;
+      if (!aIsTexture && bIsTexture) return 1;
+      return 0;
+    });
+    
+    // Take only the top 5 tags after processing
+    const tags = processedTags.slice(0, 5).join(', ');
     
     console.log("Generated tags:", tags);
     return tags;
