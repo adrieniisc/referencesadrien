@@ -612,12 +612,13 @@
   height: 100%;
   background: rgba(0,0,0,0.7);
   display: none;
-  flex-direction: column; /* Change to column layout */
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: center; /* This centers content vertically */
   z-index: 15000;
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
+  padding: 0; /* Remove any padding that might affect centering */
 }
 
 @supports not (backdrop-filter: blur(15px)) {
@@ -628,7 +629,7 @@
 
 #enlargeImage {
   max-width: 90vw;
-  max-height: 85vh; /* Match container */
+  max-height: 80vh; /* Match container height */
   width: auto;
   height: auto;
   object-fit: contain;
@@ -669,13 +670,12 @@
   max-width: 80%;
   text-align: center;
   padding: 10px 0; /* Equal padding above and below */
-  opacity: 1;
-  margin-top: 0; /* No margin between image and tags container */
+  opacity: 0.4;
+  margin: 0; /* Remove any margins that might affect centering */
 }
-
     
 .enlarged-tags-container:hover {
-  opacity: 0.6; /* Increase opacity on hover for better readability */
+  opacity: 0.65; /* Increase opacity on hover for better readability */
 }
 
 .enlarged-tags {
@@ -699,10 +699,9 @@
   align-items: center;
   justify-content: center;
   max-width: 90vw;
-  max-height: 85vh; /* Slightly reduced from 87vh */
-  margin-bottom: 0;
+  max-height: 80vh; /* Adjusted to match JS calculation */
+  margin: 0; /* Remove any margins that might affect centering */
 }
-
 
     /* --------------------------------------------------
        Top Search Bar
@@ -2021,7 +2020,7 @@ downloadLink.addEventListener("click", function(e) {
      * Enlarge Image Modal Closure (click outside image)
      ********************************************************/
 
-   function enlargeImage(url, filename) {
+  function enlargeImage(url, filename) {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
@@ -2043,7 +2042,7 @@ downloadLink.addEventListener("click", function(e) {
     
     // Adjust sizing based on image dimensions and viewport
     const viewportWidth = window.innerWidth * 0.9;  // 90% of viewport width
-    const viewportHeight = window.innerHeight * 0.85; // 85% of viewport height
+    const viewportHeight = window.innerHeight * 0.8; // 80% of viewport height (reduced to ensure equal spacing)
     
     // Calculate which dimension is more constrained
     const widthRatio = imgWidth / viewportWidth;
@@ -2053,7 +2052,7 @@ downloadLink.addEventListener("click", function(e) {
     let tagsHeight = 0;
     if (keywords && keywords.trim() !== "") {
       // Estimate tags height (including padding) in vh units
-      tagsHeight = 4; // Increased to account for the padding above and below
+      tagsHeight = 4; // Account for the padding above and below
     }
     
     if (widthRatio > heightRatio && widthRatio > 1) {
@@ -2063,7 +2062,7 @@ downloadLink.addEventListener("click", function(e) {
     } else if (heightRatio > 1) {
       // Height is the limiting factor, accounting for tags with padding
       enlargeImg.style.width = "auto";
-      enlargeImg.style.height = `${85 - tagsHeight}vh`; // Adjusted to 85vh total, minus tag height with padding
+      enlargeImg.style.height = `${80 - tagsHeight}vh`; // Adjusted to 80vh total, minus tag height with padding
     } else {
       // Image is smaller than viewport, use natural size
       enlargeImg.style.width = "auto";
@@ -2078,9 +2077,9 @@ downloadLink.addEventListener("click", function(e) {
       // Hide tags container if there are no keywords
       tagsElement.parentElement.style.display = "none";
       
-      // If no tags, we can use even more space for the image
+      // If no tags, we can use more space for the image
       if (heightRatio > 1) {
-        enlargeImg.style.height = "85vh"; // Maximum height when no tags
+        enlargeImg.style.height = "80vh"; // Maximum height when no tags
       }
     }
     
