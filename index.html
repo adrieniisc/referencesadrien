@@ -612,6 +612,7 @@
   height: 100%;
   background: rgba(0,0,0,0.7);
   display: none;
+  flex-direction: column; /* Change to column layout */
   align-items: center;
   justify-content: center;
   z-index: 15000;
@@ -619,7 +620,6 @@
   -webkit-backdrop-filter: blur(15px);
 }
 
-/* Add a fallback for browsers that don't support backdrop-filter */
 @supports not (backdrop-filter: blur(15px)) {
   #enlargeImageModal {
     background: rgba(0,0,0,0.9); /* More opaque fallback */
@@ -627,11 +627,11 @@
 }
 
 #enlargeImage {
-  max-width: 90vw; /* Maximum width */
-  max-height: 80vh; /* Maximum height - slightly less to account for tags */
-  width: auto; /* Allow natural sizing */
-  height: auto; /* Allow natural sizing */
-  object-fit: contain; /* Keep aspect ratio */
+  max-width: 90vw;
+  max-height: 80vh; /* Reduced from 90vh to make room for tags */
+  width: auto;
+  height: auto;
+  object-fit: contain;
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   border-radius: 1px;
 }
@@ -671,14 +671,15 @@
     -------------------------------------------------- */
 
 .enlarged-tags-container {
-  position: absolute;
-  bottom: 15px;
-  left: 0;
-  width: 100%;
+  position: relative; /* Changed from absolute */
+  bottom: auto; /* Remove absolute positioning */
+  left: auto;
+  width: auto;
+  max-width: 80%;
   text-align: center;
-  padding: 5px 0;
-  opacity: 0.2;
-  transition: opacity 0.3s ease;
+  padding: 15px 0;
+  opacity: 1; /* Changed from 0.2 to be fully visible */
+  margin-top: 10px; /* Add space between image and tags */
 }
 
 .enlarged-tags-container:hover {
@@ -687,26 +688,26 @@
 
 .enlarged-tags {
   display: inline-block;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(50, 50, 53, 0.85); /* More opaque and slightly lighter */
   color: white;
-  font-size: 0.9rem;
-  padding: 8px 16px;
+  font-size: 0.95rem; /* Slightly larger */
+  padding: 10px 20px;
   border-radius: 20px;
-  max-width: 80%;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
-
+    
 /* Add this to the enlarged image container to allow proper positioning */
 .enlarged-image-container {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center; /* Center vertically too */
-  max-width: 90vw; /* Maximum width of 90% viewport width */
-  max-height: 90vh; /* Maximum height of 90% viewport height */
+  justify-content: center;
+  max-width: 90vw;
+  max-height: 80vh; /* Reduced from 90vh to make room for tags */
 }
 
     /* --------------------------------------------------
@@ -1087,12 +1088,14 @@
   <!-- Enlarge Image Modal -->
 
   
-  <div id="enlargeImageModal">
+ <div id="enlargeImageModal">
   <div class="enlarged-image-container">
     <img id="enlargeImage" src="" alt="">
-    <div class="enlarged-tags-container">
-      <div class="enlarged-tags" id="enlargedTags"></div>
-    </div>
+    <!-- Tags moved outside the image container -->
+  </div>
+  <!-- Tags container now positioned at the bottom of the modal -->
+  <div class="enlarged-tags-container">
+    <div class="enlarged-tags" id="enlargedTags"></div>
   </div>
   <a id="enlargedDownloadBtn" class="enlarged-download-btn" href="#" download>Download</a>
 </div>
@@ -2059,11 +2062,20 @@ downloadLink.addEventListener("click", function(e) {
     } else if (heightRatio > 1) {
       // Height is the limiting factor
       enlargeImg.style.width = "auto";
-      enlargeImg.style.height = "80vh";
+      enlargeImg.style.height = "75vh"; // Reduced from 80vh to make room for tags
     } else {
       // Image is smaller than viewport, use natural size
       enlargeImg.style.width = "auto";
       enlargeImg.style.height = "auto";
+    }
+    
+    // Display tags below the image
+    if (keywords && keywords.trim() !== "") {
+      tagsElement.textContent = keywords;
+      tagsElement.parentElement.style.display = "block";
+    } else {
+      // Hide tags container if there are no keywords
+      tagsElement.parentElement.style.display = "none";
     }
     
     // Show the modal now that we've set the correct dimensions
@@ -2077,9 +2089,6 @@ downloadLink.addEventListener("click", function(e) {
   downloadBtn.href = url;
   downloadBtn.download = filename;
   downloadBtn.style.display = "block";
-  
-  // Display keywords/tags
-  tagsElement.textContent = keywords;
   
   // Add force download functionality
   downloadBtn.addEventListener("click", function(e) {
