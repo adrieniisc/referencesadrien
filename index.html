@@ -901,6 +901,82 @@
     bottom: 70px; /* Move it up when screen height is small */
   }
 }
+
+.tag-review-image-container {
+  width: 100%;
+  max-height: 250px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  border: 1px solid #444;
+  border-radius: 6px;
+}
+
+#tagReviewImage {
+  max-width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+}
+
+.detected-objects-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.detected-object-item {
+  background: rgba(44,44,46,0.9);
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+}
+
+.confidence-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.high-confidence {
+  background-color: #4cd964;
+}
+
+.medium-confidence {
+  background-color: #ffcc00;
+}
+
+.low-confidence {
+  background-color: #ff9500;
+}
+
+.suggested-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.tag-chip {
+  background: #2c2c2e;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.tag-chip:hover {
+  background-color: #3a3a3c;
+}
+
+.tag-chip.selected {
+  background-color: #2196f3;
+}
     
   </style>
 
@@ -2318,6 +2394,38 @@ async function generateImageTags(imageUrl) {
       'rust', 'paint', 'glass', 'ceramic', 'plastic', 'paper', 'cardboard'
     ];
     
+    // Manual corrections for common objects
+    const specialObjects = {
+      'fire hydrant': true,
+      'door': true,
+      'brick wall': true,
+      'concrete wall': true,
+      'wood texture': true,
+      'metal surface': true
+    };
+    
+    // Check for common objects in predictions
+    const hasSpecialObject = predictions.some(p => 
+      specialObjects[p.className.toLowerCase()] && p.probability > 0.3
+    );
+    
+    // If the image has a red fire hydrant but it's not detected
+    const isRedFireHydrant = 
+      predictions.some(p => p.className.toLowerCase().includes('mailbox')) && 
+      // Here we would ideally do color analysis to detect red
+      // This is a placeholder - in a real implementation, you'd analyze the actual pixel data
+      false; 
+    
+    // Special case handling
+    if (isRedFireHydrant && 
+        !predictions.some(p => p.className.toLowerCase().includes('fire hydrant'))) {
+      // Add fire hydrant with high confidence
+      predictions.unshift({
+        className: "fire hydrant",
+        probability: 0.8
+      });
+    }
+    
     // Filter and process the predictions
     let processedTags = predictions
       // Higher threshold - only keep predictions with >40% confidence
@@ -2352,11 +2460,120 @@ async function generateImageTags(imageUrl) {
     const tags = processedTags.slice(0, 5).join(', ');
     
     console.log("Generated tags:", tags);
-    return tags;
+    
+    // Return both the final tags string and the original objects detected
+    return {
+      tags: tags,
+      possibleObjects: predictions
+        .filter(p => p.probability > 0.3)
+        .slice(0, 5)
+        .map(p => ({
+          name: p.className.toLowerCase(),
+          confidence: p.probability
+        }))
+    };
   } catch (error) {
     console.error('Error generating image tags:', error);
-    return ''; // Return empty string if tagging fails
+    return {
+      tags: '',
+      possibleObjects: []
+    };
   }
+}
+
+function initTagReviewUI() {
+  // Set up event handlers for the tag review UI
+  const tagReviewPanel = document.getElementById('tagReviewPanel');
+  const closeTagReviewBtn = document.getElementById('closeTagReviewBtn');
+  const confirmTagsBtn = document.getElementById('confirmTagsBtn');
+  const skipTagsBtn = document.getElementById('skipTagsBtn');
+  
+  // Close button functionality
+  closeTagReviewBtn.addEventListener('click', () => {
+    tagReviewPanel.classList.remove('active');
+  });
+  
+  // Close when clicking outside modal
+  tagReviewPanel.addEventListener('click', (e) => {
+    if (e.target === tagReviewPanel) {
+      tagReviewPanel.classList.remove('active');
+    }
+  });
+  
+  // These button events will be connected to the actual upload process
+  // in the modified processUpload function
+}
+
+// This function will be called to show the tag review UI
+function showTagReview(imageUrl, tagData, onConfirm, onSkip) {
+  const tagReviewPanel = document.getElementById('tagReviewPanel');
+  const tagReviewImage = document.getElementById('tagReviewImage');
+  const detectedObjectsList = document.getElementById('detectedObjectsList');
+  const suggestedTagsContainer = document.getElementById('suggestedTagsContainer');
+  const finalTagsInput = document.getElementById('finalTagsInput');
+  const confirmTagsBtn = document.getElementById('confirmTagsBtn');
+  const skipTagsBtn = document.getElementById('skipTagsBtn');
+  
+  // Set the image
+  tagReviewImage.src = imageUrl;
+  
+  // Display detected objects with confidence indicators
+  detectedObjectsList.innerHTML = '';
+  tagData.possibleObjects.forEach(obj => {
+    const confidence = obj.confidence >= 0.7 ? 'high-confidence' : 
+                      obj.confidence >= 0.5 ? 'medium-confidence' : 'low-confidence';
+    
+    detectedObjectsList.innerHTML += `
+      <div class="detected-object-item">
+        <span class="confidence-indicator ${confidence}"></span>
+        ${obj.name}
+      </div>
+    `;
+  });
+  
+  // Display suggested tags as interactive chips
+  suggestedTagsContainer.innerHTML = '';
+  const tags = tagData.tags.split(', ');
+  tags.forEach(tag => {
+    if (!tag) return; // Skip empty tags
+    
+    const chip = document.createElement('div');
+    chip.className = 'tag-chip selected';
+    chip.textContent = tag;
+    chip.onclick = () => {
+      chip.classList.toggle('selected');
+      updateFinalTags();
+    };
+    suggestedTagsContainer.appendChild(chip);
+  });
+  
+  // Set initial tags in the input field
+  finalTagsInput.value = tagData.tags;
+  
+  // Set up confirm button handler
+  confirmTagsBtn.onclick = () => {
+    const finalTags = finalTagsInput.value;
+    tagReviewPanel.classList.remove('active');
+    if (onConfirm) onConfirm(finalTags);
+  };
+  
+  // Set up skip button handler
+  skipTagsBtn.onclick = () => {
+    tagReviewPanel.classList.remove('active');
+    if (onSkip) onSkip();
+  };
+  
+  // Show the panel
+  tagReviewPanel.classList.add('active');
+}
+
+// Helper function to update the final tags input based on selected chips
+function updateFinalTags() {
+  const selectedTags = Array.from(
+    document.querySelectorAll('.tag-chip.selected')
+  ).map(chip => chip.textContent);
+  
+  document.getElementById('finalTagsInput').value = selectedTags.join(', ');
 }
     
     // Start upload (non-blocking)
@@ -2383,64 +2600,46 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     // Update progress to 50%
     progressFill.style.width = "50%";
     
-    // Generate tags using machine learning
+    // Generate tags using enhanced function
     console.log(`Generating tags for ${file.name}...`);
-    let autoTags = '';
+    let tagData = { tags: '', possibleObjects: [] };
     try {
-      autoTags = await generateImageTags(imageUrl);
-      console.log(`Tags generated: ${autoTags}`);
+      tagData = await generateImageTags(imageUrl);
+      console.log(`Tags generated:`, tagData);
     } catch (tagError) {
       console.error(`Tag generation failed: ${tagError.message}`);
-      autoTags = ''; // Fail gracefully if tag generation fails
+      tagData = { tags: '', possibleObjects: [] }; // Fail gracefully
     }
     
     // Update progress to 70%
     progressFill.style.width = "70%";
     
-    // Combine all keywords
-    const combinedKeywords = keywords ? 
-      (autoTags ? `${keywords}, ${autoTags}` : keywords) : 
-      autoTags;
-    
-    console.log(`Combined keywords: ${combinedKeywords}`);
-    
-    // Save to Firebase with auto-generated tags
-    await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, file.name);
-    console.log(`Image saved to Firebase`);
-    
-    // Add to gallery
-    addImageToGallery(imageUrl, folderValue, combinedKeywords, file.name, Date.now());
-    console.log(`Image added to gallery`);
-    
-    // Complete
-    progressFill.style.width = "100%";
-    uploadItem.classList.add("upload-success");
-    
-    // Update the display to show the tags that were generated
-    const details = uploadItem?.querySelector(".upload-dock-item-details");
-    if (details) {
-      if (autoTags) {
-        details.textContent = `To: ${folderValue} | Auto tags: ${autoTags} ${keywords ? '| Manual tags: ' + keywords : ''}`;
-      } else {
-        details.textContent = `To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''}`;
-      }
+    // Initialize the tag review UI if needed
+    if (!window.tagReviewInitialized) {
+      initTagReviewUI();
+      window.tagReviewInitialized = true;
     }
     
-    // Remove the item after 5 seconds if successful
-    setTimeout(() => {
-      if (uploadItem && uploadItem.parentNode) {
-        uploadItem.remove();
+    // Show tag review UI
+    showTagReview(
+      imageUrl, 
+      tagData,
+      // On confirm callback
+      (finalTags) => {
+        // Combine user keywords with AI-generated tags
+        const combinedKeywords = keywords ? 
+          (finalTags ? `${keywords}, ${finalTags}` : keywords) : 
+          finalTags;
         
-        // Check if dock is empty and hide it if so
-        const uploadDockContent = document.querySelector(".upload-dock-content");
-        if (uploadDockContent && uploadDockContent.children.length === 0) {
-          const uploadDock = document.getElementById("uploadDock");
-          if (uploadDock) {
-            uploadDock.classList.remove("active");
-          }
-        }
+        console.log(`Final combined keywords: ${combinedKeywords}`);
+        completeUpload(imageUrl, folderValue, combinedKeywords, file.name, uploadItemId);
+      },
+      // On skip callback
+      () => {
+        console.log(`User skipped AI tags, using only: ${keywords}`);
+        completeUpload(imageUrl, folderValue, keywords, file.name, uploadItemId);
       }
-    }, 5000);
+    );
     
   } catch (error) {
     console.error(`Upload failed for ${file.name}:`, error);
@@ -2452,6 +2651,65 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     if (details) {
       details.textContent = `Error: ${error.message || 'Unknown error'}`;
       details.style.color = "#ff3b30";
+    }
+  }
+}
+
+// Helper function to complete the upload after tag review
+async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName, uploadItemId) {
+  try {
+    // Save to Firebase
+    await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, fileName);
+    console.log(`Image saved to Firebase`);
+    
+    // Add to gallery
+    addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now());
+    console.log(`Image added to gallery`);
+    
+    // Update UI to show success
+    const progressFill = document.getElementById(`progress-${uploadItemId}`);
+    const uploadItem = document.getElementById(uploadItemId);
+    
+    if (progressFill) progressFill.style.width = "100%";
+    if (uploadItem) {
+      uploadItem.classList.add("upload-success");
+      
+      // Update the display
+      const details = uploadItem?.querySelector(".upload-dock-item-details");
+      if (details) {
+        details.textContent = `To: ${folderValue} | Tags: ${combinedKeywords}`;
+      }
+      
+      // Remove the item after 5 seconds
+      setTimeout(() => {
+        if (uploadItem && uploadItem.parentNode) {
+          uploadItem.remove();
+          
+          // Check if dock is empty and hide it if so
+          const uploadDockContent = document.querySelector(".upload-dock-content");
+          if (uploadDockContent && uploadDockContent.children.length === 0) {
+            const uploadDock = document.getElementById("uploadDock");
+            if (uploadDock) {
+              uploadDock.classList.remove("active");
+            }
+          }
+        }
+      }, 5000);
+    }
+  } catch (error) {
+    console.error(`Final upload steps failed:`, error);
+    
+    // Update UI to show error
+    const uploadItem = document.getElementById(uploadItemId);
+    if (uploadItem) {
+      uploadItem.classList.add("upload-error");
+      
+      // Update the display
+      const details = uploadItem?.querySelector(".upload-dock-item-details");
+      if (details) {
+        details.textContent = `Error: ${error.message || 'Unknown error'}`;
+        details.style.color = "#ff3b30";
+      }
     }
   }
 }
@@ -2529,6 +2787,19 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     } else {
       console.error("Could not find admin access button");
     }
+
+    if (document.getElementById('tagReviewPanel')) {
+      initTagReviewUI();
+      window.tagReviewInitialized = true;
+      console.log('Tag review UI initialized');
+    }
+    
+    console.log("App initialized successfully!");
+  } catch (error) {
+    console.error("Error initializing app:", error);
+    alert("Error initializing app: " + error.message);
+  }
+});
     
     // Initialize the upload dock
     const uploadDock = document.getElementById("uploadDock");
@@ -2597,6 +2868,28 @@ try {
     <!-- Upload items will be added here dynamically -->
   </div>
 </div>
+
+<div id="tagReviewPanel" class="modal-backdrop">
+  <div class="modal-content">
+    <button class="close-modal-btn" id="closeTagReviewBtn">&times;</button>
+    <h3>Review Image Tags</h3>
+    <div class="tag-review-image-container">
+      <img id="tagReviewImage" src="" alt="Image to tag">
+    </div>
+    <div class="tag-suggestions">
+      <p>Detected objects:</p>
+      <div id="detectedObjectsList" class="detected-objects-list"></div>
+      <p>Suggested tags:</p>
+      <div id="suggestedTagsContainer" class="suggested-tags-container"></div>
+    </div>
+    <label for="finalTagsInput">Final tags:</label>
+    <input type="text" id="finalTagsInput" placeholder="Edit or add tags...">
+    <div style="margin-top:0.8rem;">
+      <button id="confirmTagsBtn">Confirm & Upload</button>
+      <button id="skipTagsBtn">Skip AI Tags</button>
+    </div>
+  </div>
+</div> 
   
 </body>
 </html>
