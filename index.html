@@ -2787,19 +2787,6 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     } else {
       console.error("Could not find admin access button");
     }
-
-    if (document.getElementById('tagReviewPanel')) {
-      initTagReviewUI();
-      window.tagReviewInitialized = true;
-      console.log('Tag review UI initialized');
-    }
-    
-    console.log("App initialized successfully!");
-  } catch (error) {
-    console.error("Error initializing app:", error);
-    alert("Error initializing app: " + error.message);
-  }
-});
     
     // Initialize the upload dock
     const uploadDock = document.getElementById("uploadDock");
@@ -2810,29 +2797,29 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     }
 
     // Preload the TensorFlow and MobileNet models to speed up first upload
-try {
-  console.log("Preloading TensorFlow and MobileNet models...");
-  // Check if we have access to the libraries
-  if (typeof tf !== 'undefined' && typeof mobilenet !== 'undefined') {
-    // We don't await this, as it can take time and we don't want to block initialization
-    // This will just start the process in the background
-    setTimeout(async () => {
-      try {
-        const model = await mobilenet.load();
-        console.log("MobileNet model preloaded successfully");
-        window.preloadedMobileNetModel = model; // Store for future use
-      } catch (e) {
-        console.warn("MobileNet preloading failed:", e);
-        // This is fine, we'll try again when needed
+    try {
+      console.log("Preloading TensorFlow and MobileNet models...");
+      // Check if we have access to the libraries
+      if (typeof tf !== 'undefined' && typeof mobilenet !== 'undefined') {
+        // We don't await this, as it can take time and we don't want to block initialization
+        // This will just start the process in the background
+        setTimeout(async () => {
+          try {
+            const model = await mobilenet.load();
+            console.log("MobileNet model preloaded successfully");
+            window.preloadedMobileNetModel = model; // Store for future use
+          } catch (e) {
+            console.warn("MobileNet preloading failed:", e);
+            // This is fine, we'll try again when needed
+          }
+        }, 1000);
+      } else {
+        console.warn("TensorFlow or MobileNet libraries not available for preloading");
       }
-    }, 1000);
-  } else {
-    console.warn("TensorFlow or MobileNet libraries not available for preloading");
-  }
-} catch (e) {
-  console.warn("Error during TensorFlow preloading:", e);
-  // Non-critical error, continue initialization
-}
+    } catch (e) {
+      console.warn("Error during TensorFlow preloading:", e);
+      // Non-critical error, continue initialization
+    }
     
     // Load data
     await loadFoldersFromFirebase();
@@ -2848,6 +2835,16 @@ try {
     } else {
       console.error("Could not find 'All' folder item");
     }
+    
+    // Initialize the tag review UI (after everything else is loaded)
+    if (document.getElementById('tagReviewPanel')) {
+      initTagReviewUI();
+      window.tagReviewInitialized = true;
+      console.log('Tag review UI initialized');
+    } else {
+      console.warn('Tag review panel not found in the DOM');
+    }
+    
     console.log("App initialized successfully!");
   } catch (error) {
     console.error("Error initializing app:", error);
