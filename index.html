@@ -614,11 +614,11 @@
   display: none;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* This centers content vertically */
+  justify-content: flex-start; /* Align content from the top */
   z-index: 15000;
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
-  padding: 0; /* Remove any padding that might affect centering */
+  box-sizing: border-box;
 }
 
 @supports not (backdrop-filter: blur(15px)) {
@@ -627,15 +627,19 @@
   }
 }
 
+#enlargeImageModal > * {
+  flex-shrink: 0;
+}
+
 #enlargeImage {
-  max-width: 95vw;
-  max-height: 85vh; /* Match container height */
+  max-width: 90vw;
   width: auto;
   height: auto;
   object-fit: contain;
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   border-radius: 1px;
 }
+
     
 .enlarged-download-btn {
   position: absolute;
@@ -669,10 +673,11 @@
   width: auto;
   max-width: 80%;
   text-align: center;
-  padding: 10px 0; /* Equal padding above and below */
-  opacity: 0.4;
-  margin: 0; /* Remove any margins that might affect centering */
+  padding: 10px 0;
+  opacity: 1;
+  margin-top: auto; /* Push to bottom of container */
 }
+
     
 .enlarged-tags-container:hover {
   opacity: 0.65; /* Increase opacity on hover for better readability */
@@ -699,8 +704,7 @@
   align-items: center;
   justify-content: center;
   max-width: 90vw;
-  max-height: 80vh; /* Adjusted to match JS calculation */
-  margin: 0; /* Remove any margins that might affect centering */
+  margin: 0;
 }
 
     /* --------------------------------------------------
@@ -2040,34 +2044,44 @@ downloadLink.addEventListener("click", function(e) {
     const imgWidth = this.width;
     const imgHeight = this.height;
     
-    // Adjust sizing based on image dimensions and viewport
+    // Calculate viewport dimensions
     const viewportWidth = window.innerWidth * 0.9;  // 90% of viewport width
-    const viewportHeight = window.innerHeight * 0.8; // 80% of viewport height (reduced to ensure equal spacing)
+    const viewportHeight = window.innerHeight; // Full viewport height
     
-    // Calculate which dimension is more constrained
+    // Estimate tag container height
+    const tagContainerHeight = keywords && keywords.trim() !== "" ? 50 : 0; // pixels
+    
+    // Define padding at top and bottom (equal)
+    const verticalPadding = 20; // pixels
+    
+    // Calculate available height for the image
+    const availableHeight = viewportHeight - tagContainerHeight - (verticalPadding * 2);
+    
+    // Calculate ratios
     const widthRatio = imgWidth / viewportWidth;
-    const heightRatio = imgHeight / viewportHeight;
+    const heightRatio = imgHeight / availableHeight;
     
-    // Factor in the tags height for vertical space calculations
-    let tagsHeight = 0;
-    if (keywords && keywords.trim() !== "") {
-      // Estimate tags height (including padding) in vh units
-      tagsHeight = 4; // Account for the padding above and below
-    }
-    
+    // Determine limiting dimension
     if (widthRatio > heightRatio && widthRatio > 1) {
       // Width is the limiting factor
       enlargeImg.style.width = "90vw";
       enlargeImg.style.height = "auto";
     } else if (heightRatio > 1) {
-      // Height is the limiting factor, accounting for tags with padding
+      // Height is the limiting factor
       enlargeImg.style.width = "auto";
-      enlargeImg.style.height = `${80 - tagsHeight}vh`; // Adjusted to 80vh total, minus tag height with padding
+      // Convert available height to vh units
+      const availableHeightVh = (availableHeight / viewportHeight) * 100;
+      enlargeImg.style.height = `${availableHeightVh}vh`;
     } else {
       // Image is smaller than viewport, use natural size
       enlargeImg.style.width = "auto";
       enlargeImg.style.height = "auto";
     }
+    
+    // Position the modal container to position elements from the top
+    enlargeModal.style.justifyContent = "flex-start";
+    enlargeModal.style.paddingTop = `${verticalPadding}px`;
+    enlargeModal.style.paddingBottom = `${verticalPadding}px`;
     
     // Display tags below the image
     if (keywords && keywords.trim() !== "") {
@@ -2076,11 +2090,6 @@ downloadLink.addEventListener("click", function(e) {
     } else {
       // Hide tags container if there are no keywords
       tagsElement.parentElement.style.display = "none";
-      
-      // If no tags, we can use more space for the image
-      if (heightRatio > 1) {
-        enlargeImg.style.height = "80vh"; // Maximum height when no tags
-      }
     }
     
     // Show the modal now that we've set the correct dimensions
