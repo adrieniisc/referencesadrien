@@ -1205,6 +1205,9 @@
     let selectedImages = [];
     let isMoveMode = false;
     let selectedImagesForMove = [];
+    // Upload queue management
+    let uploadQueue = [];
+    let isProcessingQueue = false;
 
     // DOM Elements
     const folderList = document.getElementById("folderList");
@@ -2626,26 +2629,20 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
       window.tagReviewInitialized = true;
     }
     
-    // Show tag review UI
-    showTagReview(
-      imageUrl, 
-      tagData,
-      // On confirm callback
-      (finalTags) => {
-        // Combine user keywords with AI-generated tags
-        const combinedKeywords = keywords ? 
-          (finalTags ? `${keywords}, ${finalTags}` : keywords) : 
-          finalTags;
-        
-        console.log(`Final combined keywords: ${combinedKeywords}`);
-        completeUpload(imageUrl, folderValue, combinedKeywords, file.name, uploadItemId);
-      },
-      // On skip callback
-      () => {
-        console.log(`User skipped AI tags, using only: ${keywords}`);
-        completeUpload(imageUrl, folderValue, keywords, file.name, uploadItemId);
-      }
-    );
+    // Add to the upload queue instead of showing immediately
+    uploadQueue.push({
+      imageUrl: imageUrl,
+      tagData: tagData,
+      file: file,
+      folderValue: folderValue,
+      keywords: keywords,
+      uploadItemId: uploadItemId
+    });
+    
+    // Start processing the queue if it's not already running
+    if (!isProcessingQueue) {
+      processNextInQueue();
+    }
     
   } catch (error) {
     console.error(`Upload failed for ${file.name}:`, error);
@@ -2659,6 +2656,68 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
       details.style.color = "#ff3b30";
     }
   }
+}
+
+// Process the upload queue one item at a time
+function processNextInQueue() {
+  if (uploadQueue.length === 0) {
+    isProcessingQueue = false;
+    return;
+  }
+  
+  isProcessingQueue = true;
+  const nextItem = uploadQueue[0];
+  
+  // Show the tag review UI for the next item
+  showTagReview(
+    nextItem.imageUrl, 
+    nextItem.tagData,
+    // On confirm callback
+    (finalTags) => {
+      // Combine user keywords with AI-generated tags
+      const combinedKeywords = nextItem.keywords ? 
+        (finalTags ? `${nextItem.keywords}, ${finalTags}` : nextItem.keywords) : 
+        finalTags;
+      
+      console.log(`Final combined keywords: ${combinedKeywords}`);
+      
+      // Complete this upload
+      completeUpload(nextItem.imageUrl, nextItem.folderValue, combinedKeywords, nextItem.file.name, nextItem.uploadItemId)
+        .then(() => {
+          // Remove this item from the queue
+          uploadQueue.shift();
+          
+          // Process the next item after a short delay
+          setTimeout(processNextInQueue, 300);
+        })
+        .catch(error => {
+          console.error("Error completing upload:", error);
+          // Still move to next item
+          uploadQueue.shift();
+          setTimeout(processNextInQueue, 300);
+        });
+    },
+    // On skip callback
+    () => {
+      console.log(`User skipped AI tags, using only: ${nextItem.keywords}`);
+      
+      // Complete this upload with original keywords only
+      completeUpload(nextItem.imageUrl, nextItem.folderValue, nextItem.keywords, nextItem.file.name, nextItem.uploadItemId)
+        .then(() => {
+          // Remove this item from the queue
+          uploadQueue.shift();
+          
+          // Process the next item after a short delay
+          setTimeout(processNextInQueue, 300);
+        })
+        .catch(error => {
+          console.error("Error completing upload:", error);
+          // Still move to next item
+          uploadQueue.shift();
+          setTimeout(processNextInQueue, 300);
+        });
+    }
+  );
 }
 
 // Helper function to complete the upload after tag review
@@ -2702,6 +2761,8 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
         }
       }, 5000);
     }
+    
+    return true; // Signal success
   } catch (error) {
     console.error(`Final upload steps failed:`, error);
     
@@ -2717,6 +2778,8 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
         details.style.color = "#ff3b30";
       }
     }
+    
+    throw error; // Propagate the error
   }
 }
 
