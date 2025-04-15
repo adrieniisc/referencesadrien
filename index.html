@@ -318,23 +318,26 @@
        Main Content (Gallery)
     -------------------------------------------------- */
     .main-content {
-      flex: 1;
-      padding: 0.8rem;
-      padding-top: 80px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      font-size: 0.9rem;
-      background-color: var(--main-bg);
-      color: var(--main-text);
-      height: 100%;
-    }
-    .gallery {
+  flex: 1;
+  padding: 0.8rem;
+  padding-top: 80px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+  background-color: var(--main-bg);
+  color: var(--main-text);
+  height: 100%;
+  align-items: flex-start; /* Align gallery to the start */
+}
+    
+   .gallery {
   display: grid;
-  /* This will create as many columns as possible while respecting the minimum width */
-  grid-template-columns: repeat(auto-fit, minmax(calc(var(--thumbnail-size) * 0.9), 1fr));
+  /* Use auto-fill instead of auto-fit to prevent images from growing */
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--thumbnail-size) * 0.9), calc(var(--thumbnail-size) * 1.1)));
   gap: 0.8rem;
   width: 100%;
+  justify-content: flex-start; /* Align to the start rather than stretching */
 }
 
 .image-container {
@@ -343,6 +346,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Add max-width to prevent excessive growth */
+  max-width: calc(var(--thumbnail-size) * 1.1);
 }
     .image-container img {
       width: 100%;
@@ -623,9 +628,10 @@
 
 #enlargeImage {
   max-width: 90%;
-  max-height: 90%;
+  max-height: 90vh; /* Limit to 90% of viewport height */
+  object-fit: contain; /* Preserve aspect ratio */
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  border-radius: 1px; /* Optional: slightly rounded corners on the image */
+  border-radius: 1px;
 }
     #enlargeImageModal img {
       max-width: 90%;
