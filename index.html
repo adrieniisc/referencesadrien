@@ -2063,26 +2063,27 @@ downloadLink.addEventListener("click", function(e) {
     } else if (heightRatio > 1) {
       // Height is the limiting factor
       enlargeImg.style.width = "auto";
-      enlargeImg.style.height = "82vh"; // Reduced from 80vh to make room for tags
+      enlargeImg.style.height = "82vh"; // Increased from 75vh to use more vertical space
     } else {
       // Image is smaller than viewport, use natural size
       enlargeImg.style.width = "auto";
       enlargeImg.style.height = "auto";
     }
     
-   // Display tags below the image
-if (keywords && keywords.trim() !== "") {
-  tagsElement.textContent = keywords;
-  tagsElement.parentElement.style.display = "block";
-} else {
-  // Hide tags container if there are no keywords
-  tagsElement.parentElement.style.display = "none";
-}
-
-// Show the modal now that we've set the correct dimensions
-enlargeModal.style.display = "flex";
+    // Display tags below the image
+    if (keywords && keywords.trim() !== "") {
+      tagsElement.textContent = keywords;
+      tagsElement.parentElement.style.display = "block";
+    } else {
+      // Hide tags container if there are no keywords
+      tagsElement.parentElement.style.display = "none";
+    }
+    
+    // Show the modal now that we've set the correct dimensions
+    enlargeModal.style.display = "flex";
+  };
   
-  // Start loading the image to calculate dimensions
+  // Start loading the image to calculate dimensions - this needs to be AFTER setting the onload handler
   tempImg.src = url;
   
   // Set download button attributes and show it
@@ -2123,7 +2124,7 @@ enlargeModal.style.display = "flex";
       });
   });
 }
-
+    
 function closeEnlargeModal() {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
