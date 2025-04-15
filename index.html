@@ -628,14 +628,14 @@
 
 #enlargeImage {
   max-width: 90vw;
-  max-height: 87vh; /* Match container */
+  max-height: 85vh; /* Match container */
   width: auto;
   height: auto;
   object-fit: contain;
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   border-radius: 1px;
 }
-
+    
 .enlarged-download-btn {
   position: absolute;
   top: 15px;
@@ -668,9 +668,9 @@
   width: auto;
   max-width: 80%;
   text-align: center;
-  padding: 2px 0 0 0; /* Minimal padding, especially at top */
+  padding: 10px 0; /* Equal padding above and below */
   opacity: 1;
-  margin-top: 0; /* No gap between image and tags */
+  margin-top: 0; /* No margin between image and tags container */
 }
 
     
@@ -699,8 +699,8 @@
   align-items: center;
   justify-content: center;
   max-width: 90vw;
-  max-height: 87vh; /* Increased from 85vh to use more vertical space */
-  margin-bottom: 0; /* Remove any bottom margin */
+  max-height: 85vh; /* Slightly reduced from 87vh */
+  margin-bottom: 0;
 }
 
 
@@ -2043,7 +2043,7 @@ downloadLink.addEventListener("click", function(e) {
     
     // Adjust sizing based on image dimensions and viewport
     const viewportWidth = window.innerWidth * 0.9;  // 90% of viewport width
-    const viewportHeight = window.innerHeight * 0.87; // 87% of viewport height (increased)
+    const viewportHeight = window.innerHeight * 0.85; // 85% of viewport height
     
     // Calculate which dimension is more constrained
     const widthRatio = imgWidth / viewportWidth;
@@ -2052,8 +2052,8 @@ downloadLink.addEventListener("click", function(e) {
     // Factor in the tags height for vertical space calculations
     let tagsHeight = 0;
     if (keywords && keywords.trim() !== "") {
-      // Estimate tags height (padding + font size + border radius) in vh units
-      tagsHeight = 2.5; // roughly equivalent to the tags container height in vh
+      // Estimate tags height (including padding) in vh units
+      tagsHeight = 4; // Increased to account for the padding above and below
     }
     
     if (widthRatio > heightRatio && widthRatio > 1) {
@@ -2061,9 +2061,9 @@ downloadLink.addEventListener("click", function(e) {
       enlargeImg.style.width = "90vw";
       enlargeImg.style.height = "auto";
     } else if (heightRatio > 1) {
-      // Height is the limiting factor, accounting for tags
+      // Height is the limiting factor, accounting for tags with padding
       enlargeImg.style.width = "auto";
-      enlargeImg.style.height = `${87 - tagsHeight}vh`; // Adjust image height to leave just enough space for tags
+      enlargeImg.style.height = `${85 - tagsHeight}vh`; // Adjusted to 85vh total, minus tag height with padding
     } else {
       // Image is smaller than viewport, use natural size
       enlargeImg.style.width = "auto";
@@ -2080,7 +2080,7 @@ downloadLink.addEventListener("click", function(e) {
       
       // If no tags, we can use even more space for the image
       if (heightRatio > 1) {
-        enlargeImg.style.height = "87vh"; // Maximum height when no tags
+        enlargeImg.style.height = "85vh"; // Maximum height when no tags
       }
     }
     
