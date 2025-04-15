@@ -628,16 +628,7 @@
 
 #enlargeImage {
   max-width: 90vw;
-  max-height: 80vh; /* Reduced from 90vh to make room for tags */
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  border-radius: 1px;
-}
- #enlargeImage {
-  max-width: 90vw;
-  max-height: 85vh; /* Increased from 80vh to match container */
+  max-height: 87vh; /* Match container */
   width: auto;
   height: auto;
   object-fit: contain;
@@ -645,7 +636,7 @@
   border-radius: 1px;
 }
 
-    .enlarged-download-btn {
+.enlarged-download-btn {
   position: absolute;
   top: 15px;
   right: 15px;
@@ -674,15 +665,15 @@
 
 .enlarged-tags-container {
   position: relative;
-  bottom: auto;
-  left: auto;
   width: auto;
   max-width: 80%;
   text-align: center;
-  padding: 10px 0 5px 0; /* Reduced padding, especially at bottom */
+  padding: 2px 0 0 0; /* Minimal padding, especially at top */
   opacity: 1;
-  margin-top: 5px; /* Reduced from 10px */
+  margin-top: 0; /* No gap between image and tags */
 }
+
+    
 .enlarged-tags-container:hover {
   opacity: 0.6; /* Increase opacity on hover for better readability */
 }
@@ -692,7 +683,7 @@
   background-color: rgba(50, 50, 53, 0.85);
   color: white;
   font-size: 0.95rem;
-  padding: 8px 16px; /* Slightly reduced padding */
+  padding: 6px 16px; /* Slightly reduced vertical padding */
   border-radius: 20px;
   max-width: 100%;
   white-space: nowrap;
@@ -708,8 +699,10 @@
   align-items: center;
   justify-content: center;
   max-width: 90vw;
-  max-height: 85vh; /* Increased from 80vh to allow more space for image */
+  max-height: 87vh; /* Increased from 85vh to use more vertical space */
+  margin-bottom: 0; /* Remove any bottom margin */
 }
+
 
     /* --------------------------------------------------
        Top Search Bar
@@ -2028,7 +2021,7 @@ downloadLink.addEventListener("click", function(e) {
      * Enlarge Image Modal Closure (click outside image)
      ********************************************************/
 
-    function enlargeImage(url, filename) {
+   function enlargeImage(url, filename) {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
@@ -2050,20 +2043,27 @@ downloadLink.addEventListener("click", function(e) {
     
     // Adjust sizing based on image dimensions and viewport
     const viewportWidth = window.innerWidth * 0.9;  // 90% of viewport width
-    const viewportHeight = window.innerHeight * 0.8; // 80% of viewport height
+    const viewportHeight = window.innerHeight * 0.87; // 87% of viewport height (increased)
     
     // Calculate which dimension is more constrained
     const widthRatio = imgWidth / viewportWidth;
     const heightRatio = imgHeight / viewportHeight;
+    
+    // Factor in the tags height for vertical space calculations
+    let tagsHeight = 0;
+    if (keywords && keywords.trim() !== "") {
+      // Estimate tags height (padding + font size + border radius) in vh units
+      tagsHeight = 2.5; // roughly equivalent to the tags container height in vh
+    }
     
     if (widthRatio > heightRatio && widthRatio > 1) {
       // Width is the limiting factor
       enlargeImg.style.width = "90vw";
       enlargeImg.style.height = "auto";
     } else if (heightRatio > 1) {
-      // Height is the limiting factor
+      // Height is the limiting factor, accounting for tags
       enlargeImg.style.width = "auto";
-      enlargeImg.style.height = "82vh"; // Increased from 75vh to use more vertical space
+      enlargeImg.style.height = `${87 - tagsHeight}vh`; // Adjust image height to leave just enough space for tags
     } else {
       // Image is smaller than viewport, use natural size
       enlargeImg.style.width = "auto";
@@ -2077,13 +2077,18 @@ downloadLink.addEventListener("click", function(e) {
     } else {
       // Hide tags container if there are no keywords
       tagsElement.parentElement.style.display = "none";
+      
+      // If no tags, we can use even more space for the image
+      if (heightRatio > 1) {
+        enlargeImg.style.height = "87vh"; // Maximum height when no tags
+      }
     }
     
     // Show the modal now that we've set the correct dimensions
     enlargeModal.style.display = "flex";
   };
   
-  // Start loading the image to calculate dimensions - this needs to be AFTER setting the onload handler
+  // Start loading the image to calculate dimensions
   tempImg.src = url;
   
   // Set download button attributes and show it
