@@ -606,16 +606,16 @@
     -------------------------------------------------- */
    #enlargeImageModal {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.7); /* Less opaque background */
+  top: 0; 
+  left: 0;
+  width: 100%; 
+  height: 100%;
+  background: rgba(0,0,0,0.7);
   display: none;
   align-items: center;
   justify-content: center;
   z-index: 15000;
-  /* Add backdrop-filter for blur effect */
   backdrop-filter: blur(15px);
-  /* For Safari compatibility */
   -webkit-backdrop-filter: blur(15px);
 }
 
@@ -627,17 +627,21 @@
 }
 
 #enlargeImage {
-  max-width: 90%;
-  max-height: 90vh; /* Limit to 90% of viewport height */
-  object-fit: contain; /* Preserve aspect ratio */
+  max-width: 90vw; /* Maximum width */
+  max-height: 80vh; /* Maximum height - slightly less to account for tags */
+  width: auto; /* Allow natural sizing */
+  height: auto; /* Allow natural sizing */
+  object-fit: contain; /* Keep aspect ratio */
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   border-radius: 1px;
 }
     #enlargeImageModal img {
-      max-width: 90%;
-      max-height: 90%;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-    }
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain; /* This ensures aspect ratio is maintained */
+  width: auto; /* Allow width to be determined by height */
+  height: auto; /* Allow height to be determined by width */
+}
 
     .enlarged-download-btn {
   position: absolute;
@@ -700,8 +704,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 90%;
-  max-height: 90%;
+  justify-content: center; /* Center vertically too */
+  max-width: 90vw; /* Maximum width of 90% viewport width */
+  max-height: 90vh; /* Maximum height of 90% viewport height */
 }
 
     /* --------------------------------------------------
@@ -2033,6 +2038,41 @@ downloadLink.addEventListener("click", function(e) {
   enlargeImg.src = url;
   enlargeImg.alt = filename;
   
+  // Create a new image to get natural dimensions and ensure proper sizing
+  const tempImg = new Image();
+  tempImg.onload = function() {
+    const imgWidth = this.width;
+    const imgHeight = this.height;
+    
+    // Adjust sizing based on image dimensions and viewport
+    const viewportWidth = window.innerWidth * 0.9;  // 90% of viewport width
+    const viewportHeight = window.innerHeight * 0.8; // 80% of viewport height
+    
+    // Calculate which dimension is more constrained
+    const widthRatio = imgWidth / viewportWidth;
+    const heightRatio = imgHeight / viewportHeight;
+    
+    if (widthRatio > heightRatio && widthRatio > 1) {
+      // Width is the limiting factor
+      enlargeImg.style.width = "90vw";
+      enlargeImg.style.height = "auto";
+    } else if (heightRatio > 1) {
+      // Height is the limiting factor
+      enlargeImg.style.width = "auto";
+      enlargeImg.style.height = "80vh";
+    } else {
+      // Image is smaller than viewport, use natural size
+      enlargeImg.style.width = "auto";
+      enlargeImg.style.height = "auto";
+    }
+    
+    // Show the modal now that we've set the correct dimensions
+    enlargeModal.style.display = "flex";
+  };
+  
+  // Start loading the image to calculate dimensions
+  tempImg.src = url;
+  
   // Set download button attributes and show it
   downloadBtn.href = url;
   downloadBtn.download = filename;
@@ -2040,9 +2080,6 @@ downloadLink.addEventListener("click", function(e) {
   
   // Display keywords/tags
   tagsElement.textContent = keywords;
-  
-  // Show the modal
-  enlargeModal.style.display = "flex";
   
   // Add force download functionality
   downloadBtn.addEventListener("click", function(e) {
