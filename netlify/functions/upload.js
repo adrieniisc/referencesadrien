@@ -48,9 +48,12 @@ const handler = (event, context, callback) => {
 
   // When Busboy is done parsing
   busboy.on('finish', () => {
+    // Generate a unique public_id to avoid overwriting existing images
+    const uniqueFileName = `${Date.now()}-${fileName}`;
+
     // Upload to Cloudinary
     const uploadStream = cloudinary.uploader.upload_stream(
-      { resource_type: 'auto', public_id: fileName },
+      { resource_type: 'auto', public_id: uniqueFileName },
       (error, result) => {
         if (error) {
           console.error('Cloudinary Upload Error:', error);

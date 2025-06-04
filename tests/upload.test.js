@@ -52,8 +52,9 @@ describe('upload handler', () => {
       isBase64Encoded: false
     });
 
-    expect(receivedOptions.public_id).toBe(filename);
+    expect(receivedOptions.public_id).toContain(filename);
+    expect(receivedOptions.public_id).not.toBe(filename);
     expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toEqual({ url: `http://example.com/${filename}` });
+    expect(JSON.parse(result.body)).toEqual({ url: `http://example.com/${receivedOptions.public_id}` });
   });
 });
