@@ -41,10 +41,6 @@ exports.handler = async (event) => {
     const labels = (data.responses && data.responses[0].labelAnnotations) || [];
 
     const tagNames = labels.map(l => l.description.toLowerCase());
-    while (tagNames.length < 5) {
-      tagNames.push('unknown');
-    }
-
     const tags = tagNames.slice(0, 5).join(', ');
     const possibleObjects = labels.map(l => ({ name: l.description.toLowerCase(), confidence: l.score }));
 

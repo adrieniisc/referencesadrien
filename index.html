@@ -2546,12 +2546,7 @@ async function generateImageTagsWithMobileNet(imageUrl) {
       return 0;
     });
 
-    // Ensure at least five tags are returned
-    while (processedTags.length < 5) {
-      processedTags.push('unknown');
-    }
-
-    // Take only the top 5 tags after processing
+    // Take up to the top 5 tags after processing
     const tags = processedTags.slice(0, 5).join(', ');
     
     console.log("Generated tags:", tags);
