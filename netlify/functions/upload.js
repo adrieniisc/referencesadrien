@@ -35,8 +35,8 @@ exports.handler = (event, context, callback) => {
   let fileName = '';
 
   // When Busboy finds a file
-  busboy.on('file', (fieldname, file, filename) => {
-    fileName = filename;
+  busboy.on('file', (fieldname, file, info) => {
+    fileName = info.filename;
     const chunks = [];
     file.on('data', (data) => {
       chunks.push(data);
