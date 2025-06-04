@@ -19,8 +19,17 @@ exports.handler = (event, context, callback) => {
     });
   }
 
-  // Initialize Busboy (classic usage)
-  const busboy = Busboy({ headers: event.headers });
+  // Normalize header names for Busboy which expects lowercase keys
+  const lowerCaseHeaders = Object.keys(event.headers || {}).reduce(
+    (acc, key) => {
+      acc[key.toLowerCase()] = event.headers[key];
+      return acc;
+    },
+    {}
+  );
+
+  // Initialize Busboy with normalized headers
+  const busboy = Busboy({ headers: lowerCaseHeaders });
 
   let fileBuffer = null;
   let fileName = '';
@@ -58,7 +67,14 @@ exports.handler = (event, context, callback) => {
       }
     );
     // Pipe the file buffer into Cloudinary
-    uploadStream.end(fileBuffer);
+    if (fileBuffer) {
+      uploadStream.end(fileBuffer);
+    } else {
+      return callback(null, {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'No file data received' }),
+      });
+    }
   });
 
   // Parse the request body with Busboy
