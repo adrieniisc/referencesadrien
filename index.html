@@ -2411,7 +2411,28 @@ function closeEnlargeModal() {
 });
 
     // Add this function just before your processUpload function
+
 async function generateImageTags(imageUrl) {
+  try {
+    const res = await fetch('/.netlify/functions/cloudVision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.tags !== undefined) {
+        return data;
+      }
+    }
+    throw new Error('Cloud Vision failed');
+  } catch (err) {
+    console.warn('Cloud Vision API error, falling back to MobileNet:', err);
+    return await generateImageTagsWithMobileNet(imageUrl);
+  }
+}
+
+async function generateImageTagsWithMobileNet(imageUrl) {
   try {
     console.log("Starting tag generation for image:", imageUrl);
     
