@@ -10,7 +10,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-exports.handler = (event, context, callback) => {
+const handler = (event, context, callback) => {
   // Only accept POST requests
   if (event.httpMethod !== 'POST') {
     return callback(null, {
@@ -80,3 +80,5 @@ exports.handler = (event, context, callback) => {
   // Parse the request body with Busboy
   busboy.end(Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8'));
 };
+
+module.exports.handler = handler;
