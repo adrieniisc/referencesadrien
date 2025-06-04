@@ -2540,12 +2540,17 @@ async function generateImageTagsWithMobileNet(imageUrl) {
     processedTags.sort((a, b) => {
       const aIsTexture = textureCategories.some(cat => a.includes(cat));
       const bIsTexture = textureCategories.some(cat => b.includes(cat));
-      
+
       if (aIsTexture && !bIsTexture) return -1;
       if (!aIsTexture && bIsTexture) return 1;
       return 0;
     });
-    
+
+    // Ensure at least five tags are returned
+    while (processedTags.length < 5) {
+      processedTags.push('unknown');
+    }
+
     // Take only the top 5 tags after processing
     const tags = processedTags.slice(0, 5).join(', ');
     
