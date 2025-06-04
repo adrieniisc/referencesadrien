@@ -54,7 +54,6 @@ exports.handler = async (event) => {
     const labels = (data.responses && data.responses[0].labelAnnotations) || [];
 
     const tagNames = labels.map(l => l.description.toLowerCase());
-
     let processedTags = [...tagNames];
     if (processedTags.length < 5) {
       for (const tag of [...tagNames]) {
