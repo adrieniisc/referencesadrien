@@ -20,7 +20,8 @@ exports.handler = async (event) => {
       requests: [
         {
           image: { source: { imageUri: imageUrl } },
-          features: [{ type: 'LABEL_DETECTION', maxResults: 5 }]
+          // Request extra labels so we can always return at least 5 tags
+          features: [{ type: 'LABEL_DETECTION', maxResults: 10 }]
         }
       ]
     };
@@ -39,7 +40,12 @@ exports.handler = async (event) => {
     const data = await response.json();
     const labels = (data.responses && data.responses[0].labelAnnotations) || [];
 
-    const tags = labels.map(l => l.description.toLowerCase()).slice(0,5).join(', ');
+    const tagNames = labels.map(l => l.description.toLowerCase());
+    while (tagNames.length < 5) {
+      tagNames.push('unknown');
+    }
+
+    const tags = tagNames.slice(0, 5).join(', ');
     const possibleObjects = labels.map(l => ({ name: l.description.toLowerCase(), confidence: l.score }));
 
     return {
