@@ -26,6 +26,19 @@ exports.handler = async (event) => {
       ]
     };
 
+    const generalTagMappings = {
+      soup: ['food', 'dish', 'meal', 'liquid'],
+      salad: ['food', 'dish', 'meal', 'vegetable'],
+      car: ['vehicle', 'transport', 'auto'],
+      cat: ['animal', 'pet', 'feline'],
+      dog: ['animal', 'pet', 'canine'],
+      tree: ['plant', 'nature', 'wood'],
+      building: ['architecture', 'structure', 'construction'],
+      phone: ['electronics', 'device', 'smartphone'],
+      person: ['human', 'people', 'individual'],
+      computer: ['electronics', 'device', 'technology']
+    };
+
     const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -41,11 +54,24 @@ exports.handler = async (event) => {
     const labels = (data.responses && data.responses[0].labelAnnotations) || [];
 
     const tagNames = labels.map(l => l.description.toLowerCase());
-    while (tagNames.length < 5) {
-      tagNames.push('unknown');
+
+    let processedTags = [...tagNames];
+    if (processedTags.length < 5) {
+      for (const tag of [...tagNames]) {
+        const extras = generalTagMappings[tag];
+        if (extras) {
+          for (const extra of extras) {
+            if (processedTags.length >= 5) break;
+            if (!processedTags.includes(extra)) {
+              processedTags.push(extra);
+            }
+          }
+        }
+        if (processedTags.length >= 5) break;
+      }
     }
 
-    const tags = tagNames.slice(0, 5).join(', ');
+    const tags = processedTags.slice(0, 5).join(', ');
     const possibleObjects = labels.map(l => ({ name: l.description.toLowerCase(), confidence: l.score }));
 
     return {
