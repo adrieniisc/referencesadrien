@@ -2479,10 +2479,25 @@ async function generateImageTagsWithMobileNet(imageUrl) {
     
     // Define categories to favor for reference images
     const textureCategories = [
-      'brick', 'stone', 'wood', 'metal', 'concrete', 'fabric', 'leather', 
+      'brick', 'stone', 'wood', 'metal', 'concrete', 'fabric', 'leather',
       'grass', 'dirt', 'sand', 'rock', 'water', 'sky', 'cloud', 'fire',
       'rust', 'paint', 'glass', 'ceramic', 'plastic', 'paper', 'cardboard'
     ];
+
+    // Generic tag expansions to ensure at least five results
+    // Map specific tags to more global categories and synonyms
+    const generalTagMappings = {
+      soup: ['food', 'dish', 'meal', 'liquid', 'broth'],
+      salad: ['food', 'dish', 'meal', 'vegetable', 'greens'],
+      car: ['vehicle', 'transport', 'auto'],
+      cat: ['animal', 'pet', 'feline'],
+      dog: ['animal', 'pet', 'canine'],
+      tree: ['plant', 'nature', 'wood'],
+      building: ['architecture', 'structure', 'construction'],
+      phone: ['electronics', 'device', 'smartphone'],
+      person: ['human', 'people', 'individual'],
+      computer: ['electronics', 'device', 'technology']
+    };
     
     // Manual corrections for common objects
     const specialObjects = {
@@ -2546,12 +2561,23 @@ async function generateImageTagsWithMobileNet(imageUrl) {
       return 0;
     });
 
-    // Ensure at least five tags are returned
-    while (processedTags.length < 5) {
-      processedTags.push('unknown');
+    // Expand with general categories if fewer than five tags
+    if (processedTags.length < 5) {
+      for (const tag of [...processedTags]) {
+        const extras = generalTagMappings[tag];
+        if (extras) {
+          for (const extra of extras) {
+            if (processedTags.length >= 5) break;
+            if (!processedTags.includes(extra)) {
+              processedTags.push(extra);
+            }
+          }
+        }
+        if (processedTags.length >= 5) break;
+      }
     }
 
-    // Take only the top 5 tags after processing
+    // Take up to the top 5 tags after processing
     const tags = processedTags.slice(0, 5).join(', ');
     
     console.log("Generated tags:", tags);
