@@ -27,8 +27,8 @@ exports.handler = async (event) => {
     };
 
     const generalTagMappings = {
-      soup: ['food', 'dish', 'meal', 'liquid'],
-      salad: ['food', 'dish', 'meal', 'vegetable'],
+      soup: ['food', 'dish', 'meal', 'liquid', 'broth'],
+      salad: ['food', 'dish', 'meal', 'vegetable', 'greens'],
       car: ['vehicle', 'transport', 'auto'],
       cat: ['animal', 'pet', 'feline'],
       dog: ['animal', 'pet', 'canine'],
