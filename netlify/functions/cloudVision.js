@@ -41,6 +41,47 @@ exports.handler = async (event) => {
     const labels = (data.responses && data.responses[0].labelAnnotations) || [];
 
     const tagNames = labels.map(l => l.description.toLowerCase());
+
+    const generalTagMappings = {
+      brick: ['wall', 'masonry'],
+      stone: ['rock', 'material'],
+      wood: ['material', 'timber'],
+      metal: ['material'],
+      concrete: ['material'],
+      leather: ['material'],
+      fabric: ['material'],
+      grass: ['plant'],
+      dirt: ['ground'],
+      sand: ['ground'],
+      rock: ['stone'],
+      water: ['liquid'],
+      sky: ['outdoor'],
+      cloud: ['sky'],
+      fire: ['flame'],
+      rust: ['metal'],
+      paint: ['color'],
+      glass: ['material'],
+      ceramic: ['material'],
+      plastic: ['material'],
+      paper: ['material'],
+      cardboard: ['paper']
+    };
+
+    if (tagNames.length < 5) {
+      for (const tag of [...tagNames]) {
+        const extras = generalTagMappings[tag];
+        if (extras) {
+          for (const extra of extras) {
+            if (tagNames.length >= 5) break;
+            if (!tagNames.includes(extra)) {
+              tagNames.push(extra);
+            }
+          }
+        }
+        if (tagNames.length >= 5) break;
+      }
+    }
+
     const tags = tagNames.slice(0, 5).join(', ');
     const possibleObjects = labels.map(l => ({ name: l.description.toLowerCase(), confidence: l.score }));
 
