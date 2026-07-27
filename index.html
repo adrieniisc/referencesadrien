@@ -1408,6 +1408,49 @@ aboutModal.addEventListener("click", (e) => {
       return url.replace('/upload/', '/upload/f_auto,q_auto/');
     }
 
+    // Netlify Functions reject request bodies over ~6MB (and base64-encode
+    // binary uploads in transit, which inflates size by ~33% first). Re-encode
+    // oversized images as JPEG, lowering quality (not pixel dimensions) until
+    // they fit, so full-resolution photos from cameras/Unsplash don't 500.
+    async function compressImageIfNeeded(file, maxBytes = 4.5 * 1024 * 1024) {
+      if (file.size <= maxBytes) return file;
+
+      try {
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        try {
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = objectUrl;
+          });
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+
+        let quality = 0.92;
+        let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        while (blob && blob.size > maxBytes && quality > 0.4) {
+          quality -= 0.1;
+          blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        }
+
+        if (!blob || blob.size >= file.size) return file;
+
+        console.log(`Compressed ${file.name}: ${(file.size / 1024 / 1024).toFixed(1)}MB -> ${(blob.size / 1024 / 1024).toFixed(1)}MB (quality ${quality.toFixed(1)})`);
+        const compressedName = file.name.replace(/\.[^./]+$/, '') + '.jpg';
+        return new File([blob], compressedName, { type: 'image/jpeg' });
+      } catch (err) {
+        console.warn(`Could not compress ${file.name}, uploading original:`, err);
+        return file;
+      }
+    }
+
     async function uploadImage(file) {
   try {
     const formData = new FormData();
@@ -2745,9 +2788,10 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     // Update progress to 30%
     progressFill.style.width = "30%";
     
-    // Upload the file
+    // Upload the file (compressed first if it's too large for the upload function)
     console.log(`Uploading ${file.name}...`);
-    const imageUrl = await uploadImage(file);
+    const uploadFile = await compressImageIfNeeded(file);
+    const imageUrl = await uploadImage(uploadFile);
     console.log(`File uploaded successfully, URL: ${imageUrl}`);
     
     // Update progress to 50%
