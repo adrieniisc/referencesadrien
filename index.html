@@ -1054,6 +1054,7 @@
           <button id="renameFolderBtn">Rename Folder</button>
           <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
+          <button id="findDuplicatesBtn">Find Duplicates</button>
         </div>
         <hr class="separator">
        <div class="sidebar-admin-section">
@@ -1155,6 +1156,15 @@
       </div>
     </div>
   </div>
+<!-- MODAL: Duplicate Images -->
+<div class="modal-backdrop" id="duplicatesModal">
+  <div class="modal-content">
+    <button class="close-modal-btn" id="closeDuplicatesModalBtn">&times;</button>
+    <h3>Duplicate Images</h3>
+    <p style="margin-bottom: 0.8rem;">Images below share the same Cloudinary URL, meaning one upload overwrote another (usually because they had the same original filename). Re-upload the affected files to fix them.</p>
+    <div id="duplicatesList" style="max-height: 50vh; overflow-y: auto;"></div>
+  </div>
+</div>
 <!-- MODAL: UI Preferences -->
 <div class="modal-backdrop" id="preferencesPanel">
   <div class="modal-content">
@@ -1240,6 +1250,10 @@
     const filterButton = document.getElementById("filterButton");
     const filterMenu = document.getElementById("filterMenu");
     const deleteFolderBtn = document.getElementById("deleteFolderBtn");
+    const findDuplicatesBtn = document.getElementById("findDuplicatesBtn");
+    const duplicatesModal = document.getElementById("duplicatesModal");
+    const closeDuplicatesModalBtn = document.getElementById("closeDuplicatesModalBtn");
+    const duplicatesList = document.getElementById("duplicatesList");
 
     // Delete Image elements
     const deleteImageBtn = document.getElementById("deleteImageBtn");
@@ -2291,6 +2305,71 @@ function closeEnlargeModal() {
     alert(`Error deleting folder: ${error.message}`);
   }
 });
+
+    // Find Duplicates button: images sharing the same Cloudinary URL
+    // were overwritten by a later upload with the same original filename
+    // (fixed for new uploads, but old entries can still collide).
+    findDuplicatesBtn.addEventListener("click", async () => {
+      duplicatesList.innerHTML = "<p>Scanning...</p>";
+      duplicatesModal.classList.add("active");
+
+      try {
+        const snapshot = await db.collection('images').get();
+        const groups = {};
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (!data.url) return;
+          if (!groups[data.url]) groups[data.url] = [];
+          groups[data.url].push({ id: doc.id, ...data });
+        });
+
+        const duplicateGroups = Object.entries(groups).filter(([, docs]) => docs.length > 1);
+
+        if (duplicateGroups.length === 0) {
+          duplicatesList.innerHTML = "<p>No duplicates found. Every image has a unique URL.</p>";
+          return;
+        }
+
+        duplicatesList.innerHTML = "";
+        duplicateGroups.forEach(([url, docs]) => {
+          const group = document.createElement("div");
+          group.style.marginBottom = "1rem";
+          group.style.paddingBottom = "1rem";
+          group.style.borderBottom = "1px solid rgba(255,255,255,0.15)";
+
+          const thumb = document.createElement("img");
+          thumb.src = url;
+          thumb.style.maxWidth = "120px";
+          thumb.style.display = "block";
+          thumb.style.marginBottom = "0.5rem";
+          group.appendChild(thumb);
+
+          const urlLine = document.createElement("p");
+          urlLine.style.wordBreak = "break-all";
+          urlLine.style.fontSize = "0.8rem";
+          urlLine.textContent = url;
+          group.appendChild(urlLine);
+
+          const list = document.createElement("ul");
+          docs.forEach(d => {
+            const li = document.createElement("li");
+            li.textContent = `${d.filename || 'image'} — folder: ${d.folder || 'all'} — doc id: ${d.id}`;
+            list.appendChild(li);
+          });
+          group.appendChild(list);
+
+          duplicatesList.appendChild(group);
+        });
+
+        console.log(`Found ${duplicateGroups.length} duplicate URL group(s)`, duplicateGroups);
+      } catch (error) {
+        console.error('Error scanning for duplicates:', error);
+        duplicatesList.innerHTML = `<p>Error scanning for duplicates: ${error.message}</p>`;
+      }
+    });
+
+    closeDuplicatesModalBtn.addEventListener("click", () => { duplicatesModal.classList.remove("active"); });
+    duplicatesModal.addEventListener("click", (e) => { if (e.target === duplicatesModal) duplicatesModal.classList.remove("active"); });
 
     // Confirm Rename Folder button
     confirmRenameFolderBtn.addEventListener("click", async () => {
