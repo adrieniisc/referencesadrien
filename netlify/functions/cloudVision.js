@@ -11,7 +11,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: 'Missing imageUrl' };
     }
 
-    const apiKey = process.env.VISION_API_KEY;
+    const apiKey = process.env.CLOUD_VISION_API;
     if (!apiKey) {
       return { statusCode: 500, body: 'Missing API key' };
     }
