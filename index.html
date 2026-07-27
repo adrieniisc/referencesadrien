@@ -1418,9 +1418,20 @@ aboutModal.addEventListener("click", (e) => {
     });
     
     if (!response.ok) {
-      throw new Error(`Upload failed with status: ${response.status}`);
+      let detail = '';
+      try {
+        const text = await response.text();
+        try {
+          detail = JSON.parse(text).error || text;
+        } catch {
+          detail = text;
+        }
+      } catch {
+        // ignore, fall back to status only
+      }
+      throw new Error(`Upload failed with status ${response.status}${detail ? `: ${detail}` : ''}`);
     }
-    
+
     const data = await response.json();
     console.log('Upload response:', data);
     
@@ -2786,6 +2797,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     const details = uploadItem?.querySelector(".upload-dock-item-details");
     if (details) {
       details.textContent = `Error: ${error.message || 'Unknown error'}`;
+      details.title = details.textContent; // full message on hover, since the row is truncated
       details.style.color = "#ff3b30";
     }
   }
@@ -2908,6 +2920,7 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       const details = uploadItem?.querySelector(".upload-dock-item-details");
       if (details) {
         details.textContent = `Error: ${error.message || 'Unknown error'}`;
+        details.title = details.textContent; // full message on hover, since the row is truncated
         details.style.color = "#ff3b30";
       }
     }
