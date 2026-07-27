@@ -2333,7 +2333,9 @@ function closeEnlargeModal() {
 
     // Confirm Add Image button
   confirmAddImageBtn.addEventListener("click", async () => {
-  const files = fileInput.files;
+  // Copy into a plain array: fileInput.files is a live FileList, and
+  // resetting fileInput.value below would otherwise empty it retroactively.
+  const files = Array.from(fileInput.files);
   
   if (!files || files.length === 0) { 
     alert("Please select at least one image file first."); 
