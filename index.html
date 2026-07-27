@@ -811,7 +811,7 @@
   max-width: 320px;  /* Maximum width */
   background-color: rgba(44,44,46,0.9);
   border-radius: 10px;  /* Rounded corners like size panel */
-  z-index: 1100;  /* High z-index but below the size selector */
+  z-index: 20000;  /* Above every modal (incl. the tag-review panel) so upload progress stays visible */
   max-height: 200px;
   overflow-y: auto;
   display: none; /* Hidden by default */
@@ -1400,6 +1400,14 @@ aboutModal.addEventListener("click", (e) => {
     /********************************************************
      * Netlify Upload Function
      ********************************************************/
+    // Cloudinary stores the file in its original format (e.g. HEIC from iPhones),
+    // which most browsers can't render in an <img> tag. Insert an f_auto,q_auto
+    // transformation so Cloudinary serves a browser-compatible format instead.
+    function cloudinaryDisplayUrl(url) {
+      if (typeof url !== 'string' || !url.includes('/upload/')) return url;
+      return url.replace('/upload/', '/upload/f_auto,q_auto/');
+    }
+
     async function uploadImage(file) {
   try {
     const formData = new FormData();
@@ -1560,7 +1568,7 @@ aboutModal.addEventListener("click", (e) => {
       container.setAttribute('data-add-time', addTime);
       
       const img = document.createElement('img');
-      img.src = url;
+      img.src = cloudinaryDisplayUrl(url);
       img.alt = filename;
       // Enlarge image on click
       img.addEventListener("click", function(e) {
@@ -2035,7 +2043,7 @@ downloadLink.addEventListener("click", function(e) {
   const keywords = imageContainer.getAttribute("data-keywords") || "";
   
   // Set image source and alt
-  enlargeImg.src = url;
+  enlargeImg.src = cloudinaryDisplayUrl(url);
   enlargeImg.alt = filename;
   
   // Create a new image to get natural dimensions and ensure proper sizing
@@ -2447,8 +2455,8 @@ async function generateImageTagsWithMobileNet(imageUrl) {
         console.error("Image loading error:", e);
         reject(new Error("Failed to load image"));
       };
-      img.src = imageUrl;
-      
+      img.src = cloudinaryDisplayUrl(imageUrl);
+
       // Add a timeout in case the image doesn't load
       setTimeout(() => reject(new Error("Image load timeout")), 10000);
     });
@@ -2647,7 +2655,7 @@ function showTagReview(imageUrl, tagData, onConfirm, onSkip) {
   const skipTagsBtn = document.getElementById('skipTagsBtn');
   
   // Set the image
-  tagReviewImage.src = imageUrl;
+  tagReviewImage.src = cloudinaryDisplayUrl(imageUrl);
   
   // Display detected objects with confidence indicators
   detectedObjectsList.innerHTML = '';

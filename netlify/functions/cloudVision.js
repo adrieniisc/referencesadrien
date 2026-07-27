@@ -20,8 +20,12 @@ exports.handler = async (event) => {
       requests: [
         {
           image: { source: { imageUri: imageUrl } },
-          // Request extra labels so we can always return at least 5 tags
-          features: [{ type: 'LABEL_DETECTION', maxResults: 10 }]
+          // Combine general labels with localized object detection for richer,
+          // more accurate tags than the client-side MobileNet fallback
+          features: [
+            { type: 'LABEL_DETECTION', maxResults: 15 },
+            { type: 'OBJECT_LOCALIZATION', maxResults: 15 }
+          ]
         }
       ]
     };
@@ -38,9 +42,29 @@ exports.handler = async (event) => {
     }
 
     const data = await response.json();
-    const labels = (data.responses && data.responses[0].labelAnnotations) || [];
+    const result = (data.responses && data.responses[0]) || {};
+    const labels = result.labelAnnotations || [];
+    const objects = result.localizedObjectAnnotations || [];
 
-    const tagNames = labels.map(l => l.description.toLowerCase());
+    // Merge labels and localized objects, keeping the higher confidence score
+    // when the same thing is detected by both, and drop low-confidence noise
+    const MIN_SCORE = 0.6;
+    const merged = new Map();
+    for (const l of labels) {
+      const name = l.description.toLowerCase();
+      const score = l.score || 0;
+      if (score < MIN_SCORE) continue;
+      if (!merged.has(name) || merged.get(name) < score) merged.set(name, score);
+    }
+    for (const o of objects) {
+      const name = o.name.toLowerCase();
+      const score = o.score || 0;
+      if (score < MIN_SCORE) continue;
+      if (!merged.has(name) || merged.get(name) < score) merged.set(name, score);
+    }
+
+    const sorted = [...merged.entries()].sort((a, b) => b[1] - a[1]);
+    const tagNames = sorted.map(([name]) => name);
 
     const generalTagMappings = {
       brick: ['wall', 'masonry'],
@@ -83,7 +107,7 @@ exports.handler = async (event) => {
     }
 
     const tags = tagNames.slice(0, 5).join(', ');
-    const possibleObjects = labels.map(l => ({ name: l.description.toLowerCase(), confidence: l.score }));
+    const possibleObjects = sorted.map(([name, score]) => ({ name, confidence: score }));
 
     return {
       statusCode: 200,
