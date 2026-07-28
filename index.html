@@ -1183,7 +1183,8 @@
 
  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
-  
+ <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
 </head>
 <body>
 
@@ -1641,6 +1642,27 @@ aboutModal.addEventListener("click", (e) => {
       return url.replace('/upload/', `/upload/${transform}/`);
     }
 
+    // Decode a browser-natively-supported image blob (JPEG/PNG/WebP/...) onto
+    // a canvas. Throws if the browser can't decode it (e.g. HEIC).
+    async function decodeToCanvas(blob) {
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = objectUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        return canvas;
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+
     // Netlify Functions reject request bodies over ~6MB (and base64-encode
     // binary uploads in transit, which inflates size by ~33% first). Re-encode
     // oversized images as JPEG, lowering quality (not pixel dimensions) until
@@ -1649,22 +1671,19 @@ aboutModal.addEventListener("click", (e) => {
       if (file.size <= maxBytes) return file;
 
       try {
-        const objectUrl = URL.createObjectURL(file);
-        const img = new Image();
+        let canvas;
         try {
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = objectUrl;
-          });
-        } finally {
-          URL.revokeObjectURL(objectUrl);
+          canvas = await decodeToCanvas(file);
+        } catch (decodeErr) {
+          // Most browsers can't decode HEIC/HEIF in an <img> tag - and iOS/Safari
+          // sometimes hands over raw HEIC bytes even when the file is named/typed
+          // as .jpeg. Decode it with heic2any (to PNG, so this stays lossless -
+          // the only lossy step is the JPEG re-encode below), then retry.
+          if (typeof heic2any === 'undefined') throw decodeErr;
+          const converted = await heic2any({ blob: file, toType: 'image/png' });
+          const pngBlob = Array.isArray(converted) ? converted[0] : converted;
+          canvas = await decodeToCanvas(pngBlob);
         }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.getContext('2d').drawImage(img, 0, 0);
 
         let quality = 0.92;
         let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
