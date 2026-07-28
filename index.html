@@ -264,6 +264,29 @@
       color: var(--accent);
       font-weight: 500;
     }
+    /* Folder name + image count, grouped so the arrow can sit on the far right */
+    .folder-label {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .folder-label > span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .folder-count {
+      color: var(--text-faint);
+      font-size: 0.78em;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .folder-list li.selected .folder-count {
+      color: var(--accent);
+      opacity: 0.75;
+    }
     ul.subfolder-list {
       list-style: none;
       padding-left: 1rem;
@@ -828,18 +851,19 @@
 
     /* Style for the new admin button in the sidebar */
     .admin-access-btn {
-  background-color: transparent;
-  color: var(--text-faint);
+  background-color: rgba(255,255,255,0.06);
+  color: var(--text-muted);
   border: 1px solid var(--border-color);
-  padding: 0.4rem 0.5rem;
+  padding: 0.45rem 0.5rem;
   border-radius: var(--radius-sm);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   width: 100%;
   text-align: center;
   margin-top: 0.4rem;
   display: block !important;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
     /* Add a fallback for browsers that don't support backdrop-filter */
 @supports not (backdrop-filter: blur(10px)) {
@@ -852,6 +876,7 @@
 }
 
     .admin-access-btn:hover {
+      background-color: rgba(255,255,255,0.1);
       color: var(--text);
       border-color: var(--border-strong);
     }
@@ -1383,6 +1408,8 @@
     }
 
     function layoutGallery() {
+      updateFolderCounts();
+
       const containers = [...gallery.children].filter(
         el => getComputedStyle(el).display !== "none"
       );
@@ -1789,9 +1816,17 @@ downloadLink.addEventListener("click", function(e) {
       parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
 
       const allItem = document.createElement("li");
-      allItem.textContent = "All";
       allItem.classList.add("all");
       allItem.setAttribute("data-filter", "all");
+      const allLabel = document.createElement("span");
+      allLabel.classList.add("folder-label");
+      const allNameSpan = document.createElement("span");
+      allNameSpan.textContent = "All";
+      const allCountSpan = document.createElement("span");
+      allCountSpan.classList.add("folder-count");
+      allLabel.appendChild(allNameSpan);
+      allLabel.appendChild(allCountSpan);
+      allItem.appendChild(allLabel);
       allItem.addEventListener("click", () => {
         highlightSelected(allItem);
         hideAllSubfolders();
@@ -1805,12 +1840,18 @@ downloadLink.addEventListener("click", function(e) {
 
       parents.forEach(parent => {
   const parentLi = document.createElement("li");
-  
-  // Create a span for the folder name
+
+  // Folder name + image count, grouped so the arrow (if any) stays on the right
+  const parentLabel = document.createElement("span");
+  parentLabel.classList.add("folder-label");
   const folderNameSpan = document.createElement("span");
   folderNameSpan.textContent = parent;
-  parentLi.appendChild(folderNameSpan);
-  
+  const folderCountSpan = document.createElement("span");
+  folderCountSpan.classList.add("folder-count");
+  parentLabel.appendChild(folderNameSpan);
+  parentLabel.appendChild(folderCountSpan);
+  parentLi.appendChild(parentLabel);
+
   parentLi.setAttribute("data-filter", parent);
 
   // Add arrow indicator if folder has subfolders
@@ -1826,7 +1867,15 @@ downloadLink.addEventListener("click", function(e) {
         if (structure[parent] && structure[parent].length > 0) {
           structure[parent].sort().forEach(child => {
             const childLi = document.createElement("li");
-            childLi.textContent = child;
+            const childLabel = document.createElement("span");
+            childLabel.classList.add("folder-label");
+            const childNameSpan = document.createElement("span");
+            childNameSpan.textContent = child;
+            const childCountSpan = document.createElement("span");
+            childCountSpan.classList.add("folder-count");
+            childLabel.appendChild(childNameSpan);
+            childLabel.appendChild(childCountSpan);
+            childLi.appendChild(childLabel);
             childLi.setAttribute("data-filter", parent + "/" + child);
             childLi.addEventListener("click", (e) => {
               e.stopPropagation();
@@ -1870,6 +1919,38 @@ downloadLink.addEventListener("click", function(e) {
         parentOpt.value = parent;
         parentOpt.textContent = parent;
         parentFolderSelect.appendChild(parentOpt);
+      });
+
+      updateFolderCounts();
+    }
+
+    // Shows how many images live in each folder (and, for parent folders,
+    // in all of their subfolders combined) next to its name in the sidebar.
+    function updateFolderCounts() {
+      const counts = {};
+      const allContainers = document.querySelectorAll(".image-container");
+      allContainers.forEach(container => {
+        const cat = container.getAttribute("data-category") || "all";
+        counts[cat] = (counts[cat] || 0) + 1;
+      });
+
+      const allCountEl = folderList.querySelector("li.all .folder-count");
+      if (allCountEl) allCountEl.textContent = allContainers.length;
+
+      folderList.querySelectorAll("li[data-filter]").forEach(li => {
+        const filter = li.getAttribute("data-filter");
+        if (filter === "all") return;
+        const countEl = li.querySelector(".folder-count");
+        if (!countEl) return;
+        let n = 0;
+        if (filter.includes("/")) {
+          n = counts[filter] || 0;
+        } else {
+          Object.keys(counts).forEach(cat => {
+            if (cat === filter || cat.startsWith(filter + "/")) n += counts[cat];
+          });
+        }
+        countEl.textContent = n;
       });
     }
 
