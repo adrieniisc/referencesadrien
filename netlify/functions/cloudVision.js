@@ -20,12 +20,10 @@ exports.handler = async (event) => {
       requests: [
         {
           image: { source: { imageUri: imageUrl } },
-          // Combine general labels with localized object detection for richer,
-          // more accurate tags than the client-side MobileNet fallback
-          features: [
-            { type: 'LABEL_DETECTION', maxResults: 15 },
-            { type: 'OBJECT_LOCALIZATION', maxResults: 15 }
-          ]
+          // LABEL_DETECTION gives broad, descriptive tags (material, texture,
+          // wall...), which fits a materials/reference library much better
+          // than OBJECT_LOCALIZATION's narrow, overly specific object names
+          features: [{ type: 'LABEL_DETECTION', maxResults: 15 }]
         }
       ]
     };
@@ -44,24 +42,13 @@ exports.handler = async (event) => {
     const data = await response.json();
     const result = (data.responses && data.responses[0]) || {};
     const labels = result.labelAnnotations || [];
-    const objects = result.localizedObjectAnnotations || [];
 
-    // Merge labels and localized objects, keeping the higher confidence score
-    // when the same thing is detected by both
-    const MIN_SCORE = 0.6;
-    const merged = new Map();
-    for (const l of labels) {
-      const name = l.description.toLowerCase();
-      const score = l.score || 0;
-      if (!merged.has(name) || merged.get(name) < score) merged.set(name, score);
-    }
-    for (const o of objects) {
-      const name = o.name.toLowerCase();
-      const score = o.score || 0;
-      if (!merged.has(name) || merged.get(name) < score) merged.set(name, score);
-    }
-
-    const allSorted = [...merged.entries()].sort((a, b) => b[1] - a[1]);
+    // Higher bar than before (was 0.6) - favors fewer, more reliable tags
+    // over precise-sounding but unreliable ones
+    const MIN_SCORE = 0.75;
+    const allSorted = labels
+      .map(l => [l.description.toLowerCase(), l.score || 0])
+      .sort((a, b) => b[1] - a[1]);
     // Prefer confident detections, but backfill with lower-confidence ones
     // (still real detections) so we can always reach a fixed tag count
     const tagNames = allSorted.filter(([, score]) => score >= MIN_SCORE).map(([name]) => name);
