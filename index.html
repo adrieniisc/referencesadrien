@@ -10,18 +10,37 @@
   <title>ReferencesAdrien</title>
   <style>
     /* --------------------------------------------------
-       Inverted Color Variables
-       - Main area: lighter background (#ffffff) and dark text (#1c1c1e)
-       - Sidebar: dark background (#000000) with light text (#f2f2f7)
+       Design Tokens
     -------------------------------------------------- */
      :root {
-      --main-bg: #232323;      /* main area */
-      --main-text: #f2f2f7;      /* text for main area */
-      --side-bg:    #171717;     /* sidebar */
-      --side-text:  #f2f2f7;     /* text for sidebar */
-      --border-color: #3a3a3c;
-      --highlight-color: #2c2c2e;
-      --thumbnail-size: 250px;
+      --bg: #131316;            /* main area background */
+      --bg-elevated: #1a1a1e;   /* sidebar background */
+      --bg-sunken: #0d0d0f;     /* inputs, image placeholders */
+      --border-color: rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.16);
+      --text: #ededf0;
+      --text-muted: #96969f;
+      --text-faint: #6a6a72;
+      --accent: #dd9556;
+      --accent-soft: rgba(221,149,86,0.16);
+      --danger: #ff5a52;
+      --danger-soft: rgba(255,90,82,0.16);
+      --move-accent: #4d9bf5;
+      --move-soft: rgba(77,155,245,0.16);
+      --radius-xs: 6px;   /* images: micro rounding */
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --shadow-md: 0 10px 28px rgba(0,0,0,0.4);
+      --gallery-gap: 6px;
+      --row-height: 180px; /* default gallery size = S */
+
+      /* legacy aliases kept for any untouched rules */
+      --main-bg: var(--bg);
+      --main-text: var(--text);
+      --side-bg: var(--bg-elevated);
+      --side-text: var(--text);
+      --highlight-color: var(--accent);
     }
 
 
@@ -33,43 +52,43 @@
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
                    Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-      background-color: var(--main-bg);
-      color: var(--main-text);
+      background-color: var(--bg);
+      color: var(--text);
     }
     body { display: flex; flex-direction: column; }
 
 
     /* About Button CSS */
-    
+
 .about-btn {
   position: absolute;
-  top: 15px; /* Same top position as the search bar */
-  right: 40px; /* More space from the right edge */
-  background-color: rgba(255, 255, 255, 0.85); /* 85% white */
-  color: #000; /* Black text */
-  border: none;
-  padding: 10px 16px; /* Match search bar padding (from #mainImageSearch) */
-  border-radius: 12px; /* Match search bar border-radius */
-  font-size: 0.95rem; /* Match search bar font-size */
-  font-weight: 500; /* Medium weight for better readability */
+  top: 15px;
+  right: 40px;
+  background-color: rgba(24, 24, 27, 0.65);
+  color: var(--text);
+  border: 1px solid var(--border-color);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
-  width: 120px; /* Fixed width */
+  width: 120px;
   text-align: center;
   z-index: 1200;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Match search bar shadow */
-  /* Add backdrop filter to match search bar */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  height: 40px; /* Fixed height to match the search bar */
-  line-height: 20px; /* Center text vertically */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  height: 40px;
+  line-height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .about-btn:hover {
-  background-color: rgba(255, 255, 255, 0.95); /* Slightly whiter on hover */
-  opacity: 1; /* Keep full opacity on hover */
+  background-color: rgba(32, 32, 36, 0.8);
+  border-color: var(--border-strong);
 }
 
 /* Updated About Modal with blur effect */
@@ -81,41 +100,43 @@
 /* Fallback for browsers that don't support backdrop-filter */
 @supports not (backdrop-filter: blur(15px)) {
   #aboutModal {
-    background: rgba(0,0,0,0.9); /* More opaque fallback */
+    background: rgba(0,0,0,0.9);
   }
 }
 
 /* Style the about content modal */
 #aboutModal .modal-content {
-  background-color: rgba(45, 45, 48, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  max-width: 500px; /* Increased from 400px */
+  background-color: rgba(26, 26, 30, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md);
+  max-width: 500px;
   width: 90%;
-  padding: 1.5rem 2rem; /* Increased padding from 0.8rem 1.2rem */
+  padding: 1.5rem 2rem;
+  border: 1px solid var(--border-color);
 }
 
 #aboutModal .modal-content h3 {
-  margin-bottom: 1.2rem; /* Increased from 0.8rem */
+  margin-bottom: 1.2rem;
   font-weight: 600;
-  font-size: 1.3rem; /* Slightly larger heading */
+  font-size: 1.3rem;
 }
 
 #aboutModal .modal-content p {
-  margin-bottom: 1rem; /* Added space between paragraphs */
-  line-height: 1.5; /* Increased line height for less compact text */
-  font-size: 0.95rem; /* Slightly larger text */
+  margin-bottom: 1rem;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  color: var(--text-muted);
 }
 
 #aboutModal .modal-content:hover {
-  background-color: rgba(50, 50, 53, 0.65);
+  background-color: rgba(28, 28, 32, 0.8);
 }
     /* --------------------------------------------------
        Styling for the sidebar admin button
     -------------------------------------------------- */
 
-    #adminaccessbtn:hover { opacity: 0.9; }
+    #adminaccessbtn:hover { opacity: 0.85; }
 
     /* --------------------------------------------------
        Main Container (Sidebar + Content)
@@ -130,16 +151,25 @@
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
+.sidebar-brand {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0.4rem 0.4rem 1rem;
+}
+
 .sidebar {
   width: fit-content;
-  min-width: 270px; /* Increased from 220px to 270px (+50px) */
-  background-color: var(--side-bg);
-  /* border-right: 1px solid var(--border-color); */ /* Already removed as per previous request */
+  min-width: 270px;
+  background-color: var(--bg-elevated);
+  border-right: 1px solid var(--border-color);
   padding: 0.8rem;
   display: flex;
   flex-direction: column;
   position: relative;
-  color: var(--side-text);
+  color: var(--text);
   z-index: 1100;
   height: 100%;
   overflow-y: auto;
@@ -152,9 +182,9 @@
       flex: 1;
       padding: 0.3rem 0.5rem;
       border: 1px solid var(--border-color);
-      border-radius: 6px;
-      background-color: #1c1c1e;
-      color: var(--side-text);
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-sunken);
+      color: var(--text);
       font-size: 0.9rem;
     }
     .filter-icon-container {
@@ -170,40 +200,41 @@
       background: none;
       border: none;
       cursor: pointer;
-      border-radius: 4px;
+      border-radius: var(--radius-sm);
       transition: background-color 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .filter-button:hover { background-color: #3a3a3c; }
+    .filter-button:hover { background-color: rgba(255,255,255,0.08); }
     .filter-button svg {
       width: 18px;
       height: 18px;
-      fill: var(--side-text);
+      fill: var(--text);
     }
     /* Filter menu in sidebar colors */
     .filter-menu {
       position: fixed;
       top: 50px;
       left: 240px;
-      background-color: var(--side-bg);
+      background-color: var(--bg-elevated);
       border: 1px solid var(--border-color);
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       padding: 0.2rem 0;
       display: none;
       z-index: 1000;
       min-width: 120px;
       font-size: 0.9rem;
-      color: var(--side-text);
+      color: var(--text);
+      box-shadow: var(--shadow-md);
     }
     .filter-menu .filter-option {
-      padding: 0.3rem 0.8rem;
+      padding: 0.4rem 0.8rem;
       cursor: pointer;
       transition: background-color 0.2s ease;
-      color: var(--side-text);
+      color: var(--text-muted);
     }
-    .filter-menu .filter-option:hover { background-color: #3a3a3c; }
+    .filter-menu .filter-option:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
     .folder-list {
       list-style: none;
       flex: 1;
@@ -214,49 +245,54 @@
     .folder-list > li {
       font-size: 0.85rem;
       margin: 0.1rem 0;
-      padding: 0.3rem 0.4rem;
-      border-radius: 6px;
+      padding: 0.4rem 0.5rem;
+      border-radius: var(--radius-sm);
       cursor: pointer;
-      transition: background-color 0.2s ease;
+      transition: background-color 0.15s ease, color 0.15s ease;
       text-align: left;
+      color: var(--text-muted);
     }
-    .folder-list > li.all { 
-    font-weight: 600; 
-    font-size: 1.2rem; /* Increase the font size by 20% */
-    margin-bottom: 0.8rem;
+    .folder-list > li.all {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 0.8rem;
+      color: var(--text);
     }
-    .folder-list li:hover { background-color: #3a3a3c; }
+    .folder-list li:hover { background-color: rgba(255,255,255,0.06); color: var(--text); }
     .folder-list li.selected {
-      background-color: var(--highlight-color);
-      color: #fff;
+      background-color: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 500;
     }
     ul.subfolder-list {
       list-style: none;
       padding-left: 1rem;
       margin: 0.1rem 0;
-      border-left: 1px solid rgba(255,255,255,0.08);
+      border-left: 1px solid var(--border-color);
       display: none;
       font-size: 0.9rem;
     }
     ul.subfolder-list li {
       margin: 0.1rem 0;
-      padding: 0.3rem 0.4rem;
-      border-radius: 6px;
+      padding: 0.35rem 0.5rem;
+      border-radius: var(--radius-sm);
       cursor: pointer;
-      transition: background-color 0.2s ease;
+      transition: background-color 0.15s ease, color 0.15s ease;
+      color: var(--text-muted);
     }
-    ul.subfolder-list li:hover { background-color: #3a3a3c; }
+    ul.subfolder-list li:hover { background-color: rgba(255,255,255,0.06); color: var(--text); }
     ul.subfolder-list li.selected {
-      background-color: var(--highlight-color);
-      color: #fff;
+      background-color: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 500;
     }
 
     /* Folder arrow indicator */
 .folder-arrow {
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--side-text);
-  border-bottom: 2px solid var(--side-text);
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--text-faint);
+  border-bottom: 2px solid var(--text-faint);
   transform: rotate(135deg); /* This makes it point left */
   display: inline-block;
   margin-right: 8px; /* Space between arrow and folder name */
@@ -281,36 +317,39 @@
     .sidebar-footer {
       margin-top: auto;
       padding-top: 0.8rem;
-      border-top: 1px solid rgba(255,255,255,0.08);
+      border-top: 1px solid var(--border-color);
     }
     .sidebar-footer button {
-      background-color: #444;
-      color: #ddd;
-      border: none;
-      padding: 0.4rem 0.5rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
+      background-color: rgba(255,255,255,0.06);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      padding: 0.45rem 0.5rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
       cursor: pointer;
       width: 100%;
       text-align: center;
       margin-bottom: 0.4rem;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
-    .sidebar-footer button:hover { opacity: 0.9; }
-    /* Admin top group buttons in blue */
+    .sidebar-footer button:hover { background-color: rgba(255,255,255,0.1); color: var(--text); }
+    /* Admin top group buttons use the accent color */
     .admin-top-buttons button {
-      background-color: var(--highlight-color);
-      color: #fff;
+      background-color: var(--accent-soft);
+      color: var(--accent);
+      border-color: transparent;
     }
-    /* Admin bottom group: move images buttons in grey */
+    /* Admin bottom group: move images buttons in blue tint */
     .sidebar-footer button.move-btn {
-      background-color: #444;
-      color: #ddd;
+      background-color: var(--move-soft);
+      color: var(--move-accent);
+      border-color: transparent;
     }
     /* Thin separator */
     .separator {
       border: 0;
       height: 1px;
-      background: #555;
+      background: var(--border-color);
       margin: 0.5rem 0;
     }
 
@@ -321,58 +360,74 @@
   flex: 1;
   padding: 0.8rem;
   padding-top: 80px;
+  padding-bottom: 90px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   font-size: 0.9rem;
-  background-color: var(--main-bg);
-  color: var(--main-text);
+  background-color: var(--bg);
+  color: var(--text);
   height: 100%;
   align-items: flex-start; /* Align gallery to the start */
 }
-    
+
+    /* Justified gallery: rows are packed by JS (layoutGallery()) so every
+       image keeps its own aspect ratio at the row's height — no crop and
+       no letterboxed frame around images that are shorter or narrower
+       than their neighbors. */
    .gallery {
-  display: grid;
-  /* Use auto-fill instead of auto-fit to prevent images from growing */
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--thumbnail-size) * 0.9), calc(var(--thumbnail-size) * 1.1)));
-  gap: 0.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gallery-gap);
   width: 100%;
-  justify-content: flex-start; /* Align to the start rather than stretching */
 }
 
 .image-container {
   position: relative;
-  width: 100%; /* Take full width of grid cell */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Add max-width to prevent excessive growth */
-  max-width: calc(var(--thumbnail-size) * 1.1);
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background-color: var(--bg-sunken);
+  cursor: pointer;
 }
     .image-container img {
+      display: block;
       width: 100%;
-      height: auto;
-      border: 1px solid #444;
-      border-radius: 6px;
-      transition: transform 0.3s ease;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.35s ease;
       cursor: pointer;
     }
-    .image-container img:hover { transform: scale(1.02); }
+    .image-container:hover {
+      z-index: 2;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+    }
+    .image-container:hover img { transform: scale(1.035); }
     .download-btn {
       position: absolute;
-      top: 4px;
-      right: 4px;
-      background-color: var(--highlight-color);
-      color: #fff;
-      border: none;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.78rem;
-      display: none;
+      top: 6px;
+      right: 6px;
+      background-color: rgba(19,19,22,0.75);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-3px);
       text-decoration: none;
       line-height: 1.4;
+      transition: opacity 0.2s ease, transform 0.2s ease;
     }
-    .image-container:hover .download-btn { display: block; }
+    .image-container:hover .download-btn {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
     .hidden {
   display: none !important;
 }
@@ -387,38 +442,43 @@
       left: auto;
       width: auto;
       transform: none;
-      background-color: rgba(44,44,46,0.9);
-      border-radius: 10px;
+      background-color: rgba(26,26,30,0.85);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: var(--radius-md);
       z-index: 1000;
       display: inline-flex;
       align-items: center;
       justify-content: flex-end;
-      padding: 6px;
+      padding: 5px;
       max-width: max-content;
+      box-shadow: var(--shadow-md);
     }
-    .size-icon-container { 
-      display: inline-flex; 
-      gap: 6px; 
+    .size-icon-container {
+      display: inline-flex;
+      gap: 4px;
     }
     .size-icon {
-      width: 36px;
-      height: 36px;
-      background-color: #1c1c1e;
-      border: 1px solid #555;
-      border-radius: 6px;
+      width: 34px;
+      height: 30px;
+      background-color: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 0.84rem;
-      color: var(--main-text);
-      transition: background-color 0.2s, border-color 0.2s;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: background-color 0.2s, color 0.2s;
     }
+    .size-icon:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
 
     .size-icon.selected {
-      background-color: var(--highlight-color);
-      border-color: var(--highlight-color);
-      color: #fff;
+      background-color: var(--accent-soft);
+      color: var(--accent);
     }
 
     /* --------------------------------------------------
@@ -428,10 +488,10 @@
       position: fixed;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      background: rgba(0,0,0,0.3);
+      background: rgba(8,8,10,0.55);
       opacity: 0;
       visibility: hidden;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -439,14 +499,15 @@
     }
     .modal-backdrop.active { opacity: 1; visibility: visible; }
     .modal-content {
-      background: #2c2c2e;
-      border-radius: 12px;
-      padding: 0.8rem 1.2rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.4rem 1.4rem;
       max-width: 400px;
       width: 90%;
       position: relative;
-      color: #fff;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      color: var(--text);
+      box-shadow: var(--shadow-md);
       font-size: 0.96rem;
     }
     .modal-content h3 {
@@ -458,65 +519,69 @@
       margin-right: 0.4rem;
       font-weight: 500;
       margin-top: 0.5rem;
+      color: var(--text-muted);
+      font-size: 0.88rem;
     }
     .modal-content input,
     .modal-content select {
       margin-bottom: 0.8rem;
-      padding: 0.3rem 0.5rem;
-      border: 1px solid #555;
-      border-radius: 6px;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
       width: 100%;
       margin-top: 0.3rem;
-      background-color: #1c1c1e;
-      color: #fff;
+      background-color: var(--bg-sunken);
+      color: var(--text);
     }
     .modal-content button {
-      background-color: var(--highlight-color);
-      color: #fff;
+      background-color: var(--accent);
+      color: #17120c;
       border: none;
-      border-radius: 6px;
-      padding: 0.3rem 0.5rem;
+      border-radius: var(--radius-sm);
+      padding: 0.4rem 0.7rem;
       cursor: pointer;
       margin-right: 0.4rem;
-      font-size: 0.96rem;
+      font-size: 0.9rem;
+      font-weight: 600;
     }
-    .modal-content button:hover { opacity: 0.9; }
-    .close-modal-btn {
+    .modal-content button:hover { opacity: 0.88; }
+    .modal-content .close-modal-btn {
       background: none;
-      color: #fff;
+      color: var(--text-muted);
       position: absolute;
-      top: 6px;
-      right: 6px;
-      font-size: 1.2rem;
+      top: 10px;
+      right: 10px;
+      font-size: 1.3rem;
       cursor: pointer;
       border: none;
+      line-height: 1;
+      padding: 0;
+      font-weight: 400;
     }
-    .close-modal-btn:hover { color: #bbb; }
+    .modal-content .close-modal-btn:hover { color: var(--text); opacity: 1; }
 
     /* --------------------------------------------------
        Delete Image Feature
     -------------------------------------------------- */
     .sidebar-footer button.delete-btn {
-      background-color: #ff3b30;
-      color: #fff;
+      background-color: var(--danger-soft);
+      color: var(--danger);
+      border-color: transparent;
     }
     .image-container.selectable { position: relative; }
     .image-container.selectable::before {
       content: "";
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(255,154,154,0.2);
-      border: 2px dashed #ff9a9a;
-      border-radius: 6px;
+      inset: 0;
+      background-color: rgba(255,90,82,0.18);
+      border: 2px dashed rgba(255,90,82,0.6);
+      border-radius: inherit;
       z-index: 1;
       pointer-events: none;
     }
     .image-container.selected::before {
-      background-color: rgba(255,154,154,0.5);
-      border: 2px solid #ff5555;
+      background-color: rgba(255,90,82,0.42);
+      border: 2px solid var(--danger);
     }
     .delete-controls {
       position: fixed;
@@ -524,79 +589,85 @@
       right: 18px;
       left: auto;
       transform: none;
-      background-color: rgba(44,44,46,0.9);
+      background-color: rgba(26,26,30,0.9);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
       padding: 0.5rem 1rem;
-      border-radius: 10px;
+      border-radius: var(--radius-md);
       z-index: 1000;
       display: none;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
+      box-shadow: var(--shadow-md);
     }
     .delete-controls.active { display: flex; }
     .delete-controls button {
-      background-color: #ff3b30;
+      background-color: var(--danger);
       color: white;
       border: none;
       padding: 0.4rem 0.8rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
       cursor: pointer;
     }
-    .delete-controls button.cancel { background-color: #555; }
+    .delete-controls button.cancel { background-color: rgba(255,255,255,0.12); color: var(--text); }
 
     /* --------------------------------------------------
        Move Image Feature
     -------------------------------------------------- */
     .sidebar-footer button.move-btn {
-      background-color: #444;
-      color: #ddd;
+      background-color: var(--move-soft);
+      color: var(--move-accent);
+      border-color: transparent;
     }
     .image-container.move-selectable { position: relative; }
     .image-container.move-selectable::before {
       content: "";
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(144,202,249,0.2);
-      border: 2px dashed #90caf9;
-      border-radius: 6px;
+      inset: 0;
+      background-color: rgba(77,155,245,0.18);
+      border: 2px dashed rgba(77,155,245,0.6);
+      border-radius: inherit;
       z-index: 1;
       pointer-events: none;
     }
     .image-container.move-selected::before {
-      background-color: rgba(144,202,249,0.5);
-      border: 2px solid #2196f3;
+      background-color: rgba(77,155,245,0.42);
+      border: 2px solid var(--move-accent);
     }
     .move-controls {
       position: fixed;
       bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
-      background-color: rgba(44,44,46,0.9);
+      background-color: rgba(26,26,30,0.9);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
       padding: 0.5rem 1rem;
-      border-radius: 10px;
+      border-radius: var(--radius-md);
       z-index: 1000;
       display: none;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
+      box-shadow: var(--shadow-md);
     }
     .move-controls.active { display: flex; }
     .move-controls button {
-      background-color: #2196f3;
+      background-color: var(--move-accent);
       color: white;
       border: none;
       padding: 0.4rem 0.8rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
       cursor: pointer;
     }
-    .move-controls button.cancel { background-color: #555; }
+    .move-controls button.cancel { background-color: rgba(255,255,255,0.12); color: var(--text); }
     #moveDestinationSelect {
-      font-size: 1.2em;
+      font-size: 1.1em;
       padding: 0.6rem 0.7rem;
       margin-bottom: 1.2rem;
     }
@@ -606,24 +677,24 @@
     -------------------------------------------------- */
    #enlargeImageModal {
   position: fixed;
-  top: 0; 
+  top: 0;
   left: 0;
-  width: 100%; 
+  width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.7);
+  background: rgba(6,6,8,0.82);
   display: none;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start; /* Align content from the top */
   z-index: 15000;
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   box-sizing: border-box;
 }
 
-@supports not (backdrop-filter: blur(15px)) {
+@supports not (backdrop-filter: blur(18px)) {
   #enlargeImageModal {
-    background: rgba(0,0,0,0.9); /* More opaque fallback */
+    background: rgba(6,6,8,0.95);
   }
 }
 
@@ -636,36 +707,36 @@
   width: auto;
   height: auto;
   object-fit: contain;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  border-radius: 1px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  border-radius: var(--radius-xs);
 }
 
-    
+
 .enlarged-download-btn {
   position: absolute;
   top: 15px;
   right: 15px;
-  background-color: white;
-  color: black;
+  background-color: var(--accent);
+  color: #17120c;
   border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   z-index: 15001; /* One higher than the modal */
   display: none; /* Hidden by default */
   text-decoration: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
 }
 
 .enlarged-download-btn:hover {
-  background-color: #f0f0f0;
+  opacity: 0.88;
 }
 
-    
+
     /* --------------------------------------------------
-      Enlarged tags 
+      Enlarged tags
     -------------------------------------------------- */
 
 .enlarged-tags-container {
@@ -674,29 +745,30 @@
   max-width: 80%;
   text-align: center;
   padding: 10px 0;
-  opacity: 0.5;
+  opacity: 0.6;
   margin-top: auto; /* Push to bottom of container */
 }
 
-    
+
 .enlarged-tags-container:hover {
-  opacity: 0.65; /* Increase opacity on hover for better readability */
+  opacity: 0.85;
 }
 
 .enlarged-tags {
   display: inline-block;
-  background-color: rgba(50, 50, 53, 0.85);
-  color: white;
-  font-size: 0.95rem;
-  padding: 6px 16px; /* Slightly reduced vertical padding */
-  border-radius: 20px;
+  background-color: rgba(26, 26, 30, 0.85);
+  border: 1px solid var(--border-color);
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 6px 16px;
+  border-radius: 999px;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
 }
-    
+
 /* Add this to the enlarged image container to allow proper positioning */
 .enlarged-image-container {
   position: relative;
@@ -713,7 +785,7 @@
 .top-search-bar {
   position: absolute;
   top: 15px;
-  left: 290px; /* Updated from 240px to 290px (+50px) to match new sidebar width */
+  left: 290px;
   right: 0;
   z-index: 1000;
   padding: 0;
@@ -722,66 +794,66 @@
 }
 
 .main-search-container {
-  width: calc(100% - 310px); /* Keep existing width */
+  width: calc(100% - 310px);
   max-width: 700px;
   margin: 0 auto;
   position: relative;
-  /* Add a subtle reflection effect */
   border-radius: 12px;
 }
 
     #mainImageSearch {
   width: 100%;
   padding: 10px 16px;
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  /* Change to transparent background */
-  background-color: rgba(45, 45, 48, 0.6); /* More transparent */
-  color: var(--main-text);
+  background-color: rgba(26, 26, 30, 0.65);
+  color: var(--text);
   font-size: 0.95rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease;
-  /* Add backdrop-filter for blur effect */
-  backdrop-filter: blur(8px);
-  /* For Safari compatibility */
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
+    #mainImageSearch::placeholder { color: var(--text-faint); }
     #mainImageSearch:focus {
   outline: none;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-  background-color: rgba(50, 50, 53, 0.65); /* A bit darker but still transparent */
-  backdrop-filter: blur(10px); /* Slightly stronger blur on focus */
-  -webkit-backdrop-filter: blur(10px);
+  border-color: var(--border-strong);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  background-color: rgba(30, 30, 34, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 
 
     /* Style for the new admin button in the sidebar */
     .admin-access-btn {
-  background-color: #171717;
-  color: #ddd;
-  border: none;
+  background-color: transparent;
+  color: var(--text-faint);
+  border: 1px solid var(--border-color);
   padding: 0.4rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
   cursor: pointer;
   width: 100%;
   text-align: center;
   margin-top: 0.4rem;
   display: block !important;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
     /* Add a fallback for browsers that don't support backdrop-filter */
-@supports not (backdrop-filter: blur(8px)) {
+@supports not (backdrop-filter: blur(10px)) {
   #mainImageSearch {
-    background-color: rgba(45, 45, 48, 0.9); /* More opaque fallback */
+    background-color: rgba(26, 26, 30, 0.92);
   }
   #mainImageSearch:focus {
-    background-color: rgba(50, 50, 53, 0.95);
+    background-color: rgba(30, 30, 34, 0.96);
   }
 }
 
     .admin-access-btn:hover {
-      opacity: 0.9;
+      color: var(--text);
+      border-color: var(--border-strong);
     }
 
     /* Add a bit more space above the admin button */
@@ -805,17 +877,18 @@
 .upload-dock {
   position: fixed;
   bottom: 18px;
-  left: 50%;  /* Position at 50% from the left */
-  transform: translateX(-50%);  /* Center it by moving back half its width */
-  width: auto;  /* Auto width */
-  max-width: 320px;  /* Maximum width */
-  background-color: rgba(44,44,46,0.9);
-  border-radius: 10px;  /* Rounded corners like size panel */
-  z-index: 1100;  /* High z-index but below the size selector */
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  max-width: 320px;
+  background-color: rgba(26,26,30,0.92);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  z-index: 1100;
   max-height: 200px;
   overflow-y: auto;
-  display: none; /* Hidden by default */
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  display: none;
+  box-shadow: var(--shadow-md);
 }
 
 .upload-dock.active {
@@ -827,17 +900,17 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background-color: rgba(28,28,30,0.7);
-  color: #f2f2f7;
+  background-color: rgba(13,13,15,0.6);
+  color: var(--text);
   font-weight: 500;
-  border-top-left-radius: 10px;
-  border-top-right-radius: 10px;
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
 }
 
 .minimize-dock-btn {
   background: none;
   border: none;
-  color: #f2f2f7;
+  color: var(--text);
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
@@ -850,7 +923,7 @@
 .upload-dock-item {
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(58,58,60,0.5);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .upload-dock-item:last-child {
@@ -866,7 +939,7 @@
 
 .upload-dock-item-filename {
   font-weight: 500;
-  color: #f2f2f7;
+  color: var(--text);
   max-width: 70%;
   white-space: nowrap;
   overflow: hidden;
@@ -874,7 +947,7 @@
 }
 
 .upload-dock-item-details {
-  color: #8e8e93;
+  color: var(--text-muted);
   font-size: 0.85rem;
   max-width: 100%;
   white-space: nowrap;
@@ -883,15 +956,15 @@
 }
 
 .upload-dock-progress {
-  height: 6px; /* Slightly smaller progress bar */
-  background-color: #444;
+  height: 6px;
+  background-color: rgba(255,255,255,0.1);
   border-radius: 3px;
   overflow: hidden;
 }
 
 .upload-dock-progress-fill {
   height: 100%;
-  background-color: #2196f3;
+  background-color: var(--move-accent);
   width: 0%;
   transition: width 0.3s ease;
 }
@@ -901,13 +974,13 @@
 }
 
 .upload-error .upload-dock-progress-fill {
-  background-color: #ff3b30;
+  background-color: var(--danger);
 }
 
 /* Ensure the size panel and upload dock don't overlap */
 @media (max-height: 500px) {
   .upload-dock {
-    bottom: 70px; /* Move it up when screen height is small */
+    bottom: 70px;
   }
 }
 
@@ -918,8 +991,9 @@
   margin-bottom: 1rem;
   display: flex;
   justify-content: center;
-  border: 1px solid #444;
-  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-sunken);
 }
 
 #tagReviewImage {
@@ -936,9 +1010,9 @@
 }
 
 .detected-object-item {
-  background: rgba(44,44,46,0.9);
+  background: rgba(255,255,255,0.06);
   padding: 5px 10px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   display: flex;
   align-items: center;
@@ -971,22 +1045,25 @@
 }
 
 .tag-chip {
-  background: #2c2c2e;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
   padding: 5px 10px;
-  border-radius: 15px;
+  border-radius: 999px;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .tag-chip:hover {
-  background-color: #3a3a3c;
+  background-color: rgba(255,255,255,0.12);
+  color: var(--text);
 }
 
 .tag-chip.selected {
-  background-color: #2196f3;
+  background-color: var(--move-accent);
+  color: white;
 }
-    
+
   </style>
 
  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
@@ -1024,6 +1101,7 @@
   <div class="main-container">
     <!-- SIDEBAR -->
     <div class="sidebar">
+      <div class="sidebar-brand">References</div>
       <div class="search-bar-container">
         <input type="search" id="imageSearch" placeholder="Search images...">
         <div class="filter-icon-container">
@@ -1075,11 +1153,11 @@
   <!-- FLOATING SIZE PANEL -->
  <div class="floating-size-panel">
     <div class="size-icon-container">
-      <div class="size-icon selected" data-size="250"><span>XS</span></div>
-      <div class="size-icon" data-size="400"><span>S</span></div>
-      <div class="size-icon" data-size="650"><span>M</span></div>
-      <div class="size-icon" data-size="750"><span>L</span></div>
-      <div class="size-icon" data-size="950"><span>XL</span></div>
+      <div class="size-icon" data-size="120"><span>XS</span></div>
+      <div class="size-icon selected" data-size="180"><span>S</span></div>
+      <div class="size-icon" data-size="240"><span>M</span></div>
+      <div class="size-icon" data-size="320"><span>L</span></div>
+      <div class="size-icon" data-size="420"><span>XL</span></div>
     </div>
   </div>
   <!-- Enlarge Image Modal -->
@@ -1284,9 +1362,68 @@
 
     const adminAccessBtn = document.getElementById("adminaccessbtn");
 
-   document.getElementById("adminaccessbtn").addEventListener("click", () => { 
-   document.getElementById("preferencesPanel").classList.add("active"); 
+   document.getElementById("adminaccessbtn").addEventListener("click", () => {
+   document.getElementById("preferencesPanel").classList.add("active");
 });
+
+    /********************************************************
+     * Justified Gallery Layout
+     * Packs the currently visible images into rows that exactly
+     * fill the gallery's width, scaling each row to a shared
+     * height while preserving every image's own aspect ratio.
+     * No image is cropped and no row is padded/letterboxed to
+     * force it into a uniform frame.
+     ********************************************************/
+    const GALLERY_GAP = 6;
+    let layoutTimer = null;
+
+    function scheduleLayout(delay = 60) {
+      clearTimeout(layoutTimer);
+      layoutTimer = setTimeout(layoutGallery, delay);
+    }
+
+    function layoutGallery() {
+      const containers = [...gallery.children].filter(
+        el => getComputedStyle(el).display !== "none"
+      );
+      const containerWidth = gallery.clientWidth;
+      if (!containerWidth || containers.length === 0) return;
+
+      const targetRowHeight = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--row-height")
+      ) || 180;
+
+      let row = [];
+      let aspectSum = 0;
+
+      const flushRow = (isLast) => {
+        if (row.length === 0) return;
+        const gaps = GALLERY_GAP * (row.length - 1);
+        let rowHeight = (containerWidth - gaps) / aspectSum;
+        if (isLast) {
+          // A sparse trailing row is left near the target row height
+          // instead of being stretched to fill the remaining width.
+          rowHeight = Math.min(rowHeight, targetRowHeight);
+        }
+        row.forEach(item => {
+          item.el.style.height = `${Math.round(rowHeight)}px`;
+          item.el.style.width = `${Math.round(rowHeight * item.aspect)}px`;
+        });
+        row = [];
+        aspectSum = 0;
+      };
+
+      containers.forEach(el => {
+        const aspect = parseFloat(el.dataset.aspect) || 1.5;
+        row.push({ el, aspect });
+        aspectSum += aspect;
+        const projectedWidth = aspectSum * targetRowHeight + GALLERY_GAP * (row.length - 1);
+        if (projectedWidth >= containerWidth) flushRow(false);
+      });
+      flushRow(true);
+    }
+
+    window.addEventListener("resize", () => scheduleLayout());
 
     function performSearch() {
   const searchTerm = mainImageSearch.value.toLowerCase();
@@ -1331,6 +1468,7 @@
       }
     }
   });
+  scheduleLayout();
 }
 
     // Add the event listener for the new search box
@@ -1560,8 +1698,20 @@ aboutModal.addEventListener("click", (e) => {
       container.setAttribute('data-add-time', addTime);
       
       const img = document.createElement('img');
+      // Fallback aspect ratio used until the real image dimensions are known.
+      container.dataset.aspect = "1.5";
+      const updateAspect = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          container.dataset.aspect = (img.naturalWidth / img.naturalHeight).toFixed(4);
+        }
+        scheduleLayout();
+      };
+      img.addEventListener("load", updateAspect, { once: true });
       img.src = url;
       img.alt = filename;
+      if (img.complete && img.naturalWidth) {
+        updateAspect();
+      }
       // Enlarge image on click
       img.addEventListener("click", function(e) {
         // When in delete or move mode, don't trigger the enlarge modal.
@@ -1614,6 +1764,7 @@ downloadLink.addEventListener("click", function(e) {
       container.appendChild(img);
       container.appendChild(downloadLink);
       gallery.appendChild(container);
+      scheduleLayout();
     }
 
     function buildFolderStructure() {
@@ -1785,6 +1936,7 @@ downloadLink.addEventListener("click", function(e) {
       }
     }
   });
+  scheduleLayout();
 }
 
     function searchImages() {
@@ -1798,6 +1950,7 @@ downloadLink.addEventListener("click", function(e) {
             container.classList.remove("hidden");
           else container.classList.add("hidden");
         });
+        scheduleLayout();
       } else {
         filterImages(currentFolderFilter);
       }
@@ -1819,6 +1972,7 @@ downloadLink.addEventListener("click", function(e) {
         });
       }
       imagesArray.forEach(img => gallery.appendChild(img));
+      scheduleLayout();
     }
 
     function addFolder() {
@@ -1903,6 +2057,7 @@ downloadLink.addEventListener("click", function(e) {
         });
         await Promise.all(deletePromises);
         toggleDeleteMode();
+        scheduleLayout();
       } catch (error) {
         console.error('Error deleting images:', error);
         alert(`Error deleting images: ${error.message}`);
@@ -2941,7 +3096,8 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
         sizeIcons.forEach(i => i.classList.remove("selected"));
         icon.classList.add("selected");
         const newSize = icon.getAttribute("data-size");
-        document.documentElement.style.setProperty("--thumbnail-size", newSize + "px");
+        document.documentElement.style.setProperty("--row-height", newSize + "px");
+        layoutGallery();
       });
     });
 
@@ -3016,7 +3172,8 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     // Load data
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
-    
+    scheduleLayout();
+
     // Select 'All' folder
     const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
     if (allFolder) { 
