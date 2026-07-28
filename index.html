@@ -1086,85 +1086,71 @@
   }
 }
 
-.tag-review-image-container {
-  width: 100%;
-  max-height: 250px;
-  overflow: hidden;
-  margin-bottom: 1rem;
+.batch-tag-review-content {
+  max-width: 720px;
+}
+
+.batch-review-list {
+  max-height: 55vh;
+  overflow-y: auto;
   display: flex;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background-color: var(--bg-sunken);
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 0.8rem;
 }
 
-#tagReviewImage {
-  max-width: 100%;
-  max-height: 250px;
-  object-fit: contain;
-}
-
-.detected-objects-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 1rem;
-}
-
-.detected-object-item {
-  background: rgba(255,255,255,0.06);
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+.batch-review-row {
   display: flex;
   align-items: center;
+  gap: 10px;
+  background: rgba(44,44,46,0.6);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 8px;
 }
 
-.confidence-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 6px;
+.batch-review-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
-.high-confidence {
-  background-color: #4cd964;
+.batch-review-info {
+  flex: 1;
+  min-width: 0;
 }
 
-.medium-confidence {
-  background-color: #ffcc00;
+.batch-review-filename {
+  font-size: 0.85rem;
+  color: #ccc;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.low-confidence {
-  background-color: #ff9500;
-}
-
-.suggested-tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 1rem;
-}
-
-.tag-chip {
-  background: rgba(255,255,255,0.06);
-  color: var(--text-muted);
-  padding: 5px 10px;
-  border-radius: 999px;
+.batch-review-tags-input {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background-color: #1c1c1e;
+  color: #fff;
   font-size: 0.9rem;
+}
+
+.batch-review-remove {
+  background: none;
+  border: none;
+  color: #ff3b30;
+  font-size: 1.3rem;
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  flex-shrink: 0;
+  line-height: 1;
 }
-
-.tag-chip:hover {
-  background-color: rgba(255,255,255,0.12);
-  color: var(--text);
-}
-
-.tag-chip.selected {
-  background-color: var(--move-accent);
-  color: white;
-}
+.batch-review-remove:hover { opacity: 0.7; }
 
   </style>
 
@@ -1233,6 +1219,7 @@
           <button id="renameFolderBtn">Rename Folder</button>
           <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
+          <button id="findDuplicatesBtn">Find Duplicates</button>
         </div>
         <hr class="separator">
        <div class="sidebar-admin-section">
@@ -1341,6 +1328,15 @@
       </div>
     </div>
   </div>
+<!-- MODAL: Duplicate Images -->
+<div class="modal-backdrop" id="duplicatesModal">
+  <div class="modal-content">
+    <button class="close-modal-btn" id="closeDuplicatesModalBtn">&times;</button>
+    <h3>Duplicate Images</h3>
+    <p style="margin-bottom: 0.8rem;">Images below share the same Cloudinary URL, meaning one upload overwrote another (usually because they had the same original filename). Re-upload the affected files to fix them.</p>
+    <div id="duplicatesList" style="max-height: 50vh; overflow-y: auto;"></div>
+  </div>
+</div>
 <!-- MODAL: UI Preferences -->
 <div class="modal-backdrop" id="preferencesPanel">
   <div class="modal-content">
@@ -1396,9 +1392,9 @@
     let selectedImages = [];
     let isMoveMode = false;
     let selectedImagesForMove = [];
-    // Upload queue management
-    let uploadQueue = [];
-    let isProcessingQueue = false;
+    // Batch tag review: images that finished uploading + tagging, awaiting the
+    // single end-of-batch review screen
+    let batchReviewItems = [];
 
     // DOM Elements
     const folderList = document.getElementById("folderList");
@@ -1425,6 +1421,10 @@
     const filterButton = document.getElementById("filterButton");
     const filterMenu = document.getElementById("filterMenu");
     const deleteFolderBtn = document.getElementById("deleteFolderBtn");
+    const findDuplicatesBtn = document.getElementById("findDuplicatesBtn");
+    const duplicatesModal = document.getElementById("duplicatesModal");
+    const closeDuplicatesModalBtn = document.getElementById("closeDuplicatesModalBtn");
+    const duplicatesList = document.getElementById("duplicatesList");
 
     // Delete Image elements
     const deleteImageBtn = document.getElementById("deleteImageBtn");
@@ -2651,6 +2651,71 @@ function closeEnlargeModal() {
   }
 });
 
+    // Find Duplicates button: images sharing the same Cloudinary URL
+    // were overwritten by a later upload with the same original filename
+    // (fixed for new uploads, but old entries can still collide).
+    findDuplicatesBtn.addEventListener("click", async () => {
+      duplicatesList.innerHTML = "<p>Scanning...</p>";
+      duplicatesModal.classList.add("active");
+
+      try {
+        const snapshot = await db.collection('images').get();
+        const groups = {};
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (!data.url) return;
+          if (!groups[data.url]) groups[data.url] = [];
+          groups[data.url].push({ id: doc.id, ...data });
+        });
+
+        const duplicateGroups = Object.entries(groups).filter(([, docs]) => docs.length > 1);
+
+        if (duplicateGroups.length === 0) {
+          duplicatesList.innerHTML = "<p>No duplicates found. Every image has a unique URL.</p>";
+          return;
+        }
+
+        duplicatesList.innerHTML = "";
+        duplicateGroups.forEach(([url, docs]) => {
+          const group = document.createElement("div");
+          group.style.marginBottom = "1rem";
+          group.style.paddingBottom = "1rem";
+          group.style.borderBottom = "1px solid rgba(255,255,255,0.15)";
+
+          const thumb = document.createElement("img");
+          thumb.src = url;
+          thumb.style.maxWidth = "120px";
+          thumb.style.display = "block";
+          thumb.style.marginBottom = "0.5rem";
+          group.appendChild(thumb);
+
+          const urlLine = document.createElement("p");
+          urlLine.style.wordBreak = "break-all";
+          urlLine.style.fontSize = "0.8rem";
+          urlLine.textContent = url;
+          group.appendChild(urlLine);
+
+          const list = document.createElement("ul");
+          docs.forEach(d => {
+            const li = document.createElement("li");
+            li.textContent = `${d.filename || 'image'} — folder: ${d.folder || 'all'} — doc id: ${d.id}`;
+            list.appendChild(li);
+          });
+          group.appendChild(list);
+
+          duplicatesList.appendChild(group);
+        });
+
+        console.log(`Found ${duplicateGroups.length} duplicate URL group(s)`, duplicateGroups);
+      } catch (error) {
+        console.error('Error scanning for duplicates:', error);
+        duplicatesList.innerHTML = `<p>Error scanning for duplicates: ${error.message}</p>`;
+      }
+    });
+
+    closeDuplicatesModalBtn.addEventListener("click", () => { duplicatesModal.classList.remove("active"); });
+    duplicatesModal.addEventListener("click", (e) => { if (e.target === duplicatesModal) duplicatesModal.classList.remove("active"); });
+
     // Confirm Rename Folder button
     confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
@@ -2993,99 +3058,117 @@ async function generateImageTagsWithMobileNet(imageUrl) {
   }
 }
 
-function initTagReviewUI() {
-  // Set up event handlers for the tag review UI
+function initBatchTagReviewUI() {
+  // Set up event handlers for the batch tag review panel (shown once per
+  // upload batch, listing every image so tags can be reviewed all at once
+  // instead of one blocking popup per image).
   const tagReviewPanel = document.getElementById('tagReviewPanel');
   const closeTagReviewBtn = document.getElementById('closeTagReviewBtn');
   const confirmTagsBtn = document.getElementById('confirmTagsBtn');
   const skipTagsBtn = document.getElementById('skipTagsBtn');
-  
-  // Close button functionality
+
   closeTagReviewBtn.addEventListener('click', () => {
     tagReviewPanel.classList.remove('active');
   });
-  
-  // Close when clicking outside modal
+
   tagReviewPanel.addEventListener('click', (e) => {
     if (e.target === tagReviewPanel) {
       tagReviewPanel.classList.remove('active');
     }
   });
-  
-  // These button events will be connected to the actual upload process
-  // in the modified processUpload function
+
+  confirmTagsBtn.addEventListener('click', () => saveBatchReview({ useAiTags: true }));
+  skipTagsBtn.addEventListener('click', () => saveBatchReview({ useAiTags: false }));
 }
 
-// This function will be called to show the tag review UI
-function showTagReview(imageUrl, tagData, onConfirm, onSkip) {
+// Adds one uploaded + tagged image as a row in the batch review panel,
+// opening the panel if this is the first image of the batch.
+function addBatchReviewRow(item) {
   const tagReviewPanel = document.getElementById('tagReviewPanel');
-  const tagReviewImage = document.getElementById('tagReviewImage');
-  const detectedObjectsList = document.getElementById('detectedObjectsList');
-  const suggestedTagsContainer = document.getElementById('suggestedTagsContainer');
-  const finalTagsInput = document.getElementById('finalTagsInput');
-  const confirmTagsBtn = document.getElementById('confirmTagsBtn');
-  const skipTagsBtn = document.getElementById('skipTagsBtn');
-  
-  // Set the image
-  tagReviewImage.src = cloudinaryDisplayUrl(imageUrl);
-  
-  // Display detected objects with confidence indicators
-  detectedObjectsList.innerHTML = '';
-  tagData.possibleObjects.forEach(obj => {
-    const confidence = obj.confidence >= 0.7 ? 'high-confidence' : 
-                      obj.confidence >= 0.5 ? 'medium-confidence' : 'low-confidence';
-    
-    detectedObjectsList.innerHTML += `
-      <div class="detected-object-item">
-        <span class="confidence-indicator ${confidence}"></span>
-        ${obj.name}
-      </div>
-    `;
+  const batchReviewList = document.getElementById('batchReviewList');
+
+  const row = document.createElement('div');
+  row.className = 'batch-review-row';
+
+  const thumb = document.createElement('img');
+  thumb.className = 'batch-review-thumb';
+  thumb.src = item.imageUrl;
+  row.appendChild(thumb);
+
+  const info = document.createElement('div');
+  info.className = 'batch-review-info';
+
+  const filename = document.createElement('div');
+  filename.className = 'batch-review-filename';
+  filename.textContent = item.file.name;
+  info.appendChild(filename);
+
+  const combinedInitial = item.keywords ?
+    (item.tagData.tags ? `${item.keywords}, ${item.tagData.tags}` : item.keywords) :
+    item.tagData.tags;
+
+  const tagsInput = document.createElement('input');
+  tagsInput.type = 'text';
+  tagsInput.className = 'batch-review-tags-input';
+  tagsInput.placeholder = 'Edit or add tags...';
+  tagsInput.value = combinedInitial;
+  info.appendChild(tagsInput);
+
+  row.appendChild(info);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'batch-review-remove';
+  removeBtn.title = "Don't save this image";
+  removeBtn.textContent = '×';
+  removeBtn.addEventListener('click', () => {
+    batchReviewItems = batchReviewItems.filter(i => i !== item);
+    row.remove();
+    markUploadItemSkipped(item.uploadItemId);
+    updateBatchReviewCount();
+    if (batchReviewItems.length === 0) {
+      tagReviewPanel.classList.remove('active');
+    }
   });
-  
-  // Display suggested tags as interactive chips
-  suggestedTagsContainer.innerHTML = '';
-  const tags = tagData.tags.split(', ');
-  tags.forEach(tag => {
-    if (!tag) return; // Skip empty tags
-    
-    const chip = document.createElement('div');
-    chip.className = 'tag-chip selected';
-    chip.textContent = tag;
-    chip.onclick = () => {
-      chip.classList.toggle('selected');
-      updateFinalTags();
-    };
-    suggestedTagsContainer.appendChild(chip);
-  });
-  
-  // Set initial tags in the input field
-  finalTagsInput.value = tagData.tags;
-  
-  // Set up confirm button handler
-  confirmTagsBtn.onclick = () => {
-    const finalTags = finalTagsInput.value;
-    tagReviewPanel.classList.remove('active');
-    if (onConfirm) onConfirm(finalTags);
-  };
-  
-  // Set up skip button handler
-  skipTagsBtn.onclick = () => {
-    tagReviewPanel.classList.remove('active');
-    if (onSkip) onSkip();
-  };
-  
-  // Show the panel
+  row.appendChild(removeBtn);
+
+  item.tagsInput = tagsInput;
+  batchReviewList.appendChild(row);
+
+  updateBatchReviewCount();
   tagReviewPanel.classList.add('active');
 }
 
-// Helper function to update the final tags input based on selected chips
-function updateFinalTags() {
-  const selectedTags = Array.from(
-    document.querySelectorAll('.tag-chip.selected')
-  ).map(chip => chip.textContent);
-  
-  document.getElementById('finalTagsInput').value = selectedTags.join(', ');
+function updateBatchReviewCount() {
+  const batchReviewCount = document.getElementById('batchReviewCount');
+  batchReviewCount.textContent = batchReviewItems.length ? `(${batchReviewItems.length})` : '';
+}
+
+function markUploadItemSkipped(uploadItemId) {
+  const uploadItem = document.getElementById(uploadItemId);
+  if (!uploadItem) return;
+  const details = uploadItem.querySelector('.upload-dock-item-details');
+  if (details) details.textContent = 'Skipped (not saved)';
+  uploadItem.classList.add('upload-error');
+  setTimeout(() => {
+    if (uploadItem.parentNode) uploadItem.remove();
+  }, 5000);
+}
+
+// Saves every image currently in the batch review list at once.
+async function saveBatchReview({ useAiTags }) {
+  const tagReviewPanel = document.getElementById('tagReviewPanel');
+  const itemsToSave = batchReviewItems.slice();
+  batchReviewItems = [];
+  document.getElementById('batchReviewList').innerHTML = '';
+  updateBatchReviewCount();
+  tagReviewPanel.classList.remove('active');
+
+  await Promise.all(itemsToSave.map(item => {
+    const finalTags = useAiTags ? item.tagsInput.value : (item.keywords || '');
+    return completeUpload(item.imageUrl, item.folderValue, finalTags, item.file.name, item.uploadItemId)
+      .catch(error => console.error('Error completing upload:', error));
+  }));
 }
     
     // Updates both the progress bar fill and its percentage label together
@@ -3141,27 +3224,25 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     // Update progress to 70%
     setUploadItemProgress(uploadItemId, 70);
     
-    // Initialize the tag review UI if needed
+    // Initialize the batch tag review UI if needed
     if (!window.tagReviewInitialized) {
-      initTagReviewUI();
+      initBatchTagReviewUI();
       window.tagReviewInitialized = true;
     }
-    
-    // Add to the upload queue instead of showing immediately
-    uploadQueue.push({
+
+    // Add this image to the batch review panel (all images in the batch
+    // are reviewed together at the end instead of one popup each)
+    const batchItem = {
       imageUrl: imageUrl,
       tagData: tagData,
       file: file,
       folderValue: folderValue,
       keywords: keywords,
       uploadItemId: uploadItemId
-    });
-    
-    // Start processing the queue if it's not already running
-    if (!isProcessingQueue) {
-      processNextInQueue();
-    }
-    
+    };
+    batchReviewItems.push(batchItem);
+    addBatchReviewRow(batchItem);
+
   } catch (error) {
     console.error(`Upload failed for ${file.name}:`, error);
     setUploadItemProgress(uploadItemId, 100, "Error");
@@ -3175,68 +3256,6 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
       details.style.color = "#ff3b30";
     }
   }
-}
-
-// Process the upload queue one item at a time
-function processNextInQueue() {
-  if (uploadQueue.length === 0) {
-    isProcessingQueue = false;
-    return;
-  }
-  
-  isProcessingQueue = true;
-  const nextItem = uploadQueue[0];
-  
-  // Show the tag review UI for the next item
-  showTagReview(
-    nextItem.imageUrl, 
-    nextItem.tagData,
-    // On confirm callback
-    (finalTags) => {
-      // Combine user keywords with AI-generated tags
-      const combinedKeywords = nextItem.keywords ? 
-        (finalTags ? `${nextItem.keywords}, ${finalTags}` : nextItem.keywords) : 
-        finalTags;
-      
-      console.log(`Final combined keywords: ${combinedKeywords}`);
-      
-      // Complete this upload
-      completeUpload(nextItem.imageUrl, nextItem.folderValue, combinedKeywords, nextItem.file.name, nextItem.uploadItemId)
-        .then(() => {
-          // Remove this item from the queue
-          uploadQueue.shift();
-          
-          // Process the next item after a short delay
-          setTimeout(processNextInQueue, 300);
-        })
-        .catch(error => {
-          console.error("Error completing upload:", error);
-          // Still move to next item
-          uploadQueue.shift();
-          setTimeout(processNextInQueue, 300);
-        });
-    },
-    // On skip callback
-    () => {
-      console.log(`User skipped AI tags, using only: ${nextItem.keywords}`);
-      
-      // Complete this upload with original keywords only
-      completeUpload(nextItem.imageUrl, nextItem.folderValue, nextItem.keywords, nextItem.file.name, nextItem.uploadItemId)
-        .then(() => {
-          // Remove this item from the queue
-          uploadQueue.shift();
-          
-          // Process the next item after a short delay
-          setTimeout(processNextInQueue, 300);
-        })
-        .catch(error => {
-          console.error("Error completing upload:", error);
-          // Still move to next item
-          uploadQueue.shift();
-          setTimeout(processNextInQueue, 300);
-        });
-    }
-  );
 }
 
 // Helper function to complete the upload after tag review
@@ -3428,11 +3447,11 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
       console.error("Could not find 'All' folder item");
     }
     
-    // Initialize the tag review UI (after everything else is loaded)
+    // Initialize the batch tag review UI (after everything else is loaded)
     if (document.getElementById('tagReviewPanel')) {
-      initTagReviewUI();
+      initBatchTagReviewUI();
       window.tagReviewInitialized = true;
-      console.log('Tag review UI initialized');
+      console.log('Batch tag review UI initialized');
     } else {
       console.warn('Tag review panel not found in the DOM');
     }
@@ -3459,26 +3478,17 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
 </div>
 
 <div id="tagReviewPanel" class="modal-backdrop">
-  <div class="modal-content">
+  <div class="modal-content batch-tag-review-content">
     <button class="close-modal-btn" id="closeTagReviewBtn">&times;</button>
-    <h3>Review Image Tags</h3>
-    <div class="tag-review-image-container">
-      <img id="tagReviewImage" src="" alt="Image to tag">
-    </div>
-    <div class="tag-suggestions">
-      <p>Detected objects:</p>
-      <div id="detectedObjectsList" class="detected-objects-list"></div>
-      <p>Suggested tags:</p>
-      <div id="suggestedTagsContainer" class="suggested-tags-container"></div>
-    </div>
-    <label for="finalTagsInput">Final tags:</label>
-    <input type="text" id="finalTagsInput" placeholder="Edit or add tags...">
+    <h3>Review Tags <span id="batchReviewCount"></span></h3>
+    <p style="margin-bottom:0.8rem; opacity:0.8;">Edit tags for each image below, then save the whole batch at once.</p>
+    <div id="batchReviewList" class="batch-review-list"></div>
     <div style="margin-top:0.8rem;">
-      <button id="confirmTagsBtn">Confirm & Upload</button>
-      <button id="skipTagsBtn">Skip AI Tags</button>
+      <button id="confirmTagsBtn">Confirm All &amp; Save</button>
+      <button id="skipTagsBtn">Save All Without AI Tags</button>
     </div>
   </div>
-</div> 
+</div>
   
 </body>
 </html>
