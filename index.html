@@ -1629,7 +1629,7 @@ aboutModal.addEventListener("click", (e) => {
         // When in delete or move mode, don't trigger the enlarge modal.
         if (isDeleteMode || isMoveMode) return;
         e.stopPropagation();
-        enlargeImage(url, filename);
+        enlargeImage(url, filename, keywords);
       });
 
 // Replace your existing download link creation code with this:
@@ -2086,16 +2086,12 @@ downloadLink.addEventListener("click", function(e) {
      * Enlarge Image Modal Closure (click outside image)
      ********************************************************/
 
-  function enlargeImage(url, filename) {
+  function enlargeImage(url, filename, keywords = "") {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
-  
-  // Find the image container by URL to get its keywords
-  const imageContainer = document.querySelector(`.image-container img[src="${url}"]`).parentNode;
-  const keywords = imageContainer.getAttribute("data-keywords") || "";
-  
+
   // Set image source and alt
   enlargeImg.src = cloudinaryDisplayUrl(url);
   enlargeImg.alt = filename;
@@ -2636,7 +2632,20 @@ async function generateImageTagsWithMobileNet(imageUrl) {
       return 0;
     });
 
-    // Expand with general categories if fewer than five tags
+    // Backfill with lower-confidence predictions (still real detections)
+    // before falling back to category expansion, so we can reach a fixed count
+    if (processedTags.length < 5) {
+      const lowerConfidenceWords = predictions
+        .map(p => p.className.toLowerCase().replace(/,/g, '').split(' '))
+        .flat()
+        .filter(tag => !filtersToRemove.some(filter => tag.includes(filter)) && tag.length > 2);
+      for (const tag of lowerConfidenceWords) {
+        if (processedTags.length >= 5) break;
+        if (!processedTags.includes(tag)) processedTags.push(tag);
+      }
+    }
+
+    // Expand with general categories if still fewer than five tags
     if (processedTags.length < 5) {
       for (const tag of [...processedTags]) {
         const extras = generalTagMappings[tag];
@@ -2650,6 +2659,14 @@ async function generateImageTagsWithMobileNet(imageUrl) {
         }
         if (processedTags.length >= 5) break;
       }
+    }
+
+    // Last-resort filler if the image genuinely has fewer than 5 detections,
+    // so the tag count is always exactly 5
+    const fillerTags = ['reference', 'material', 'texture', 'surface', 'photo'];
+    for (const filler of fillerTags) {
+      if (processedTags.length >= 5) break;
+      if (!processedTags.includes(filler)) processedTags.push(filler);
     }
 
     // Take up to the top 5 tags after processing
@@ -2806,6 +2823,11 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     } catch (tagError) {
       console.error(`Tag generation failed: ${tagError.message}`);
       tagData = { tags: '', possibleObjects: [] }; // Fail gracefully
+    }
+
+    // Guarantee exactly 5 tags even if both Cloud Vision and MobileNet failed outright
+    if (!tagData.tags) {
+      tagData = { ...tagData, tags: 'reference, material, texture, surface, photo' };
     }
     
     // Update progress to 70%
