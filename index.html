@@ -34,6 +34,7 @@
       --shadow-md: 0 10px 28px rgba(0,0,0,0.4);
       --gallery-gap: 6px;
       --row-height: 180px; /* default gallery size = S */
+      --sidebar-width: 270px;
 
       /* legacy aliases kept for any untouched rules */
       --main-bg: var(--bg);
@@ -162,7 +163,7 @@
 
 .sidebar {
   width: fit-content;
-  min-width: 270px;
+  min-width: var(--sidebar-width);
   background-color: var(--bg-elevated);
   border-right: 1px solid var(--border-color);
   padding: 0.8rem;
@@ -858,8 +859,8 @@
 .top-search-bar {
   position: absolute;
   top: 15px;
-  left: 290px;
-  right: 0;
+  left: calc(var(--sidebar-width) + 20px);
+  right: 170px; /* Leaves room for the About button */
   z-index: 1000;
   padding: 0;
   display: flex;
@@ -867,7 +868,7 @@
 }
 
 .main-search-container {
-  width: calc(100% - 310px);
+  width: 100%;
   max-width: 700px;
   margin: 0 auto;
   position: relative;
@@ -1084,6 +1085,31 @@
   .upload-dock {
     bottom: 70px;
   }
+}
+
+/* --------------------------------------------------
+   Responsive layout for narrow windows
+   (sidebar and header shrink so nothing overlaps
+   or overflows the viewport)
+-------------------------------------------------- */
+@media (max-width: 640px) {
+  :root { --sidebar-width: 200px; }
+  .sidebar { padding: 0.6rem; }
+  .top-search-bar { left: calc(var(--sidebar-width) + 10px); right: 120px; top: 12px; }
+  .about-btn { top: 12px; right: 14px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
+  .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 70px; }
+  .floating-size-panel { right: 12px; bottom: 12px; }
+  .size-icon-container { gap: 4px; }
+  .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
+}
+
+/* Extra-narrow phones: shrink the sidebar further so the search bar
+   keeps usable room next to it */
+@media (max-width: 420px) {
+  :root { --sidebar-width: 140px; }
+  .top-search-bar { left: calc(var(--sidebar-width) + 8px); right: 96px; }
+  .about-btn { width: 78px; right: 10px; padding: 6px 8px; font-size: 0.78rem; }
 }
 
 .batch-tag-review-content {
