@@ -175,17 +175,9 @@
   overflow-y: auto;
 }
     .search-bar-container {
-      display: none; /* Hide the sidebar search */
-    }
-    /* Sidebar search input */
-    #imageSearch {
-      flex: 1;
-      padding: 0.3rem 0.5rem;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      background-color: var(--bg-sunken);
-      color: var(--text);
-      font-size: 0.9rem;
+      display: flex;
+      justify-content: flex-end; /* the sidebar's own search input was replaced by the floating top search bar */
+      margin-bottom: 0.4rem;
     }
     .filter-icon-container {
       display: flex;
@@ -568,6 +560,40 @@
       font-weight: 600;
     }
     .modal-content button:hover { opacity: 0.88; }
+    .modal-hint {
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      margin: -0.4rem 0 0.6rem;
+    }
+    .file-preview-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 0.6rem;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .file-preview-item {
+      width: 64px;
+    }
+    .file-preview-item img {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 6px;
+      display: block;
+      border: 1px solid var(--border-color);
+    }
+    .file-preview-item span {
+      display: block;
+      font-size: 0.65rem;
+      color: var(--text-faint);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+      text-align: center;
+    }
     .modal-content .close-modal-btn {
       background: none;
       color: var(--text-muted);
@@ -732,6 +758,30 @@
   object-fit: contain;
   box-shadow: 0 20px 50px rgba(0,0,0,0.5);
   border-radius: var(--radius-xs);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#enlargeImage.loaded {
+  opacity: 1;
+}
+
+.enlarge-spinner {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: enlarge-spin 0.8s linear infinite;
+}
+
+.enlarge-spinner.active {
+  display: block;
+}
+
+@keyframes enlarge-spin {
+  to { transform: rotate(360deg); }
 }
 
 
@@ -886,68 +936,77 @@
       margin-top: 0.4rem;
     }
 
-    .upload-progress-container {
-  margin-top: 0.8rem;
-  display: none;
-}
-
-.upload-item {
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
-
 /* --------------------------------------------------
    Floating Upload Dock
 -------------------------------------------------- */
 .upload-dock {
   position: fixed;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: auto;
-  max-width: 320px;
+  bottom: 20px;
+  right: 20px; /* Bottom-right corner, clear of centered modals like tag review */
+  width: 320px;
   background-color: rgba(26,26,30,0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  z-index: 1100;
-  max-height: 200px;
+  z-index: 20000; /* Above other modals, but no longer overlapping their controls now that it's in a corner */
+  max-height: 280px;
   overflow-y: auto;
-  display: none;
   box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
 }
 
 .upload-dock.active {
-  display: block;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .upload-dock-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 10px 14px;
   background-color: rgba(13,13,15,0.6);
   color: var(--text);
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   border-top-left-radius: var(--radius-md);
   border-top-right-radius: var(--radius-md);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .minimize-dock-btn {
   background: none;
   border: none;
-  color: var(--text);
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.minimize-dock-btn:hover {
+  background-color: rgba(255,255,255,0.08);
+  color: var(--text);
 }
 
 .upload-dock-content {
-  padding: 8px 12px;
+  padding: 10px 14px;
 }
 
 .upload-dock-item {
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -959,25 +1018,35 @@
 .upload-dock-item-info {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 6px;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
 }
 
 .upload-dock-item-filename {
   font-weight: 500;
   color: var(--text);
-  max-width: 70%;
+  min-width: 0; /* let ellipsis actually kick in inside a flex row */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.upload-dock-item-percent {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .upload-dock-item-details {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-bottom: 6px;
 }
 
 .upload-dock-progress {
@@ -1000,6 +1069,14 @@
 
 .upload-error .upload-dock-progress-fill {
   background-color: var(--danger);
+}
+
+.upload-success .upload-dock-item-percent {
+  color: #4cd964;
+}
+
+.upload-error .upload-dock-item-percent {
+  color: #ff3b30;
 }
 
 /* Ensure the size panel and upload dock don't overlap */
@@ -1128,7 +1205,6 @@
     <div class="sidebar">
       <div class="sidebar-brand">References</div>
       <div class="search-bar-container">
-        <input type="search" id="imageSearch" placeholder="Search images...">
         <div class="filter-icon-container">
           <button class="filter-button" id="filterButton" title="Sort Options">
             <svg viewBox="0 0 24 24">
@@ -1190,6 +1266,7 @@
   
  <div id="enlargeImageModal">
   <div class="enlarged-image-container">
+    <div class="enlarge-spinner" id="enlargeSpinner"></div>
     <img id="enlargeImage" src="" alt="">
     <!-- Tags moved outside the image container -->
   </div>
@@ -1222,14 +1299,20 @@
     <div class="modal-content">
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
       <h3>Add Image</h3>
-      <label for="fileInput">Select Image:</label>
+
+      <label for="fileInput">Select Image(s):</label>
       <input type="file" id="fileInput" accept="image/*" multiple>
+      <div id="fileInputHint" class="modal-hint">No file selected</div>
+      <div id="filePreviewList" class="file-preview-list"></div>
+
       <label for="folderSelect">Location:</label>
       <select id="folderSelect"></select>
-      <label for="imageKeywords">Keywords:</label>
+
+      <label for="imageKeywords">Keywords (optional):</label>
       <input type="text" id="imageKeywords" placeholder="e.g., red, green">
+      <div class="modal-hint">Tags are also generated automatically after upload.</div>
+
       <div style="margin-top:0.8rem;">
-      <div id="uploadProgress" class="upload-progress-container"></div>
         <button id="confirmAddImageBtn">Add</button>
       </div>
     </div>
@@ -1332,7 +1415,6 @@
 
     const gallery = document.getElementById("gallery");
     const sizeIcons = document.querySelectorAll(".size-icon");
-    const imageSearch = document.getElementById("imageSearch");
 
     const renameFolderBtn = document.getElementById("renameFolderBtn");
     const renameFolderModal = document.getElementById("renameFolderModal");
@@ -1454,84 +1536,28 @@
 
     function performSearch() {
   const searchTerm = mainImageSearch.value.toLowerCase();
+
+  // If search is empty, just respect the current folder filter
+  if (searchTerm === "") {
+    filterImages(currentFolderFilter);
+    return;
+  }
+
   const allImages = document.querySelectorAll(".image-container");
-  
-  console.log("Performing search with term:", searchTerm);
-  
   allImages.forEach(imgContainer => {
     const imgName = imgContainer.querySelector("img").alt.toLowerCase();
     const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
-    
-    // If search is empty, respect the folder filter
-    if (searchTerm === "") {
-      const category = imgContainer.getAttribute("data-category");
-      
-      if (currentFolderFilter === "all") {
-        imgContainer.style.display = "flex";
-      } 
-      else if (!currentFolderFilter.includes("/")) {
-        // For parent folders, show images from this folder AND any subfolders
-        if (category === currentFolderFilter || category.startsWith(currentFolderFilter + "/")) {
-          imgContainer.style.display = "flex";
-        } else {
-          imgContainer.style.display = "none";
-        }
-      }
-      else {
-        // For subfolders, only show exact matches
-        if (category === currentFolderFilter) {
-          imgContainer.style.display = "flex";
-        } else {
-          imgContainer.style.display = "none";
-        }
-      }
-    } 
-    // Otherwise filter by search term
-    else {
-      if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
-        imgContainer.style.display = "flex";
-      } else {
-        imgContainer.style.display = "none";
-      }
+
+    if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
+      imgContainer.classList.remove("hidden");
+    } else {
+      imgContainer.classList.add("hidden");
     }
   });
   scheduleLayout();
 }
 
-    // Add the event listener for the new search box
-    
     mainImageSearch.addEventListener("input", performSearch);
-    
-    // Update the searchImages function to use the new search input
-    function searchImages() {
-  // Debug message to confirm function is being called
-  console.log("Search function called with query:", mainImageSearch.value);
-  
-  // Get the search query from either search input
-  const query = (mainImageSearch.value || imageSearch.value).trim().toLowerCase();
-  const allImages = document.querySelectorAll(".image-container");
-  
-  if (query !== "") {
-    let matchCount = 0;
-    allImages.forEach(container => {
-      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-      const imgAlt = container.querySelector("img").alt.toLowerCase();
-      
-      // Check if the image name or keywords contain the query
-      if (keywords.includes(query) || imgAlt.includes(query)) {
-        container.classList.remove("hidden");
-        matchCount++;
-      } else {
-        container.classList.add("hidden");
-      }
-    });
-    
-    console.log(`Found ${matchCount} images matching "${query}"`);
-  } else {
-    // If search is empty, show all images in the current category
-    filterImages(currentFolderFilter);
-  }
-}
 
     /********************************************************
      * Enlarge Image Modal Functionality
@@ -1565,6 +1591,58 @@ aboutModal.addEventListener("click", (e) => {
     /********************************************************
      * Netlify Upload Function
      ********************************************************/
+    // Cloudinary stores the file in its original format (e.g. HEIC from iPhones),
+    // which most browsers can't render in an <img> tag. Insert an f_auto,q_auto
+    // transformation so Cloudinary serves a browser-compatible format instead.
+    function cloudinaryDisplayUrl(url, { width } = {}) {
+      if (typeof url !== 'string' || !url.includes('/upload/')) return url;
+      const transform = width ? `f_auto,q_auto,c_limit,w_${width}` : 'f_auto,q_auto';
+      return url.replace('/upload/', `/upload/${transform}/`);
+    }
+
+    // Netlify Functions reject request bodies over ~6MB (and base64-encode
+    // binary uploads in transit, which inflates size by ~33% first). Re-encode
+    // oversized images as JPEG, lowering quality (not pixel dimensions) until
+    // they fit, so full-resolution photos from cameras/Unsplash don't 500.
+    async function compressImageIfNeeded(file, maxBytes = 4.5 * 1024 * 1024) {
+      if (file.size <= maxBytes) return file;
+
+      try {
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        try {
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = objectUrl;
+          });
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+
+        let quality = 0.92;
+        let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        while (blob && blob.size > maxBytes && quality > 0.4) {
+          quality -= 0.1;
+          blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        }
+
+        if (!blob || blob.size >= file.size) return file;
+
+        console.log(`Compressed ${file.name}: ${(file.size / 1024 / 1024).toFixed(1)}MB -> ${(blob.size / 1024 / 1024).toFixed(1)}MB (quality ${quality.toFixed(1)})`);
+        const compressedName = file.name.replace(/\.[^./]+$/, '') + '.jpg';
+        return new File([blob], compressedName, { type: 'image/jpeg' });
+      } catch (err) {
+        console.warn(`Could not compress ${file.name}, uploading original:`, err);
+        return file;
+      }
+    }
+
     async function uploadImage(file) {
   try {
     const formData = new FormData();
@@ -1575,9 +1653,20 @@ aboutModal.addEventListener("click", (e) => {
     });
     
     if (!response.ok) {
-      throw new Error(`Upload failed with status: ${response.status}`);
+      let detail = '';
+      try {
+        const text = await response.text();
+        try {
+          detail = JSON.parse(text).error || text;
+        } catch {
+          detail = text;
+        }
+      } catch {
+        // ignore, fall back to status only
+      }
+      throw new Error(`Upload failed with status ${response.status}${detail ? `: ${detail}` : ''}`);
     }
-    
+
     const data = await response.json();
     console.log('Upload response:', data);
     
@@ -1734,7 +1823,9 @@ aboutModal.addEventListener("click", (e) => {
         scheduleLayout();
       };
       img.addEventListener("load", updateAspect, { once: true });
-      img.src = url;
+      // Capped well above the largest thumbnail size (950px) for retina screens,
+      // but still far smaller than a multi-MB original - keeps the gallery snappy.
+      img.src = cloudinaryDisplayUrl(url, { width: 1200 });
       img.alt = filename;
       if (img.complete && img.naturalWidth) {
         updateAspect();
@@ -1744,7 +1835,7 @@ aboutModal.addEventListener("click", (e) => {
         // When in delete or move mode, don't trigger the enlarge modal.
         if (isDeleteMode || isMoveMode) return;
         e.stopPropagation();
-        enlargeImage(url, filename);
+        enlargeImage(url, filename, keywords);
       });
 
 // Replace your existing download link creation code with this:
@@ -1821,6 +1912,7 @@ downloadLink.addEventListener("click", function(e) {
       const allLabel = document.createElement("span");
       allLabel.classList.add("folder-label");
       const allNameSpan = document.createElement("span");
+      allNameSpan.classList.add("folder-name");
       allNameSpan.textContent = "All";
       const allCountSpan = document.createElement("span");
       allCountSpan.classList.add("folder-count");
@@ -1845,6 +1937,7 @@ downloadLink.addEventListener("click", function(e) {
   const parentLabel = document.createElement("span");
   parentLabel.classList.add("folder-label");
   const folderNameSpan = document.createElement("span");
+  folderNameSpan.classList.add("folder-name");
   folderNameSpan.textContent = parent;
   const folderCountSpan = document.createElement("span");
   folderCountSpan.classList.add("folder-count");
@@ -1870,6 +1963,7 @@ downloadLink.addEventListener("click", function(e) {
             const childLabel = document.createElement("span");
             childLabel.classList.add("folder-label");
             const childNameSpan = document.createElement("span");
+            childNameSpan.classList.add("folder-name");
             childNameSpan.textContent = child;
             const childCountSpan = document.createElement("span");
             childCountSpan.classList.add("folder-count");
@@ -1924,36 +2018,6 @@ downloadLink.addEventListener("click", function(e) {
       updateFolderCounts();
     }
 
-    // Shows how many images live in each folder (and, for parent folders,
-    // in all of their subfolders combined) next to its name in the sidebar.
-    function updateFolderCounts() {
-      const counts = {};
-      const allContainers = document.querySelectorAll(".image-container");
-      allContainers.forEach(container => {
-        const cat = container.getAttribute("data-category") || "all";
-        counts[cat] = (counts[cat] || 0) + 1;
-      });
-
-      const allCountEl = folderList.querySelector("li.all .folder-count");
-      if (allCountEl) allCountEl.textContent = allContainers.length;
-
-      folderList.querySelectorAll("li[data-filter]").forEach(li => {
-        const filter = li.getAttribute("data-filter");
-        if (filter === "all") return;
-        const countEl = li.querySelector(".folder-count");
-        if (!countEl) return;
-        let n = 0;
-        if (filter.includes("/")) {
-          n = counts[filter] || 0;
-        } else {
-          Object.keys(counts).forEach(cat => {
-            if (cat === filter || cat.startsWith(filter + "/")) n += counts[cat];
-          });
-        }
-        countEl.textContent = n;
-      });
-    }
-
     function hideAllSubfolders() {
       const allSubUls = folderList.querySelectorAll(".subfolder-list");
       allSubUls.forEach(ul => { ul.style.display = "none"; });
@@ -1984,6 +2048,30 @@ downloadLink.addEventListener("click", function(e) {
     }
   }
 }
+
+    function countImages(filterValue) {
+      const allImages = document.querySelectorAll(".image-container");
+      if (filterValue === "all") return allImages.length;
+      let count = 0;
+      allImages.forEach(container => {
+        const category = container.getAttribute("data-category") || "";
+        if (!filterValue.includes("/")) {
+          if (category === filterValue || category.startsWith(filterValue + "/")) count++;
+        } else if (category === filterValue) {
+          count++;
+        }
+      });
+      return count;
+    }
+
+    // Refreshes the folder item counts in place, without rebuilding the
+    // sidebar (which would lose expand/collapse and selection state)
+    function updateFolderCounts() {
+      folderList.querySelectorAll("li[data-filter]").forEach(li => {
+        const countSpan = li.querySelector(".folder-count");
+        if (countSpan) countSpan.textContent = countImages(li.getAttribute("data-filter"));
+      });
+    }
 
     function highlightSelected(li) {
       const allItems = folderList.querySelectorAll("li");
@@ -2019,23 +2107,6 @@ downloadLink.addEventListener("click", function(e) {
   });
   scheduleLayout();
 }
-
-    function searchImages() {
-      const query = imageSearch.value.trim().toLowerCase();
-      const allImages = document.querySelectorAll(".image-container");
-      if (query !== "") {
-        allImages.forEach(container => {
-          const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-          const imgAlt = container.querySelector("img").alt.toLowerCase();
-          if (keywords.includes(query) || imgAlt.includes(query))
-            container.classList.remove("hidden");
-          else container.classList.add("hidden");
-        });
-        scheduleLayout();
-      } else {
-        filterImages(currentFolderFilter);
-      }
-    }
 
     function sortGallery(type) {
       const imagesArray = [...gallery.children];
@@ -2137,6 +2208,7 @@ downloadLink.addEventListener("click", function(e) {
           return false;
         });
         await Promise.all(deletePromises);
+        updateFolderCounts();
         toggleDeleteMode();
         scheduleLayout();
       } catch (error) {
@@ -2245,6 +2317,7 @@ downloadLink.addEventListener("click", function(e) {
           return false;
         });
         await Promise.all(movePromises);
+        updateFolderCounts();
         moveDestinationModal.classList.remove("active");
         toggleMoveMode();
         filterImages(currentFolderFilter);
@@ -2260,23 +2333,48 @@ downloadLink.addEventListener("click", function(e) {
      * Enlarge Image Modal Closure (click outside image)
      ********************************************************/
 
-  function enlargeImage(url, filename) {
+  function enlargeImage(url, filename, keywords = "") {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
+  const enlargeSpinner = document.getElementById("enlargeSpinner");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
-  
-  // Find the image container by URL to get its keywords
-  const imageContainer = document.querySelector(`.image-container img[src="${url}"]`).parentNode;
-  const keywords = imageContainer.getAttribute("data-keywords") || "";
-  
+
+  // Cap resolution to what the lightbox can actually show - the modal never
+  // exceeds the viewport, so there's no point downloading a multi-thousand-
+  // pixel original just to scale it down. Using the same URL for both the
+  // visible <img> and the sizing probe below also means only one request is
+  // made (the browser dedupes them) instead of loading the image twice.
+  const displayUrl = cloudinaryDisplayUrl(url, { width: 1920 });
+
+  // Open the modal and show a spinner right away instead of waiting for the
+  // image to finish loading before anything appears - the load itself isn't
+  // instant (especially the first time this image size is requested), so
+  // this is what actually shows the user something is happening.
+  enlargeImg.classList.remove("loaded");
+  enlargeImg.style.width = "";
+  enlargeImg.style.height = "";
+  enlargeSpinner.classList.add("active");
+  enlargeModal.style.justifyContent = "center";
+  enlargeModal.style.paddingTop = "0";
+  enlargeModal.style.paddingBottom = "0";
+  enlargeModal.style.display = "flex";
+
   // Set image source and alt
-  enlargeImg.src = url;
+  enlargeImg.src = displayUrl;
   enlargeImg.alt = filename;
-  
+
   // Create a new image to get natural dimensions and ensure proper sizing
   const tempImg = new Image();
+  tempImg.onerror = function() {
+    // Still reveal what we have (the browser's broken-image icon) rather
+    // than leaving the spinner spinning forever
+    enlargeSpinner.classList.remove("active");
+    enlargeImg.classList.add("loaded");
+  };
   tempImg.onload = function() {
+    enlargeSpinner.classList.remove("active");
+    enlargeImg.classList.add("loaded");
     const imgWidth = this.width;
     const imgHeight = this.height;
     
@@ -2328,12 +2426,10 @@ downloadLink.addEventListener("click", function(e) {
       tagsElement.parentElement.style.display = "none";
     }
     
-    // Show the modal now that we've set the correct dimensions
-    enlargeModal.style.display = "flex";
   };
-  
+
   // Start loading the image to calculate dimensions
-  tempImg.src = url;
+  tempImg.src = displayUrl;
   
   // Set download button attributes and show it
   downloadBtn.href = url;
@@ -2410,31 +2506,57 @@ function closeEnlargeModal() {
     folderModal.addEventListener("click", (e) => { if(e.target === folderModal) folderModal.classList.remove("active"); });
 
     // Image Modal handling
-    closeImageModalBtn.addEventListener("click", () => {
-  const uploadProgress = document.getElementById("uploadProgress");
-  if (uploadProgress.style.display === "block" && 
-      !uploadProgress.querySelector(".upload-success") && 
-      !uploadProgress.querySelector(".upload-error")) {
-    if (confirm("Uploads in progress. Are you sure you want to cancel?")) {
-      imageModal.classList.remove("active");
-      uploadProgress.style.display = "none";
+    // Actual upload progress is tracked in the upload dock (uploads continue
+    // in the background after this modal closes), so closing here never
+    // needs to warn about work in progress.
+    function resetImageModal() {
+      fileInput.value = "";
+      imageKeywords.value = "";
+      updateFilePreview();
     }
-  } else {
-    imageModal.classList.remove("active");
-    // Reset the upload progress display
-    uploadProgress.style.display = "none";
-    uploadProgress.innerHTML = "";
-  }
-});
-    
+
+    closeImageModalBtn.addEventListener("click", () => {
+      imageModal.classList.remove("active");
+      resetImageModal();
+    });
+
     imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
+
+    // Show a thumbnail + count for the selected file(s) instead of relying
+    // on the browser's terse native "n files selected" text
+    const fileInputHint = document.getElementById("fileInputHint");
+    const filePreviewList = document.getElementById("filePreviewList");
+    function updateFilePreview() {
+      filePreviewList.innerHTML = "";
+      const files = Array.from(fileInput.files || []);
+      if (files.length === 0) {
+        fileInputHint.textContent = "No file selected";
+        return;
+      }
+      fileInputHint.textContent = files.length === 1 ? "1 image selected" : `${files.length} images selected`;
+      files.forEach(file => {
+        const item = document.createElement("div");
+        item.className = "file-preview-item";
+        const thumb = document.createElement("img");
+        thumb.src = URL.createObjectURL(file);
+        thumb.onload = () => URL.revokeObjectURL(thumb.src);
+        thumb.alt = file.name;
+        const label = document.createElement("span");
+        label.textContent = file.name;
+        label.title = file.name;
+        item.appendChild(thumb);
+        item.appendChild(label);
+        filePreviewList.appendChild(item);
+      });
+    }
+    fileInput.addEventListener("change", updateFilePreview);
 
     // Rename Folder Modal handling
     renameFolderBtn.addEventListener("click", () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
       if (!selectedEl) { alert("Please select a folder to rename."); return; }
       if (selectedEl.getAttribute("data-filter") === "all") { alert("Cannot rename 'All'."); return; }
-      renameFolderInput.value = selectedEl.textContent;
+      renameFolderInput.value = selectedEl.querySelector(".folder-name").textContent;
       renameFolderModal.classList.add("active");
     });
     closeRenameFolderModalBtn.addEventListener("click", () => { renameFolderModal.classList.remove("active"); });
@@ -2512,7 +2634,8 @@ function closeEnlargeModal() {
     
     // Reload images to reflect the changes
     await loadImagesFromFirebase();
-    
+    updateFolderCounts();
+
     // Set the selection back to 'All'
     const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
     if (allFolder) {
@@ -2561,7 +2684,9 @@ function closeEnlargeModal() {
 
     // Confirm Add Image button
   confirmAddImageBtn.addEventListener("click", async () => {
-  const files = fileInput.files;
+  // Copy into a plain array: fileInput.files is a live FileList, and
+  // resetting fileInput.value below would otherwise empty it retroactively.
+  const files = Array.from(fileInput.files);
   
   if (!files || files.length === 0) { 
     alert("Please select at least one image file first."); 
@@ -2607,10 +2732,8 @@ function closeEnlargeModal() {
   
   // Close the modal - we don't need to wait for uploads to complete
   imageModal.classList.remove("active");
-  
-  // Reset file input to allow new selections in subsequent uploads
-  fileInput.value = "";
-  
+  resetImageModal();
+
   // Get upload dock content
   const uploadDockContent = document.querySelector(".upload-dock-content");
   if (!uploadDockContent) {
@@ -2632,8 +2755,9 @@ function closeEnlargeModal() {
     uploadItem.innerHTML = `
       <div class="upload-dock-item-info">
         <div class="upload-dock-item-filename">${file.name}</div>
-        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
+        <div class="upload-dock-item-percent" id="percent-${uploadItemId}">0%</div>
       </div>
+      <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
       <div class="upload-dock-progress">
         <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
       </div>
@@ -2683,8 +2807,8 @@ async function generateImageTagsWithMobileNet(imageUrl) {
         console.error("Image loading error:", e);
         reject(new Error("Failed to load image"));
       };
-      img.src = imageUrl;
-      
+      img.src = cloudinaryDisplayUrl(imageUrl);
+
       // Add a timeout in case the image doesn't load
       setTimeout(() => reject(new Error("Image load timeout")), 10000);
     });
@@ -2808,7 +2932,24 @@ async function generateImageTagsWithMobileNet(imageUrl) {
       return 0;
     });
 
-    // Expand with general categories if fewer than five tags
+    // Backfill with lower-confidence predictions (still real detections)
+    // before falling back to category expansion, so we can reach a fixed
+    // count - but only down to a reasonable floor, otherwise near-random
+    // guesses get shown as if they were real tags
+    const BACKFILL_MIN_PROBABILITY = 0.15;
+    if (processedTags.length < 5) {
+      const lowerConfidenceWords = predictions
+        .filter(p => p.probability >= BACKFILL_MIN_PROBABILITY)
+        .map(p => p.className.toLowerCase().replace(/,/g, '').split(' '))
+        .flat()
+        .filter(tag => !filtersToRemove.some(filter => tag.includes(filter)) && tag.length > 2);
+      for (const tag of lowerConfidenceWords) {
+        if (processedTags.length >= 5) break;
+        if (!processedTags.includes(tag)) processedTags.push(tag);
+      }
+    }
+
+    // Expand with general categories if still fewer than five tags
     if (processedTags.length < 5) {
       for (const tag of [...processedTags]) {
         const extras = generalTagMappings[tag];
@@ -2823,6 +2964,9 @@ async function generateImageTagsWithMobileNet(imageUrl) {
         if (processedTags.length >= 5) break;
       }
     }
+
+    // No further padding: showing fewer, accurate tags beats padding to 5
+    // with generic words that have nothing to do with the image
 
     // Take up to the top 5 tags after processing
     const tags = processedTags.slice(0, 5).join(', ');
@@ -2883,7 +3027,7 @@ function showTagReview(imageUrl, tagData, onConfirm, onSkip) {
   const skipTagsBtn = document.getElementById('skipTagsBtn');
   
   // Set the image
-  tagReviewImage.src = imageUrl;
+  tagReviewImage.src = cloudinaryDisplayUrl(imageUrl);
   
   // Display detected objects with confidence indicators
   detectedObjectsList.innerHTML = '';
@@ -2944,6 +3088,14 @@ function updateFinalTags() {
   document.getElementById('finalTagsInput').value = selectedTags.join(', ');
 }
     
+    // Updates both the progress bar fill and its percentage label together
+    function setUploadItemProgress(uploadItemId, percent, label) {
+      const fill = document.getElementById(`progress-${uploadItemId}`);
+      const percentLabel = document.getElementById(`percent-${uploadItemId}`);
+      if (fill) fill.style.width = `${percent}%`;
+      if (percentLabel) percentLabel.textContent = label || `${percent}%`;
+    }
+
     // Start upload (non-blocking)
 async function processUpload(file, folderValue, keywords, uploadItemId) {
   const progressFill = document.getElementById(`progress-${uploadItemId}`);
@@ -2958,15 +3110,16 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     console.log(`Starting upload process for ${file.name}`);
     
     // Update progress to 30%
-    progressFill.style.width = "30%";
+    setUploadItemProgress(uploadItemId, 30);
     
-    // Upload the file
+    // Upload the file (compressed first if it's too large for the upload function)
     console.log(`Uploading ${file.name}...`);
-    const imageUrl = await uploadImage(file);
+    const uploadFile = await compressImageIfNeeded(file);
+    const imageUrl = await uploadImage(uploadFile);
     console.log(`File uploaded successfully, URL: ${imageUrl}`);
     
     // Update progress to 50%
-    progressFill.style.width = "50%";
+    setUploadItemProgress(uploadItemId, 50);
     
     // Generate tags using enhanced function
     console.log(`Generating tags for ${file.name}...`);
@@ -2978,9 +3131,15 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
       console.error(`Tag generation failed: ${tagError.message}`);
       tagData = { tags: '', possibleObjects: [] }; // Fail gracefully
     }
+
+    // If both Cloud Vision and MobileNet failed outright, there's nothing
+    // real to show - say so plainly instead of faking 5 descriptive-looking tags
+    if (!tagData.tags) {
+      tagData = { ...tagData, tags: 'untagged' };
+    }
     
     // Update progress to 70%
-    progressFill.style.width = "70%";
+    setUploadItemProgress(uploadItemId, 70);
     
     // Initialize the tag review UI if needed
     if (!window.tagReviewInitialized) {
@@ -3005,13 +3164,14 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     
   } catch (error) {
     console.error(`Upload failed for ${file.name}:`, error);
-    if (progressFill) progressFill.style.width = "100%";
+    setUploadItemProgress(uploadItemId, 100, "Error");
     if (uploadItem) uploadItem.classList.add("upload-error");
     
     // Add error message
     const details = uploadItem?.querySelector(".upload-dock-item-details");
     if (details) {
       details.textContent = `Error: ${error.message || 'Unknown error'}`;
+      details.title = details.textContent; // full message on hover, since the row is truncated
       details.style.color = "#ff3b30";
     }
   }
@@ -3088,13 +3248,13 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     
     // Add to gallery
     addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now());
+    updateFolderCounts();
     console.log(`Image added to gallery`);
     
     // Update UI to show success
-    const progressFill = document.getElementById(`progress-${uploadItemId}`);
     const uploadItem = document.getElementById(uploadItemId);
-    
-    if (progressFill) progressFill.style.width = "100%";
+
+    setUploadItemProgress(uploadItemId, 100, "Done");
     if (uploadItem) {
       uploadItem.classList.add("upload-success");
       
@@ -3127,17 +3287,19 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     
     // Update UI to show error
     const uploadItem = document.getElementById(uploadItemId);
+    setUploadItemProgress(uploadItemId, 100, "Error");
     if (uploadItem) {
       uploadItem.classList.add("upload-error");
-      
+
       // Update the display
       const details = uploadItem?.querySelector(".upload-dock-item-details");
       if (details) {
         details.textContent = `Error: ${error.message || 'Unknown error'}`;
+        details.title = details.textContent; // full message on hover, since the row is truncated
         details.style.color = "#ff3b30";
       }
     }
-    
+
     throw error; // Propagate the error
   }
 }
@@ -3154,8 +3316,6 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     closeMoveDestinationModalBtn.addEventListener("click", () => { moveDestinationModal.classList.remove("active"); });
     moveDestinationModal.addEventListener("click", (e) => { if (e.target === moveDestinationModal) { moveDestinationModal.classList.remove("active"); } });
     confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
-
-    imageSearch.addEventListener("input", searchImages);
 
     filterButton.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -3254,6 +3414,8 @@ document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
     scheduleLayout();
+    updateFolderCounts();
+
 
     // Select 'All' folder
     const allFolder = document.querySelector('.folder-list li[data-filter="all"]');

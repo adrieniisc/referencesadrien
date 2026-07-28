@@ -53,7 +53,19 @@ const handler = (event, context, callback) => {
 
     // Upload to Cloudinary
     const uploadStream = cloudinary.uploader.upload_stream(
-      { resource_type: 'auto', public_id: uniqueFileName },
+      {
+        resource_type: 'auto',
+        public_id: uniqueFileName,
+        // Pre-generate (in the background) the same derived sizes the
+        // frontend requests for thumbnails and the lightbox, so they're
+        // already cached by the time someone actually views the image
+        // instead of being transformed on demand on first view.
+        eager: [
+          { width: 1200, crop: 'limit', fetch_format: 'auto', quality: 'auto' },
+          { width: 1920, crop: 'limit', fetch_format: 'auto', quality: 'auto' },
+        ],
+        eager_async: true,
+      },
       (error, result) => {
         if (error) {
           console.error('Cloudinary Upload Error:', error);
