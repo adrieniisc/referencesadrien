@@ -21,7 +21,15 @@
       --side-text:  #f2f2f7;     /* text for sidebar */
       --border-color: #3a3a3c;
       --highlight-color: #2c2c2e;
-      --thumbnail-size: 250px;
+      --thumbnail-size: 125px;
+      --sidebar-width: 270px;
+      /* Shared radius/shadow scale for a consistent, refreshed look (same colors as before) */
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.35);
     }
 
 
@@ -49,14 +57,14 @@
   color: #000; /* Black text */
   border: none;
   padding: 10px 16px; /* Match search bar padding (from #mainImageSearch) */
-  border-radius: 12px; /* Match search bar border-radius */
+  border-radius: var(--radius-md); /* Match search bar border-radius */
   font-size: 0.95rem; /* Match search bar font-size */
   font-weight: 500; /* Medium weight for better readability */
   cursor: pointer;
   width: 120px; /* Fixed width */
   text-align: center;
   z-index: 1200;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Match search bar shadow */
+  box-shadow: var(--shadow-md); /* Match search bar shadow */
   /* Add backdrop filter to match search bar */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -132,7 +140,7 @@
     -------------------------------------------------- */
 .sidebar {
   width: fit-content;
-  min-width: 270px; /* Increased from 220px to 270px (+50px) */
+  min-width: var(--sidebar-width);
   background-color: var(--side-bg);
   /* border-right: 1px solid var(--border-color); */ /* Already removed as per previous request */
   padding: 0.8rem;
@@ -333,9 +341,11 @@
     
    .gallery {
   display: grid;
-  /* Use auto-fill instead of auto-fit to prevent images from growing */
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--thumbnail-size) * 0.9), calc(var(--thumbnail-size) * 1.1)));
-  gap: 0.8rem;
+  /* Use auto-fill instead of auto-fit to prevent images from growing.
+     The min side is clamped with min(...,100%) so a single column can
+     never be wider than the viewport, whatever --thumbnail-size is. */
+  grid-template-columns: repeat(auto-fill, minmax(min(calc(var(--thumbnail-size) * 0.9), 100%), calc(var(--thumbnail-size) * 1.1)));
+  gap: 0.6rem;
   width: 100%;
   justify-content: flex-start; /* Align to the start rather than stretching */
 }
@@ -346,33 +356,48 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Add max-width to prevent excessive growth */
-  max-width: calc(var(--thumbnail-size) * 1.1);
+  /* Add max-width to prevent excessive growth, clamped to the viewport */
+  max-width: min(calc(var(--thumbnail-size) * 1.1), 100%);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: var(--highlight-color);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
+
+.image-container:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
     .image-container img {
       width: 100%;
       height: auto;
-      border: 1px solid #444;
-      border-radius: 6px;
-      transition: transform 0.3s ease;
+      display: block;
+      border-radius: var(--radius-lg);
+      transition: transform 0.35s ease;
       cursor: pointer;
     }
-    .image-container img:hover { transform: scale(1.02); }
+    .image-container:hover img { transform: scale(1.04); }
     .download-btn {
       position: absolute;
-      top: 4px;
-      right: 4px;
-      background-color: var(--highlight-color);
+      top: 6px;
+      right: 6px;
+      background-color: rgba(23, 23, 23, 0.8);
       color: #fff;
       border: none;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.78rem;
-      display: none;
+      padding: 0.2rem 0.45rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.72rem;
+      opacity: 0;
+      pointer-events: none;
       text-decoration: none;
       line-height: 1.4;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: opacity 0.2s ease;
     }
-    .image-container:hover .download-btn { display: block; }
+    .image-container:hover .download-btn { opacity: 1; pointer-events: auto; }
     .hidden {
   display: none !important;
 }
@@ -387,32 +412,43 @@
       left: auto;
       width: auto;
       transform: none;
-      background-color: rgba(44,44,46,0.9);
-      border-radius: 10px;
-      z-index: 1000;
+      background-color: rgba(23,23,23,0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      z-index: 1150; /* Stay above the sidebar so it's never hidden underneath it */
       display: inline-flex;
       align-items: center;
       justify-content: flex-end;
       padding: 6px;
-      max-width: max-content;
+      max-width: calc(100vw - 24px);
+      overflow-x: auto;
     }
-    .size-icon-container { 
-      display: inline-flex; 
-      gap: 6px; 
+    .size-icon-container {
+      display: inline-flex;
+      gap: 6px;
     }
     .size-icon {
-      width: 36px;
-      height: 36px;
-      background-color: #1c1c1e;
-      border: 1px solid #555;
-      border-radius: 6px;
+      width: 34px;
+      height: 34px;
+      background-color: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 0.84rem;
+      font-size: 0.8rem;
+      font-weight: 500;
       color: var(--main-text);
-      transition: background-color 0.2s, border-color 0.2s;
+      transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .size-icon:hover {
+      border-color: var(--highlight-color);
+      transform: translateY(-1px);
     }
 
     .size-icon.selected {
@@ -510,7 +546,7 @@
       height: 100%;
       background-color: rgba(255,154,154,0.2);
       border: 2px dashed #ff9a9a;
-      border-radius: 6px;
+      border-radius: var(--radius-lg);
       z-index: 1;
       pointer-events: none;
     }
@@ -524,9 +560,13 @@
       right: 18px;
       left: auto;
       transform: none;
-      background-color: rgba(44,44,46,0.9);
+      background-color: rgba(23,23,23,0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color);
       padding: 0.5rem 1rem;
-      border-radius: 10px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
       z-index: 1000;
       display: none;
       align-items: center;
@@ -562,7 +602,7 @@
       height: 100%;
       background-color: rgba(144,202,249,0.2);
       border: 2px dashed #90caf9;
-      border-radius: 6px;
+      border-radius: var(--radius-lg);
       z-index: 1;
       pointer-events: none;
     }
@@ -575,9 +615,13 @@
       bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
-      background-color: rgba(44,44,46,0.9);
+      background-color: rgba(23,23,23,0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color);
       padding: 0.5rem 1rem;
-      border-radius: 10px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
       z-index: 1000;
       display: none;
       align-items: center;
@@ -713,8 +757,8 @@
 .top-search-bar {
   position: absolute;
   top: 15px;
-  left: 290px; /* Updated from 240px to 290px (+50px) to match new sidebar width */
-  right: 0;
+  left: calc(var(--sidebar-width) + 20px); /* Derived from the sidebar's own width */
+  right: 170px; /* Leaves room for the About button */
   z-index: 1000;
   padding: 0;
   display: flex;
@@ -722,24 +766,26 @@
 }
 
 .main-search-container {
-  width: calc(100% - 310px); /* Keep existing width */
+  /* Fills whatever space top-search-bar's left/right leave available,
+     so it no longer needs to duplicate the sidebar-width math */
+  width: 100%;
   max-width: 700px;
   margin: 0 auto;
   position: relative;
   /* Add a subtle reflection effect */
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
     #mainImageSearch {
   width: 100%;
   padding: 10px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   /* Change to transparent background */
   background-color: rgba(45, 45, 48, 0.6); /* More transparent */
   color: var(--main-text);
   font-size: 0.95rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   transition: all 0.2s ease;
   /* Add backdrop-filter for blur effect */
   backdrop-filter: blur(8px);
@@ -789,6 +835,31 @@
       margin-top: 0.4rem;
     }
 
+    /* --------------------------------------------------
+       Responsive layout for narrow windows
+       (sidebar and header shrink so nothing overlaps
+       or overflows the viewport)
+    -------------------------------------------------- */
+    @media (max-width: 640px) {
+      :root { --sidebar-width: 200px; }
+      .sidebar { padding: 0.6rem; }
+      .top-search-bar { left: calc(var(--sidebar-width) + 10px); right: 120px; top: 12px; }
+      .about-btn { top: 12px; right: 14px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+      #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
+      .main-content { padding: 0.6rem; padding-top: 70px; }
+      .floating-size-panel { right: 12px; bottom: 12px; }
+      .size-icon-container { gap: 4px; }
+      .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
+    }
+
+    /* Extra-narrow phones: shrink the sidebar further so the search bar
+       keeps usable room next to it */
+    @media (max-width: 420px) {
+      :root { --sidebar-width: 140px; }
+      .top-search-bar { left: calc(var(--sidebar-width) + 8px); right: 96px; }
+      .about-btn { width: 78px; right: 10px; padding: 6px 8px; font-size: 0.78rem; }
+    }
+
     .upload-progress-container {
   margin-top: 0.8rem;
   display: none;
@@ -809,13 +880,16 @@
   transform: translateX(-50%);  /* Center it by moving back half its width */
   width: auto;  /* Auto width */
   max-width: 320px;  /* Maximum width */
-  background-color: rgba(44,44,46,0.9);
-  border-radius: 10px;  /* Rounded corners like size panel */
+  background-color: rgba(23,23,23,0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);  /* Rounded corners like size panel */
   z-index: 1100;  /* High z-index but below the size selector */
   max-height: 200px;
   overflow-y: auto;
   display: none; /* Hidden by default */
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .upload-dock.active {
@@ -1075,11 +1149,11 @@
   <!-- FLOATING SIZE PANEL -->
  <div class="floating-size-panel">
     <div class="size-icon-container">
-      <div class="size-icon selected" data-size="250"><span>XS</span></div>
-      <div class="size-icon" data-size="400"><span>S</span></div>
-      <div class="size-icon" data-size="650"><span>M</span></div>
-      <div class="size-icon" data-size="750"><span>L</span></div>
-      <div class="size-icon" data-size="950"><span>XL</span></div>
+      <div class="size-icon selected" data-size="125"><span>XS</span></div>
+      <div class="size-icon" data-size="200"><span>S</span></div>
+      <div class="size-icon" data-size="325"><span>M</span></div>
+      <div class="size-icon" data-size="375"><span>L</span></div>
+      <div class="size-icon" data-size="475"><span>XL</span></div>
     </div>
   </div>
   <!-- Enlarge Image Modal -->
