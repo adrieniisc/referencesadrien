@@ -1853,6 +1853,11 @@ aboutModal.addEventListener("click", (e) => {
       container.setAttribute('data-category', folder);
       container.setAttribute('data-keywords', keywords);
       container.setAttribute('data-add-time', addTime);
+      // The <img> tag's src is rewritten to a resized Cloudinary display URL
+      // (see cloudinaryDisplayUrl() below), which no longer matches the
+      // original url stored in Firestore. Keep the original around so
+      // delete/move can look the Firestore doc back up by it.
+      container.dataset.url = url;
       
       const img = document.createElement('img');
       // Fallback aspect ratio used until the real image dimensions are known.
@@ -2239,7 +2244,7 @@ downloadLink.addEventListener("click", function(e) {
       if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) { return; }
       try {
         const deletePromises = selectedImages.map(async (container) => {
-          const imageUrl = container.querySelector("img").src;
+          const imageUrl = container.dataset.url;
           const imageId = await findImageIdByUrl(imageUrl);
           if (imageId) {
             await db.collection('images').doc(imageId).delete();
@@ -2346,7 +2351,7 @@ downloadLink.addEventListener("click", function(e) {
       }
       try {
         const movePromises = selectedImagesForMove.map(async (container) => {
-          const imageUrl = container.querySelector("img").src;
+          const imageUrl = container.dataset.url;
           const imageId = await findImageIdByUrl(imageUrl);
           if (imageId) {
             await db.collection('images').doc(imageId).update({
