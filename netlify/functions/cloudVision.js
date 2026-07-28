@@ -43,17 +43,19 @@ exports.handler = async (event) => {
     const result = (data.responses && data.responses[0]) || {};
     const labels = result.labelAnnotations || [];
 
-    // Higher bar than before (was 0.6) - favors fewer, more reliable tags
-    // over precise-sounding but unreliable ones
     const MIN_SCORE = 0.75;
+    // Backfilling from very low-confidence labels produced nonsense tags
+    // (a chess set once came back as "fountain, goblet, beer"), so the
+    // backfill tier still requires a reasonable bar - anything below it
+    // is better left to the generic filler further down than shown as fact
+    const BACKFILL_MIN_SCORE = 0.5;
     const allSorted = labels
       .map(l => [l.description.toLowerCase(), l.score || 0])
       .sort((a, b) => b[1] - a[1]);
-    // Prefer confident detections, but backfill with lower-confidence ones
-    // (still real detections) so we can always reach a fixed tag count
     const tagNames = allSorted.filter(([, score]) => score >= MIN_SCORE).map(([name]) => name);
-    for (const [name] of allSorted) {
+    for (const [name, score] of allSorted) {
       if (tagNames.length >= 5) break;
+      if (score < BACKFILL_MIN_SCORE) break; // sorted descending, so nothing after this qualifies either
       if (!tagNames.includes(name)) tagNames.push(name);
     }
 

@@ -687,6 +687,30 @@
   object-fit: contain;
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   border-radius: 1px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#enlargeImage.loaded {
+  opacity: 1;
+}
+
+.enlarge-spinner {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: enlarge-spin 0.8s linear infinite;
+}
+
+.enlarge-spinner.active {
+  display: block;
+}
+
+@keyframes enlarge-spin {
+  to { transform: rotate(360deg); }
 }
 
     
@@ -900,25 +924,35 @@
 .upload-dock-item-info {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 6px;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
 }
 
 .upload-dock-item-filename {
   font-weight: 500;
   color: #f2f2f7;
-  max-width: 70%;
+  min-width: 0; /* let ellipsis actually kick in inside a flex row */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.upload-dock-item-percent {
+  color: #8e8e93;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .upload-dock-item-details {
   color: #8e8e93;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-bottom: 6px;
 }
 
 .upload-dock-progress {
@@ -941,6 +975,14 @@
 
 .upload-error .upload-dock-progress-fill {
   background-color: #ff3b30;
+}
+
+.upload-success .upload-dock-item-percent {
+  color: #4cd964;
+}
+
+.upload-error .upload-dock-item-percent {
+  color: #ff3b30;
 }
 
 /* Ensure the size panel and upload dock don't overlap */
@@ -1126,6 +1168,7 @@
   
  <div id="enlargeImageModal">
   <div class="enlarged-image-container">
+    <div class="enlarge-spinner" id="enlargeSpinner"></div>
     <img id="enlargeImage" src="" alt="">
     <!-- Tags moved outside the image container -->
   </div>
@@ -2193,6 +2236,7 @@ downloadLink.addEventListener("click", function(e) {
   function enlargeImage(url, filename, keywords = "") {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
+  const enlargeSpinner = document.getElementById("enlargeSpinner");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
 
@@ -2203,13 +2247,34 @@ downloadLink.addEventListener("click", function(e) {
   // made (the browser dedupes them) instead of loading the image twice.
   const displayUrl = cloudinaryDisplayUrl(url, { width: 1920 });
 
+  // Open the modal and show a spinner right away instead of waiting for the
+  // image to finish loading before anything appears - the load itself isn't
+  // instant (especially the first time this image size is requested), so
+  // this is what actually shows the user something is happening.
+  enlargeImg.classList.remove("loaded");
+  enlargeImg.style.width = "";
+  enlargeImg.style.height = "";
+  enlargeSpinner.classList.add("active");
+  enlargeModal.style.justifyContent = "center";
+  enlargeModal.style.paddingTop = "0";
+  enlargeModal.style.paddingBottom = "0";
+  enlargeModal.style.display = "flex";
+
   // Set image source and alt
   enlargeImg.src = displayUrl;
   enlargeImg.alt = filename;
 
   // Create a new image to get natural dimensions and ensure proper sizing
   const tempImg = new Image();
+  tempImg.onerror = function() {
+    // Still reveal what we have (the browser's broken-image icon) rather
+    // than leaving the spinner spinning forever
+    enlargeSpinner.classList.remove("active");
+    enlargeImg.classList.add("loaded");
+  };
   tempImg.onload = function() {
+    enlargeSpinner.classList.remove("active");
+    enlargeImg.classList.add("loaded");
     const imgWidth = this.width;
     const imgHeight = this.height;
     
@@ -2261,10 +2326,8 @@ downloadLink.addEventListener("click", function(e) {
       tagsElement.parentElement.style.display = "none";
     }
     
-    // Show the modal now that we've set the correct dimensions
-    enlargeModal.style.display = "flex";
   };
-  
+
   // Start loading the image to calculate dimensions
   tempImg.src = displayUrl;
   
@@ -2592,8 +2655,9 @@ function closeEnlargeModal() {
     uploadItem.innerHTML = `
       <div class="upload-dock-item-info">
         <div class="upload-dock-item-filename">${file.name}</div>
-        <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
+        <div class="upload-dock-item-percent" id="percent-${uploadItemId}">0%</div>
       </div>
+      <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
       <div class="upload-dock-progress">
         <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
       </div>
@@ -2769,9 +2833,13 @@ async function generateImageTagsWithMobileNet(imageUrl) {
     });
 
     // Backfill with lower-confidence predictions (still real detections)
-    // before falling back to category expansion, so we can reach a fixed count
+    // before falling back to category expansion, so we can reach a fixed
+    // count - but only down to a reasonable floor, otherwise near-random
+    // guesses get shown as if they were real tags
+    const BACKFILL_MIN_PROBABILITY = 0.15;
     if (processedTags.length < 5) {
       const lowerConfidenceWords = predictions
+        .filter(p => p.probability >= BACKFILL_MIN_PROBABILITY)
         .map(p => p.className.toLowerCase().replace(/,/g, '').split(' '))
         .flat()
         .filter(tag => !filtersToRemove.some(filter => tag.includes(filter)) && tag.length > 2);
@@ -2925,6 +2993,14 @@ function updateFinalTags() {
   document.getElementById('finalTagsInput').value = selectedTags.join(', ');
 }
     
+    // Updates both the progress bar fill and its percentage label together
+    function setUploadItemProgress(uploadItemId, percent, label) {
+      const fill = document.getElementById(`progress-${uploadItemId}`);
+      const percentLabel = document.getElementById(`percent-${uploadItemId}`);
+      if (fill) fill.style.width = `${percent}%`;
+      if (percentLabel) percentLabel.textContent = label || `${percent}%`;
+    }
+
     // Start upload (non-blocking)
 async function processUpload(file, folderValue, keywords, uploadItemId) {
   const progressFill = document.getElementById(`progress-${uploadItemId}`);
@@ -2939,7 +3015,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     console.log(`Starting upload process for ${file.name}`);
     
     // Update progress to 30%
-    progressFill.style.width = "30%";
+    setUploadItemProgress(uploadItemId, 30);
     
     // Upload the file (compressed first if it's too large for the upload function)
     console.log(`Uploading ${file.name}...`);
@@ -2948,7 +3024,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     console.log(`File uploaded successfully, URL: ${imageUrl}`);
     
     // Update progress to 50%
-    progressFill.style.width = "50%";
+    setUploadItemProgress(uploadItemId, 50);
     
     // Generate tags using enhanced function
     console.log(`Generating tags for ${file.name}...`);
@@ -2967,7 +3043,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     }
     
     // Update progress to 70%
-    progressFill.style.width = "70%";
+    setUploadItemProgress(uploadItemId, 70);
     
     // Initialize the tag review UI if needed
     if (!window.tagReviewInitialized) {
@@ -2992,7 +3068,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     
   } catch (error) {
     console.error(`Upload failed for ${file.name}:`, error);
-    if (progressFill) progressFill.style.width = "100%";
+    setUploadItemProgress(uploadItemId, 100, "Error");
     if (uploadItem) uploadItem.classList.add("upload-error");
     
     // Add error message
@@ -3080,10 +3156,9 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     console.log(`Image added to gallery`);
     
     // Update UI to show success
-    const progressFill = document.getElementById(`progress-${uploadItemId}`);
     const uploadItem = document.getElementById(uploadItemId);
-    
-    if (progressFill) progressFill.style.width = "100%";
+
+    setUploadItemProgress(uploadItemId, 100, "Done");
     if (uploadItem) {
       uploadItem.classList.add("upload-success");
       
@@ -3116,9 +3191,10 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     
     // Update UI to show error
     const uploadItem = document.getElementById(uploadItemId);
+    setUploadItemProgress(uploadItemId, 100, "Error");
     if (uploadItem) {
       uploadItem.classList.add("upload-error");
-      
+
       // Update the display
       const details = uploadItem?.querySelector(".upload-dock-item-details");
       if (details) {
@@ -3127,7 +3203,7 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
         details.style.color = "#ff3b30";
       }
     }
-    
+
     throw error; // Propagate the error
   }
 }
