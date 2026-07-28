@@ -8,6 +8,16 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 - **`index.html`** — the entire frontend. One page, one big inline `<style>` block, one big
   inline `<script>` block. No build step, no bundler, no framework. Data flows straight from
   Firestore/Cloudinary into DOM manipulation.
+  - `compressImageIfNeeded()` recompresses oversized photos (JPEG quality reduction, not
+    resizing) client-side before upload, since Netlify Functions cap request bodies around 6MB —
+    an oversized upload that skips this gets rejected mid-stream by `upload.js`'s Busboy parser
+    ("Unexpected end of form"), not with a clean size-limit error. It decodes via `<img>`/canvas,
+    which can't read HEIC; `heic2any` (another CDN script, same pattern as the TF.js/MobileNet
+    ones below) is the fallback decoder when that native decode throws — this covers real
+    `.heic`/`.heif` files and also the case where iOS/Safari hands the page raw HEIC bytes under
+    a misleading `.jpeg` name/type. Don't remove the native-decode-first path even though
+    `heic2any` alone could handle everything — canvas is faster and avoids an unnecessary decode
+    round-trip for the common (non-HEIC) case.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
