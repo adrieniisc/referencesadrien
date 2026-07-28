@@ -867,52 +867,72 @@
 -------------------------------------------------- */
 .upload-dock {
   position: fixed;
-  bottom: 18px;
-  left: 50%;  /* Position at 50% from the left */
-  transform: translateX(-50%);  /* Center it by moving back half its width */
-  width: auto;  /* Auto width */
-  max-width: 320px;  /* Maximum width */
-  background-color: rgba(44,44,46,0.9);
-  border-radius: 10px;  /* Rounded corners like size panel */
-  z-index: 20000;  /* Above every modal (incl. the tag-review panel) so upload progress stays visible */
-  max-height: 200px;
+  bottom: 20px;
+  right: 20px; /* Bottom-right corner, clear of centered modals like tag review */
+  width: 320px;
+  background-color: rgba(36,36,38,0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  z-index: 20000; /* Above other modals, but no longer overlapping their controls now that it's in a corner */
+  max-height: 280px;
   overflow-y: auto;
-  display: none; /* Hidden by default */
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
 }
 
 .upload-dock.active {
-  display: block;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .upload-dock-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  background-color: rgba(28,28,30,0.7);
+  gap: 8px;
+  padding: 10px 14px;
+  background-color: rgba(20,20,22,0.6);
   color: #f2f2f7;
-  font-weight: 500;
-  border-top-left-radius: 10px;
-  border-top-right-radius: 10px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .minimize-dock-btn {
   background: none;
   border: none;
-  color: #f2f2f7;
+  color: #b7b7bb;
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.minimize-dock-btn:hover {
+  background-color: rgba(255,255,255,0.08);
+  color: #f2f2f7;
 }
 
 .upload-dock-content {
-  padding: 8px 12px;
+  padding: 10px 14px;
 }
 
 .upload-dock-item {
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid rgba(58,58,60,0.5);
 }
 
@@ -2865,13 +2885,8 @@ async function generateImageTagsWithMobileNet(imageUrl) {
       }
     }
 
-    // Last-resort filler if the image genuinely has fewer than 5 detections,
-    // so the tag count is always exactly 5
-    const fillerTags = ['reference', 'material', 'texture', 'surface', 'photo'];
-    for (const filler of fillerTags) {
-      if (processedTags.length >= 5) break;
-      if (!processedTags.includes(filler)) processedTags.push(filler);
-    }
+    // No further padding: showing fewer, accurate tags beats padding to 5
+    // with generic words that have nothing to do with the image
 
     // Take up to the top 5 tags after processing
     const tags = processedTags.slice(0, 5).join(', ');
@@ -3037,9 +3052,10 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
       tagData = { tags: '', possibleObjects: [] }; // Fail gracefully
     }
 
-    // Guarantee exactly 5 tags even if both Cloud Vision and MobileNet failed outright
+    // If both Cloud Vision and MobileNet failed outright, there's nothing
+    // real to show - say so plainly instead of faking 5 descriptive-looking tags
     if (!tagData.tags) {
-      tagData = { ...tagData, tags: 'reference, material, texture, surface, photo' };
+      tagData = { ...tagData, tags: 'untagged' };
     }
     
     // Update progress to 70%

@@ -84,6 +84,10 @@ exports.handler = async (event) => {
       cardboard: ['paper']
     };
 
+    // Expand with directly-related categories (e.g. "brick" -> "wall") when
+    // we're short - these still describe the actual image, unlike generic
+    // filler ("reference", "texture"...) which was showing up as if it were
+    // real information on images Vision barely recognized anything in
     if (tagNames.length < 5) {
       for (const tag of [...tagNames]) {
         const extras = generalTagMappings[tag];
@@ -99,14 +103,8 @@ exports.handler = async (event) => {
       }
     }
 
-    // Last-resort filler if the image genuinely has fewer than 5 detections,
-    // so the tag count is always exactly 5
-    const fillerTags = ['reference', 'material', 'texture', 'surface', 'photo'];
-    for (const filler of fillerTags) {
-      if (tagNames.length >= 5) break;
-      if (!tagNames.includes(filler)) tagNames.push(filler);
-    }
-
+    // No further padding: showing 1-4 accurate tags beats padding to 5
+    // with words that have nothing to do with the image
     const tags = tagNames.slice(0, 5).join(', ');
     const possibleObjects = allSorted.map(([name, score]) => ({ name, confidence: score }));
 
