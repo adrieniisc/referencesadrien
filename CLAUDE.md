@@ -31,11 +31,19 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 
 ## Admin access
 
-There's no real auth. "ADMIN ACCESS" opens a `UI Preferences` modal that takes an ID/password
-(`#userPreference`) and, on match, reveals the edit buttons (add/move/delete/rename
-folders+images, find duplicates). **Keep this gate as-is** — a previous session temporarily
-bypassed it "to save time" during upload-flow work; that bypass was reverted when found during
-a later merge. Don't remove or short-circuit the password check without being asked.
+There's no real auth. "ADMIN ACCESS" opens a `UI Preferences` modal (`#userPreference` field,
+`#applyPreferenceBtn`) that reveals the edit buttons (add/move/delete/rename folders+images,
+find duplicates) on Apply.
+
+**2026-07-28: the password check was intentionally removed, at the site owner's explicit
+request ("no password for admin for now").** `applyPreferenceBtn`'s click handler now grants
+admin controls unconditionally — it no longer compares `#userPreference` against the old
+base64'd value. The modal/button/field are still there (least invasive change), just gated on
+nothing. This directly reverses the previous "keep the gate as-is" guidance below, which stood
+only until someone actually asked for it to change — now it has been asked. If you're picking
+this back up: don't silently re-add a password check, and don't silently remove the gate
+further (e.g. deleting the button/modal) without a fresh explicit request either way — confirm
+with the user before changing this again in either direction.
 
 ## Testing
 
