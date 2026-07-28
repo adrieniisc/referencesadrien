@@ -25,6 +25,7 @@
       --accent-soft: rgba(221,149,86,0.16);
       --danger: #ff5a52;
       --danger-soft: rgba(255,90,82,0.16);
+      --success: #4cd964;
       --move-accent: #4d9bf5;
       --move-soft: rgba(77,155,245,0.16);
       --radius-xs: 6px;   /* images: micro rounding */
@@ -265,7 +266,7 @@
       overflow: hidden;
       min-width: 0;
     }
-    .folder-label > span:first-child {
+    .folder-label .folder-name {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1065,7 +1066,7 @@
 }
 
 .upload-success .upload-dock-progress-fill {
-  background-color: #4cd964;
+  background-color: var(--success);
 }
 
 .upload-error .upload-dock-progress-fill {
@@ -1073,11 +1074,11 @@
 }
 
 .upload-success .upload-dock-item-percent {
-  color: #4cd964;
+  color: var(--success);
 }
 
 .upload-error .upload-dock-item-percent {
-  color: #ff3b30;
+  color: var(--danger);
 }
 
 /* Ensure the size panel and upload dock don't overlap */
@@ -1129,9 +1130,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(44,44,46,0.6);
-  border: 1px solid #444;
-  border-radius: 8px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   padding: 8px;
 }
 
@@ -1139,7 +1140,7 @@
   width: 64px;
   height: 64px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 
@@ -1150,7 +1151,7 @@
 
 .batch-review-filename {
   font-size: 0.85rem;
-  color: #ccc;
+  color: var(--text-muted);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -1160,17 +1161,17 @@
 .batch-review-tags-input {
   width: 100%;
   padding: 0.3rem 0.5rem;
-  border: 1px solid #555;
-  border-radius: 6px;
-  background-color: #1c1c1e;
-  color: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-elevated);
+  color: var(--text);
   font-size: 0.9rem;
 }
 
 .batch-review-remove {
   background: none;
   border: none;
-  color: #ff3b30;
+  color: var(--danger);
   font-size: 1.3rem;
   cursor: pointer;
   flex-shrink: 0;
@@ -1202,7 +1203,7 @@
     <h3>Welcome to my website !</h3>
     <div id="aboutContent">
       <!-- Your about text will go here -->
-      <p>This is an open website for everyone searching for references, textures or anything that could be usefull to you.</p>
+      <p>This is an open website for everyone searching for references, textures or anything that could be useful to you.</p>
       <p>You can browse by folder, search by keywords, and easily download any images for your work, freely and without restrictions.</p>
       <p>Have fun :)</p>
       <p>Adrien</p>
@@ -1521,7 +1522,12 @@
       const containers = [...gallery.children].filter(
         el => getComputedStyle(el).display !== "none"
       );
-      const containerWidth = gallery.clientWidth;
+      // getBoundingClientRect() (fractional) is used instead of clientWidth
+      // (integer, rounded) — clientWidth can round up half a pixel above the
+      // width the flex layout engine actually wraps against, which was
+      // enough to bump the last image of an otherwise-exact row onto a new
+      // line and leave the row short.
+      const containerWidth = gallery.getBoundingClientRect().width;
       if (!containerWidth || containers.length === 0) return;
 
       const targetRowHeight = parseFloat(
@@ -1531,18 +1537,27 @@
       let row = [];
       let aspectSum = 0;
 
-      const flushRow = (isLast) => {
+      // Every row — including the trailing one — is stretched to fill the
+      // full container width. Rounding each image's width individually can
+      // leave the row a pixel or two short of the container, so the
+      // remainder is folded into the last image's width to avoid a stray
+      // gap at the row's edge. A 1px safety margin keeps the row a hair
+      // under the container's true (sub-pixel) width so this rounding never
+      // pushes the row's total width just over the edge and wraps an image.
+      const flushRow = () => {
         if (row.length === 0) return;
         const gaps = GALLERY_GAP * (row.length - 1);
-        let rowHeight = (containerWidth - gaps) / aspectSum;
-        if (isLast) {
-          // A sparse trailing row is left near the target row height
-          // instead of being stretched to fill the remaining width.
-          rowHeight = Math.min(rowHeight, targetRowHeight);
-        }
+        const availableWidth = containerWidth - gaps - 1;
+        const rowHeight = availableWidth / aspectSum;
+        let widthSum = 0;
+        row.forEach(item => {
+          item.width = Math.round(rowHeight * item.aspect);
+          widthSum += item.width;
+        });
+        row[row.length - 1].width += availableWidth - widthSum;
         row.forEach(item => {
           item.el.style.height = `${Math.round(rowHeight)}px`;
-          item.el.style.width = `${Math.round(rowHeight * item.aspect)}px`;
+          item.el.style.width = `${item.width}px`;
         });
         row = [];
         aspectSum = 0;
@@ -1553,9 +1568,9 @@
         row.push({ el, aspect });
         aspectSum += aspect;
         const projectedWidth = aspectSum * targetRowHeight + GALLERY_GAP * (row.length - 1);
-        if (projectedWidth >= containerWidth) flushRow(false);
+        if (projectedWidth >= containerWidth) flushRow();
       });
-      flushRow(true);
+      flushRow();
     }
 
     window.addEventListener("resize", () => scheduleLayout());
@@ -1838,6 +1853,11 @@ aboutModal.addEventListener("click", (e) => {
       container.setAttribute('data-category', folder);
       container.setAttribute('data-keywords', keywords);
       container.setAttribute('data-add-time', addTime);
+      // The <img> tag's src is rewritten to a resized Cloudinary display URL
+      // (see cloudinaryDisplayUrl() below), which no longer matches the
+      // original url stored in Firestore. Keep the original around so
+      // delete/move can look the Firestore doc back up by it.
+      container.dataset.url = url;
       
       const img = document.createElement('img');
       // Fallback aspect ratio used until the real image dimensions are known.
@@ -1942,8 +1962,8 @@ downloadLink.addEventListener("click", function(e) {
       allNameSpan.textContent = "All";
       const allCountSpan = document.createElement("span");
       allCountSpan.classList.add("folder-count");
-      allLabel.appendChild(allNameSpan);
       allLabel.appendChild(allCountSpan);
+      allLabel.appendChild(allNameSpan);
       allItem.appendChild(allLabel);
       allItem.addEventListener("click", () => {
         highlightSelected(allItem);
@@ -1967,8 +1987,8 @@ downloadLink.addEventListener("click", function(e) {
   folderNameSpan.textContent = parent;
   const folderCountSpan = document.createElement("span");
   folderCountSpan.classList.add("folder-count");
-  parentLabel.appendChild(folderNameSpan);
   parentLabel.appendChild(folderCountSpan);
+  parentLabel.appendChild(folderNameSpan);
   parentLi.appendChild(parentLabel);
 
   parentLi.setAttribute("data-filter", parent);
@@ -1993,8 +2013,8 @@ downloadLink.addEventListener("click", function(e) {
             childNameSpan.textContent = child;
             const childCountSpan = document.createElement("span");
             childCountSpan.classList.add("folder-count");
-            childLabel.appendChild(childNameSpan);
             childLabel.appendChild(childCountSpan);
+            childLabel.appendChild(childNameSpan);
             childLi.appendChild(childLabel);
             childLi.setAttribute("data-filter", parent + "/" + child);
             childLi.addEventListener("click", (e) => {
@@ -2224,7 +2244,7 @@ downloadLink.addEventListener("click", function(e) {
       if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) { return; }
       try {
         const deletePromises = selectedImages.map(async (container) => {
-          const imageUrl = container.querySelector("img").src;
+          const imageUrl = container.dataset.url;
           const imageId = await findImageIdByUrl(imageUrl);
           if (imageId) {
             await db.collection('images').doc(imageId).delete();
@@ -2331,7 +2351,7 @@ downloadLink.addEventListener("click", function(e) {
       }
       try {
         const movePromises = selectedImagesForMove.map(async (container) => {
-          const imageUrl = container.querySelector("img").src;
+          const imageUrl = container.dataset.url;
           const imageId = await findImageIdByUrl(imageUrl);
           if (imageId) {
             await db.collection('images').doc(imageId).update({
@@ -2706,7 +2726,7 @@ function closeEnlargeModal() {
           const group = document.createElement("div");
           group.style.marginBottom = "1rem";
           group.style.paddingBottom = "1rem";
-          group.style.borderBottom = "1px solid rgba(255,255,255,0.15)";
+          group.style.borderBottom = "1px solid var(--border-strong)";
 
           const thumb = document.createElement("img");
           thumb.src = url;
@@ -3279,7 +3299,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     if (details) {
       details.textContent = `Error: ${error.message || 'Unknown error'}`;
       details.title = details.textContent; // full message on hover, since the row is truncated
-      details.style.color = "#ff3b30";
+      details.style.color = "var(--danger)";
     }
   }
 }
@@ -3341,7 +3361,7 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       if (details) {
         details.textContent = `Error: ${error.message || 'Unknown error'}`;
         details.title = details.textContent; // full message on hover, since the row is truncated
-        details.style.color = "#ff3b30";
+        details.style.color = "var(--danger)";
       }
     }
 
@@ -3392,15 +3412,12 @@ document.getElementById("closePreferencesPanelBtn").addEventListener("click", ()
   document.getElementById("preferencesPanel").classList.remove("active"); 
 });
 document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
-  const requiredValue = "YWRtaW4xMjM=";
-  if (document.getElementById("userPreference").value === atob(requiredValue)) {
-    editButtons.forEach(button => { button.style.display = "block"; });
-    separators.forEach(separator => { separator.style.display = "block"; }); 
-    document.getElementById("preferencesPanel").classList.remove("active");
-    document.getElementById("userPreference").value = "";
-  } else {
-    alert("Invalid preference value. Please try again.");
-  }
+  // No password check for now — admin controls are granted as soon as the
+  // panel is applied, regardless of what's typed in the ID field.
+  editButtons.forEach(button => { button.style.display = "block"; });
+  separators.forEach(separator => { separator.style.display = "block"; });
+  document.getElementById("preferencesPanel").classList.remove("active");
+  document.getElementById("userPreference").value = "";
 });
 
    document.addEventListener("DOMContentLoaded", async () => {
