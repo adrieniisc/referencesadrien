@@ -860,10 +860,15 @@
 .top-search-bar {
   position: absolute;
   top: 15px;
-  left: calc(var(--sidebar-width) + 20px);
-  right: 170px; /* Leaves room for the About button */
+  /* Same horizontal insets as .main-content, so this bar lines up with the
+     gallery below it instead of looking randomly narrower. padding-right
+     (not a bigger `right`) reserves room for the About button, so it only
+     nudges where the search pill is centered without shrinking the box
+     itself out of alignment with the gallery. */
+  left: calc(var(--sidebar-width) + 0.8rem);
+  right: 0.8rem;
+  padding-right: 160px;
   z-index: 1000;
-  padding: 0;
   display: flex;
   justify-content: center;
 }
@@ -1096,7 +1101,7 @@
 @media (max-width: 640px) {
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
-  .top-search-bar { left: calc(var(--sidebar-width) + 10px); right: 120px; top: 12px; }
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.6rem); right: 0.6rem; padding-right: 104px; top: 12px; }
   .about-btn { top: 12px; right: 14px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
   .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 70px; }
@@ -1109,7 +1114,7 @@
    keeps usable room next to it */
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
-  .top-search-bar { left: calc(var(--sidebar-width) + 8px); right: 96px; }
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.6rem); right: 0.6rem; padding-right: 88px; }
   .about-btn { width: 78px; right: 10px; padding: 6px 8px; font-size: 0.78rem; }
 }
 
