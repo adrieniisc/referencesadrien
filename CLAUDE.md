@@ -8,16 +8,22 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 - **`index.html`** — the entire frontend. One page, one big inline `<style>` block, one big
   inline `<script>` block. No build step, no bundler, no framework. Data flows straight from
   Firestore/Cloudinary into DOM manipulation.
-  - `compressImageIfNeeded()` recompresses oversized photos (JPEG quality reduction, not
-    resizing) client-side before upload, since Netlify Functions cap request bodies around 6MB —
-    an oversized upload that skips this gets rejected mid-stream by `upload.js`'s Busboy parser
-    ("Unexpected end of form"), not with a clean size-limit error. It decodes via `<img>`/canvas,
-    which can't read HEIC; `heic2any` (another CDN script, same pattern as the TF.js/MobileNet
-    ones below) is the fallback decoder when that native decode throws — this covers real
-    `.heic`/`.heif` files and also the case where iOS/Safari hands the page raw HEIC bytes under
-    a misleading `.jpeg` name/type. Don't remove the native-decode-first path even though
-    `heic2any` alone could handle everything — canvas is faster and avoids an unnecessary decode
-    round-trip for the common (non-HEIC) case.
+  - `compressImageIfNeeded()` handles two separate problems that produce the identical symptom
+    (`upload.js`'s Busboy parser dies mid-stream with "Unexpected end of form", not a clean
+    error): (1) **any** HEIC/HEIF upload, regardless of size — confirmed by reproduction that
+    Netlify's function can't reliably accept raw HEIC bytes at all, so these always get decoded
+    and re-encoded as JPEG before upload, even a small 2MB HEIC that's nowhere near the size
+    limit; (2) oversized photos in general, since Netlify Functions cap request bodies around
+    6MB — those get the same JPEG re-encode, quality lowered (not resized) just enough to fit.
+    HEIC detection (`isHeicFile()`) sniffs the file's actual ISO-BMFF `ftyp` box instead of
+    trusting the name/MIME type, since both can lie (iOS/Safari sometimes hands the page raw
+    HEIC bytes under a misleading `.jpeg` name/type). Decoding goes through `<img>`/canvas first
+    (most browsers can't read HEIC this way, but it's faster and avoids an unnecessary decode
+    round-trip when it does work — e.g. Safari, which often can); `heic2any` (another CDN
+    script, same pattern as the TF.js/MobileNet ones below) is the fallback decoder when native
+    decode throws, converting to PNG first so the only lossy step stays the JPEG re-encode.
+    Don't gate the HEIC path behind the size check again — that was the original (wrong) design
+    and it's why the fix didn't work the first time.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
