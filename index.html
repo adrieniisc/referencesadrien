@@ -1648,7 +1648,11 @@ aboutModal.addEventListener("click", (e) => {
     }
 
     // Decode a browser-natively-supported image blob (JPEG/PNG/WebP/...) onto
-    // a canvas. Throws if the browser can't decode it (e.g. HEIC).
+    // a canvas. Throws if the browser can't decode it (e.g. HEIC) - including
+    // when it *claims* to (Safari's native HEIC support is inconsistent for
+    // blob: URLs specifically: onload can fire with no error but a 0x0
+    // image, which would otherwise silently produce an empty canvas instead
+    // of surfacing a decode failure).
     async function decodeToCanvas(blob) {
       const objectUrl = URL.createObjectURL(blob);
       try {
@@ -1658,6 +1662,9 @@ aboutModal.addEventListener("click", (e) => {
           img.onerror = reject;
           img.src = objectUrl;
         });
+        if (!img.naturalWidth || !img.naturalHeight) {
+          throw new Error('Decoded image has no dimensions');
+        }
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
@@ -1697,16 +1704,18 @@ aboutModal.addEventListener("click", (e) => {
 
       try {
         let canvas;
-        try {
-          canvas = await decodeToCanvas(file);
-        } catch (decodeErr) {
-          // Most browsers can't decode HEIC/HEIF in an <img> tag. Decode it with
-          // heic2any instead (to PNG, so this stays lossless - the only lossy
-          // step is the JPEG re-encode below), then retry.
-          if (typeof heic2any === 'undefined') throw decodeErr;
+        if (isHeic) {
+          // Don't even try the native <img> path for HEIC: most browsers can't
+          // decode it there at all (reliably throws), but Safari's support is
+          // inconsistent enough - it can silently "succeed" with a broken
+          // image for some HEIC files specifically as blob: URLs - that
+          // trusting it is worse than just always paying for heic2any.
+          if (typeof heic2any === 'undefined') throw new Error('heic2any not loaded');
           const converted = await heic2any({ blob: file, toType: 'image/png' });
           const pngBlob = Array.isArray(converted) ? converted[0] : converted;
           canvas = await decodeToCanvas(pngBlob);
+        } else {
+          canvas = await decodeToCanvas(file);
         }
 
         let quality = 0.92;

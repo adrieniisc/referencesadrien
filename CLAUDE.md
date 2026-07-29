@@ -19,14 +19,26 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
        behind a size check (the original design) is why the first attempt at this fix didn't
        work. Detection (`isHeicFile()`) sniffs the file's actual ISO-BMFF `ftyp` box instead of
        trusting name/MIME type, since both can lie (iOS/Safari sometimes hands the page raw HEIC
-       bytes under a misleading `.jpeg` name/type). Decoding tries `<img>`/canvas first (most
-       browsers can't read HEIC this way, but it's faster and works in some, e.g. Safari);
-       `heic2any` (CDN script, same pattern as TF.js/MobileNet below) is the fallback when native
-       decode throws, converting to PNG first so the JPEG re-encode stays the only lossy step.
-    2. **Oversized photos in general, any format** — Netlify Functions cap request bodies around
+       bytes under a misleading `.jpeg` name/type, confirmed with a real iPhone SE photo: Finder
+       showed `.HEIC`, the browser's `File.name` showed `.jpeg`). `heic2any` (CDN script, same
+       pattern as TF.js/MobileNet below) does the actual decoding, to PNG first so the JPEG
+       re-encode stays the only lossy step.
+    2. **Don't try native `<img>`/canvas decode before `heic2any` for files detected as HEIC**,
+       even though it works for every other format and seems like a reasonable fast path (this
+       was the original design of step 1 above, and was itself a bug that needed a follow-up
+       fix). Chrome/Firefox reliably throw on HEIC there, but Safari's support is inconsistent
+       specifically for `blob:` URLs (i.e. exactly what `URL.createObjectURL(file)` produces) —
+       confirmed by reports that a given HEIC upload failed on Safari but succeeded on Chrome
+       from the same machine: Safari's `<img>` decode can fire `onload` with no error but a 0x0
+       image instead of throwing, which silently produced an empty canvas and uploaded the
+       original raw HEIC file instead of falling back to `heic2any`. `decodeToCanvas()` now also
+       throws if `naturalWidth`/`naturalHeight` come back 0 after `onload`, as a general
+       safety net, but HEIC specifically skips the native path entirely rather than relying on
+       that check to catch it after the fact.
+    3. **Oversized photos in general, any format** — Netlify Functions cap request bodies around
        6MB, so anything still too big after HEIC handling gets the same JPEG re-encode, quality
        lowered (not resized) just enough to fit.
-    3. **Multiple simultaneous uploads competing for upload bandwidth.** The upload-confirm
+    4. **Multiple simultaneous uploads competing for upload bandwidth.** The upload-confirm
        handler used to fire every file's `processUpload()` in an unawaited loop — fully parallel,
        no limit. Several multi-MB uploads racing over the same (often limited) uplink can keep
        any single one from finishing before Netlify's function times out, and Busboy reports
