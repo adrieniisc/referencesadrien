@@ -8,25 +8,57 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 - **`index.html`** — the entire frontend. One page, one big inline `<style>` block, one big
   inline `<script>` block. No build step, no bundler, no framework. Data flows straight from
   Firestore/Cloudinary into DOM manipulation.
-  - `compressImageIfNeeded()` handles two separate problems that produce the identical symptom
-    (`upload.js`'s Busboy parser dies mid-stream with "Unexpected end of form", not a clean
-    error): (1) **any** HEIC/HEIF upload, regardless of size — confirmed by reproduction that
-    Netlify's function can't reliably accept raw HEIC bytes at all, so these always get decoded
-    and re-encoded as JPEG before upload, even a small 2MB HEIC that's nowhere near the size
-    limit; (2) oversized photos in general, since Netlify Functions cap request bodies around
-    6MB — those get the same JPEG re-encode, quality lowered (not resized) just enough to fit.
-    HEIC detection (`isHeicFile()`) sniffs the file's actual ISO-BMFF `ftyp` box instead of
-    trusting the name/MIME type, since both can lie (iOS/Safari sometimes hands the page raw
-    HEIC bytes under a misleading `.jpeg` name/type). Decoding goes through `<img>`/canvas first
-    (most browsers can't read HEIC this way, but it's faster and avoids an unnecessary decode
-    round-trip when it does work — e.g. Safari, which often can); `heic2any` (another CDN
-    script, same pattern as the TF.js/MobileNet ones below) is the fallback decoder when native
-    decode throws, converting to PNG first so the only lossy step stays the JPEG re-encode.
-    Don't gate the HEIC path behind the size check again — that was the original (wrong) design
-    and it's why the fix didn't work the first time.
+  - Uploads failing with a 502 from `upload.js` — Busboy's "Unexpected end of form" — has turned
+    out to have **multiple independent causes that produce the exact same client-visible error**.
+    A report of "still broken" after fixing one of these does NOT mean that fix was wrong; check
+    which mechanism actually applies (file format? file size? uploaded alongside others?) before
+    assuming the same cause needs revisiting again:
+    1. **Any HEIC/HEIF upload, regardless of size** — Netlify's function can't reliably accept
+       raw HEIC bytes at all. `compressImageIfNeeded()` always decodes and re-encodes HEIC/HEIF
+       as JPEG before upload, even a small 2MB HEIC nowhere near the size limit — gating this
+       behind a size check (the original design) is why the first attempt at this fix didn't
+       work. Detection (`isHeicFile()`) sniffs the file's actual ISO-BMFF `ftyp` box instead of
+       trusting name/MIME type, since both can lie (iOS/Safari sometimes hands the page raw HEIC
+       bytes under a misleading `.jpeg` name/type, confirmed with a real iPhone SE photo: Finder
+       showed `.HEIC`, the browser's `File.name` showed `.jpeg`). `heic2any` (CDN script, same
+       pattern as TF.js/MobileNet below) does the actual decoding, to PNG first so the JPEG
+       re-encode stays the only lossy step.
+    2. **Don't try native `<img>`/canvas decode before `heic2any` for files detected as HEIC**,
+       even though it works for every other format and seems like a reasonable fast path (this
+       was the original design of step 1 above, and was itself a bug that needed a follow-up
+       fix). Chrome/Firefox reliably throw on HEIC there, but Safari's support is inconsistent
+       specifically for `blob:` URLs (i.e. exactly what `URL.createObjectURL(file)` produces) —
+       confirmed by reports that a given HEIC upload failed on Safari but succeeded on Chrome
+       from the same machine: Safari's `<img>` decode can fire `onload` with no error but a 0x0
+       image instead of throwing, which silently produced an empty canvas and uploaded the
+       original raw HEIC file instead of falling back to `heic2any`. `decodeToCanvas()` now also
+       throws if `naturalWidth`/`naturalHeight` come back 0 after `onload`, as a general
+       safety net, but HEIC specifically skips the native path entirely rather than relying on
+       that check to catch it after the fact.
+    3. **Oversized photos in general, any format** — Netlify Functions cap request bodies around
+       6MB, so anything still too big after HEIC handling gets the same JPEG re-encode, quality
+       lowered (not resized) just enough to fit.
+    4. **Multiple simultaneous uploads competing for upload bandwidth.** The upload-confirm
+       handler used to fire every file's `processUpload()` in an unawaited loop — fully parallel,
+       no limit. Several multi-MB uploads racing over the same (often limited) uplink can keep
+       any single one from finishing before Netlify's function times out, and Busboy reports
+       that identically as "Unexpected end of form". This reproduced even for a genuinely native
+       JPEG uploaded alongside several siblings — which is what revealed the problem wasn't
+       purely about HEIC. Uploads now run sequentially (`await`ed in a loop) instead of all at
+       once; DOM upload-dock items are still all created up front so the queue is visible
+       immediately.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
+  - Busboy's `Multipart` stream emits `'error'` in **two separate places** for one underlying
+    parse failure: once on the `busboy` instance itself, and independently on the per-file
+    stream handed to the `'file'` event (its `_destroy` explicitly destroys that inner stream
+    with the same error). Both need a listener — an EventEmitter that emits `'error'` with zero
+    listeners crashes the process — which is why a truncated upload used to take down the whole
+    Lambda invocation (502 with a raw internal stack trace) instead of returning a clean,
+    retryable error. Confirmed by reproduction in a Jest test: listening only on the outer
+    `busboy` still crashed with the identical trace, because the *inner* file stream's error was
+    the one actually unhandled.
 - **`netlify/functions/cloudVision.js`** — calls Google Cloud Vision (`LABEL_DETECTION`) to tag
   an uploaded image; falls back to client-side MobileNet (TensorFlow.js, loaded from a CDN) if
   Vision fails or the key is missing.
