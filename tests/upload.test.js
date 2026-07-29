@@ -57,4 +57,24 @@ describe('upload handler', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toEqual({ url: `http://example.com/${receivedOptions.public_id}` });
   });
+
+  test('returns a clean 400 for a truncated multipart body instead of throwing', async () => {
+    const boundary = '----testboundary';
+    // Missing the closing "--boundary--" - simulates a request that got cut
+    // off in transit before finishing.
+    const body = `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="file"; filename="test.txt"\r\n` +
+      'Content-Type: text/plain\r\n\r\n' +
+      'hello world\r\n';
+
+    const result = await runHandler({
+      httpMethod: 'POST',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      body,
+      isBase64Encoded: false,
+    });
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).error).toMatch(/upload did not complete/i);
+  });
 });

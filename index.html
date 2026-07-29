@@ -2901,13 +2901,12 @@ function closeEnlargeModal() {
     return;
   }
   
-  // Process each file
+  // Create all the upload dock items up front, so the whole queue is visible
+  // immediately even though the uploads themselves run one at a time below.
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    
-    // Create upload item in the dock
     const uploadItemId = `upload-${uploadBatchId}-${i}`;
-    
+
     const uploadItem = document.createElement("div");
     uploadItem.classList.add("upload-dock-item");
     uploadItem.id = uploadItemId;
@@ -2921,11 +2920,18 @@ function closeEnlargeModal() {
         <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
       </div>
     `;
-    
+
     uploadDockContent.appendChild(uploadItem);
-    
-    // Actually call the processUpload function with the file
-    processUpload(file, folderValue, keywords, uploadItemId);
+  }
+
+  // Upload one file at a time, not all at once: several multi-MB uploads
+  // competing for the same (often limited) upload bandwidth can keep any
+  // single one of them from finishing before Netlify's function times out -
+  // busboy reports that as "Unexpected end of form" on whichever file lost
+  // the race, not as an error tied to that file's content or format.
+  for (let i = 0; i < files.length; i++) {
+    const uploadItemId = `upload-${uploadBatchId}-${i}`;
+    await processUpload(files[i], folderValue, keywords, uploadItemId);
   }
 });
 

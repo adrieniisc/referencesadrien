@@ -34,6 +34,15 @@ const handler = (event, context, callback) => {
   let fileBuffer = null;
   let fileName = '';
 
+  // Busboy (and the Cloudinary callback below) can each try to respond -
+  // make sure only the first one actually calls back to Lambda.
+  let responded = false;
+  const respond = (response) => {
+    if (responded) return;
+    responded = true;
+    callback(null, response);
+  };
+
   // When Busboy finds a file
   busboy.on('file', (fieldname, file, info) => {
     fileName = info.filename;
@@ -43,6 +52,26 @@ const handler = (event, context, callback) => {
     });
     file.on('end', () => {
       fileBuffer = Buffer.concat(chunks);
+    });
+    // A parse failure below destroys this file stream with the same error -
+    // that's a second, separate EventEmitter 'error' with no listener of its
+    // own, which crashes the invocation even though the 'error' handler below
+    // already handles the overall parse failure.
+    file.on('error', () => {});
+  });
+
+  // A request body that got cut off in transit (e.g. several uploads
+  // competing for the same limited upload bandwidth, one of them not
+  // finishing before the gateway's timeout) fails here with an "Unexpected
+  // end of form" error rather than through the normal 'finish' event. With
+  // no listener, that error is unhandled and crashes the whole invocation
+  // (a 502 with a raw internal stack trace) instead of a clean, retryable
+  // response.
+  busboy.on('error', (err) => {
+    console.error('Busboy parse error:', err);
+    respond({
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Upload did not complete - please try again', details: err.message }),
     });
   });
 
@@ -69,13 +98,13 @@ const handler = (event, context, callback) => {
       (error, result) => {
         if (error) {
           console.error('Cloudinary Upload Error:', error);
-          return callback(null, {
+          return respond({
             statusCode: 500,
             body: JSON.stringify({ error: 'Upload failed', details: error }),
           });
         }
         // Return the secure URL
-        return callback(null, {
+        return respond({
           statusCode: 200,
           body: JSON.stringify({ url: result.secure_url }),
         });
@@ -85,7 +114,7 @@ const handler = (event, context, callback) => {
     if (fileBuffer) {
       uploadStream.end(fileBuffer);
     } else {
-      return callback(null, {
+      return respond({
         statusCode: 400,
         body: JSON.stringify({ error: 'No file data received' }),
       });
