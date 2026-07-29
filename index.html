@@ -1663,22 +1663,41 @@ aboutModal.addEventListener("click", (e) => {
       }
     }
 
-    // Netlify Functions reject request bodies over ~6MB (and base64-encode
-    // binary uploads in transit, which inflates size by ~33% first). Re-encode
-    // oversized images as JPEG, lowering quality (not pixel dimensions) until
-    // they fit, so full-resolution photos from cameras/Unsplash don't 500.
+    // Sniffs the ISO-BMFF "ftyp" box at the start of the file to detect HEIC/HEIF
+    // content regardless of name or reported MIME type - both can lie (iOS/Safari
+    // sometimes hands the page raw HEIC bytes named/typed as .jpeg).
+    async function isHeicFile(file) {
+      if (/\.hei[cf]$/i.test(file.name) || /^image\/hei[cf]$/i.test(file.type)) return true;
+      try {
+        const bytes = new Uint8Array(await file.slice(4, 12).arrayBuffer());
+        if (bytes.length < 8) return false;
+        const boxType = String.fromCharCode(...bytes.subarray(0, 4));
+        const brand = String.fromCharCode(...bytes.subarray(4, 8));
+        const heicBrands = ['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs', 'mif1', 'msf1'];
+        return boxType === 'ftyp' && heicBrands.includes(brand);
+      } catch {
+        return false;
+      }
+    }
+
+    // Netlify's upload function (busboy) reliably fails on raw HEIC/HEIF uploads
+    // regardless of size ("Unexpected end of form"), so those always get converted
+    // to JPEG below. Separately, Netlify Functions reject request bodies over
+    // ~6MB (base64-encoding binary uploads in transit inflates size by ~33% first),
+    // so anything still oversized after that gets re-encoded too, lowering quality
+    // (not pixel dimensions) until it fits, so full-resolution camera photos don't 500.
     async function compressImageIfNeeded(file, maxBytes = 4.5 * 1024 * 1024) {
-      if (file.size <= maxBytes) return file;
+      const isHeic = await isHeicFile(file);
+      if (!isHeic && file.size <= maxBytes) return file;
 
       try {
         let canvas;
         try {
           canvas = await decodeToCanvas(file);
         } catch (decodeErr) {
-          // Most browsers can't decode HEIC/HEIF in an <img> tag - and iOS/Safari
-          // sometimes hands over raw HEIC bytes even when the file is named/typed
-          // as .jpeg. Decode it with heic2any (to PNG, so this stays lossless -
-          // the only lossy step is the JPEG re-encode below), then retry.
+          // Most browsers can't decode HEIC/HEIF in an <img> tag. Decode it with
+          // heic2any instead (to PNG, so this stays lossless - the only lossy
+          // step is the JPEG re-encode below), then retry.
           if (typeof heic2any === 'undefined') throw decodeErr;
           const converted = await heic2any({ blob: file, toType: 'image/png' });
           const pngBlob = Array.isArray(converted) ? converted[0] : converted;
@@ -1692,7 +1711,12 @@ aboutModal.addEventListener("click", (e) => {
           blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
         }
 
-        if (!blob || blob.size >= file.size) return file;
+        // For non-HEIC files this re-encode is purely a size optimization, so
+        // skip it if it didn't actually help. HEIC always takes the converted
+        // blob - staying HEIC isn't an option - even if JPEG (which compresses
+        // worse) comes out larger.
+        if (!blob) return file;
+        if (!isHeic && blob.size >= file.size) return file;
 
         console.log(`Compressed ${file.name}: ${(file.size / 1024 / 1024).toFixed(1)}MB -> ${(blob.size / 1024 / 1024).toFixed(1)}MB (quality ${quality.toFixed(1)})`);
         const compressedName = file.name.replace(/\.[^./]+$/, '') + '.jpg';
