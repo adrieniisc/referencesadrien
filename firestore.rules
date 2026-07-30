@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// Reference only - NOT auto-deployed. This repo has no Firebase CLI config
+// (no firebase.json / .firebaserc), so any change here must also be pasted
+// manually into the Firebase Console (Firestore Database -> Rules). Keep
+// this file in sync with whatever's actually live there, but don't assume
+// pushing this file to git does anything on its own.
+//
+// The admin email hardcoded below is the one Firebase Auth (Email/Password)
+// account allowed to write to folders/images and to read/manage
+// submissions. Create that account in Firebase Console -> Authentication ->
+// Users, after enabling the Email/Password sign-in method under
+// Authentication -> Sign-in method.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Public gallery data: anyone can read, only the admin account can write.
+    match /folders/{folderId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.token.email == 'isakovicadrien@gmail.com';
+    }
+    match /images/{imageId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.token.email == 'isakovicadrien@gmail.com';
+    }
+
+    // Public "Submit" button: anyone can create a submission with no login
+    // (allow create: if true), but only the admin account can list, read,
+    // update, or delete them - so other visitors' submitted links/notes/
+    // images stay private, visible only in the Review Submissions panel.
+    match /submissions/{submissionId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null
+        && request.auth.token.email == 'isakovicadrien@gmail.com';
+    }
+  }
+}

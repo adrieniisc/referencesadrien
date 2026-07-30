@@ -39,38 +39,51 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   - "Submit" (2026-07-30, `submitReferenceBtn`/`submitReferenceModal`) is deliberately **not**
     admin-gated — it's the public-facing counterpart to the admin tools above, for visitors who
     want to send the site owner a link (e.g. a Drive folder) or images without needing an email
-    address. It's **email-only, on purpose**: submitting fires `sendSubmissionEmailNotification()`,
-    which posts straight to FormSubmit's AJAX relay (`https://formsubmit.co/ajax/...`) addressed
-    to **isakovicadrien@gmail.com**, and that's it — nothing is written to Firestore, nothing
-    touches `images`/`folders`, and there is deliberately no second place (like a Firestore
-    collection) to go check for these. The site owner explicitly asked for exactly this: receive
-    submissions by email, then decide by hand whether to add anything through the existing Add
-    Image flow. **Don't reintroduce a Firestore write for submissions** without a fresh explicit
-    request - that was tried once in this same feature and rejected specifically because it created
-    a second, easy-to-forget-about place submissions could land invisibly. Because there's no
-    backend of our own here, a failed/unreachable relay call is a hard, user-visible error (not a
-    silently-swallowed one) — email is the *only* delivery path, so the submitter needs to know if
-    it didn't go through. **isakovicadrien@gmail.com must click the one-time "activate this inbox"
-    email FormSubmit sends on the very first real submission**, or every submission after that will
-    keep failing loudly until that's done. The destination address is a plain string in the
-    client-side fetch call, so it's visible in the browser's network tab to anyone who looks, even
-    though it's never printed anywhere in the page's own UI — an inherent trade-off of doing this
-    with no backend of our own, not an oversight. If the address ever needs to change, it's a
-    single string to edit in `index.html`, not an env var. Image uploads reuse
-    `compressImageIfNeeded()`/`uploadImage()` as-is (same Cloudinary path as admin uploads),
-    sequentially rather than in parallel, for the same reason upload.js's `Unexpected end of form`
-    fix made the admin upload dock sequential (see above) — so the images themselves do land in
-    Cloudinary (their URLs are what gets emailed), just not in Firestore/the gallery.
+    address. Submitting writes a doc to the `submissions` Firestore collection (`link`,
+    `imageUrls`, `note`, `timestamp`) — **this went through two reversals in the same session,
+    worth understanding before touching it again**: first it wrote to Firestore as a backup
+    alongside email; then, misread as "automatically adds to the gallery," it was stripped down to
+    email-only; then, once the real problem turned out to be "opening 40 individual email links
+    one at a time is unworkable," Firestore storage came back — this time specifically to back the
+    **Review Submissions** admin panel (see below), not as a backup. The Firestore write is what
+    must succeed for a submission to count; the email (`sendSubmissionEmailNotification()`, via
+    FormSubmit's AJAX relay to **isakovicadrien@gmail.com**) is fire-and-forget on top of it, just
+    a heads-up ping, and its failure is only logged (`.catch()` at the call site), never surfaced
+    to the submitter. **isakovicadrien@gmail.com must click the one-time "activate this inbox"**
+    email FormSubmit sends on the very first real submission, or the ping just silently never
+    arrives — annoying but not load-bearing, since the Firestore doc (and thus the review panel)
+    is unaffected either way. Image uploads reuse `compressImageIfNeeded()`/`uploadImage()` as-is
+    (same Cloudinary path as admin uploads), sequentially rather than in parallel, for the same
+    reason upload.js's `Unexpected end of form` fix made the admin upload dock sequential (see
+    above).
+  - **Review Submissions** (2026-07-30, `reviewSubmissionsBtn`/`reviewSubmissionsModal`) is the
+    admin-only screen that reads the `submissions` collection above: every pending submission
+    rendered as real image thumbnails (not raw links) with a per-image folder picker + "Add"
+    button, so reviewing a batch of e.g. 40 submitted images means glancing at a grid and clicking
+    "Add" on the ones worth keeping, not opening 40 links one at a time. "Add" reuses
+    `saveImageToFirebase()`/`addImageToGallery()` **directly** — the image is already sitting on
+    Cloudinary from the original submission, so this is not a re-upload, just the same two calls
+    `completeUpload()` makes after a normal admin upload finishes. "Dismiss" hard-deletes the
+    submission's Firestore doc once it's been dealt with (whether 0, some, or all of its images
+    got added) — there's no "mark as reviewed" limbo state, so don't add one without a reason;
+    the point was to keep the queue short, not to grow a permanent log.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
 - **`netlify/functions/cloudVision.js`** — calls Google Cloud Vision (`LABEL_DETECTION`) to tag
   an uploaded image; falls back to client-side MobileNet (TensorFlow.js, loaded from a CDN) if
   Vision fails or the key is missing.
-- **Firestore** — two collections: `folders` (name, parent) and `images` (url, folder, keywords,
-  filename, timestamp). No auth backing this — see "Admin access" below. Public "Submit"
-  submissions deliberately do **not** go through Firestore at all — see the "Submit" note above.
+- **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
+  filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
+  Access is controlled by real Firestore security rules now — see "Admin access" below and
+  `firestore.rules`.
 - **Cloudinary** — actual image storage/hosting + on-the-fly resizing via URL transforms.
+- **`firestore.rules`** — the security rules text, checked into this repo **for reference only**.
+  There's no `firebase.json`/`.firebaserc` here and this session has no Firebase CLI access, so
+  this file is **not** deployed automatically by anything — it has to be manually pasted into
+  Firebase Console → Firestore Database → Rules any time it changes, and it's on whoever does
+  that to keep this file in sync with what's actually live. Don't assume editing it or committing
+  it has any live effect on its own.
 
 ## Environment variables (Netlify)
 
@@ -85,19 +98,33 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 
 ## Admin access
 
-There's no real auth. "ADMIN ACCESS" opens a `UI Preferences` modal (`#userPreference` field,
-`#applyPreferenceBtn`) that reveals the edit buttons (add/move/delete/rename folders+images,
-edit image tags, find duplicates) on Apply.
+**2026-07-30: real auth, replacing the no-password gate below.** "ADMIN ACCESS" now opens an
+`#adminLoginModal` (email + password) that calls Firebase Auth's
+`signInWithEmailAndPassword()`. There is exactly **one** admin account, created manually in
+Firebase Console → Authentication → Users, using **isakovicadrien@gmail.com** (the Email/Password
+sign-in method must be enabled first, under Authentication → Sign-in method — neither step can be
+done from a coding session, no Firebase CLI/project access here).
 
-**2026-07-28: the password check was intentionally removed, at the site owner's explicit
-request ("no password for admin for now").** `applyPreferenceBtn`'s click handler now grants
-admin controls unconditionally — it no longer compares `#userPreference` against the old
-base64'd value. The modal/button/field are still there (least invasive change), just gated on
-nothing. This directly reverses the previous "keep the gate as-is" guidance below, which stood
-only until someone actually asked for it to change — now it has been asked. If you're picking
-this back up: don't silently re-add a password check, and don't silently remove the gate
-further (e.g. deleting the button/modal) without a fresh explicit request either way — confirm
-with the user before changing this again in either direction.
+The client-side button-hiding (`auth.onAuthStateChanged` toggling `editButtons`/`separators`) is
+**cosmetic only** — it exists so a random visitor doesn't see admin controls cluttering the page,
+nothing more. The actual enforcement is `firestore.rules`: writes to `folders`/`images`, and
+reads/writes to `submissions`, require `request.auth.token.email == 'isakovicadrien@gmail.com'`.
+This means even someone who forces the hidden buttons visible via devtools still can't write
+anything without actually authenticating as that exact account — unlike the previous gate, this
+one holds up against a technical visitor reading the page's source, which was the specific
+complaint that prompted this change. **The Firestore rules must actually be pasted into the
+Firebase Console for any of this to be real** — until then, whatever rules are currently live
+there are what's actually enforced, regardless of what `firestore.rules` in this repo says.
+
+**Superseded history, kept for context:** on 2026-07-28 the password check was intentionally
+*removed* entirely, at the site owner's explicit request ("no password for admin for now") —
+`applyPreferenceBtn` granted admin controls unconditionally, gated on nothing. That decision stood
+only until the site owner ran into a concrete problem it caused (an admin-only "Review
+Submissions" panel needed to exist, and a client-side-only gate around it was explicitly called
+out as insufficient — "can be opened by anyone that decoded the password in the script"). If
+you're picking this back up again: don't silently weaken this back to a client-side-only check,
+and don't silently change the sign-in method or which account(s) count as admin, without a fresh
+explicit request either way.
 
 ## Testing
 
@@ -110,8 +137,12 @@ with the user before changing this again in either direction.
   with Playwright/a headless browser. Firebase and the TensorFlow/MobileNet CDN scripts may be
   unreachable in a sandboxed session (egress policy blocking `cdn.jsdelivr.net`/`gstatic.com`) —
   in that case, stub `window.firebase` via `page.addInitScript()` before navigating so the
-  top-level `firebase.initializeApp()`/`firebase.firestore()` calls don't throw and the rest of
-  the inline script (event listener wiring) still runs.
+  top-level `firebase.initializeApp()`/`firebase.firestore()`/`firebase.auth()` calls don't throw
+  and the rest of the inline script (event listener wiring) still runs. The stub needs a fake
+  `auth()` too now (not just `firestore()`) to test anything admin-gated: at minimum
+  `onAuthStateChanged(cb)` (call `cb` immediately, keep it to notify on sign-in/out),
+  `signInWithEmailAndPassword(email, password)`, `signOut()`, and a `currentUser` getter — real
+  Firebase Auth can't run in this sandbox any more than real Firestore can.
 
 ## Working across sessions
 

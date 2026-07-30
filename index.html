@@ -1302,6 +1302,83 @@
   margin-bottom: 0.8rem;
 }
 
+/* --------------------------------------------------
+   Review Submissions Panel
+-------------------------------------------------- */
+.submissions-review-content {
+  max-width: 820px;
+}
+#reviewSubmissionsList {
+  max-height: 65vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.submission-row {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: var(--bg-sunken);
+}
+.submission-meta {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.submission-link {
+  display: block;
+  font-size: 0.88rem;
+  margin-bottom: 6px;
+  word-break: break-all;
+  color: var(--accent);
+}
+.submission-note {
+  font-size: 0.88rem;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+}
+.submission-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.submission-image-item {
+  width: 104px;
+}
+.submission-image-item img {
+  width: 104px;
+  height: 104px;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-color);
+  display: block;
+  margin-bottom: 4px;
+}
+.submission-image-item select {
+  width: 100%;
+  font-size: 0.72rem;
+  padding: 2px 4px;
+  margin-bottom: 4px;
+  background-color: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+}
+.submission-image-item button {
+  width: 100%;
+  font-size: 0.72rem;
+  padding: 3px 4px;
+}
+.submission-image-item button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.submission-dismiss-btn {
+  background-color: var(--danger) !important;
+}
+
   </style>
 
  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
@@ -1399,6 +1476,7 @@
           <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
           <button id="findDuplicatesBtn">Find Duplicates</button>
+          <button id="reviewSubmissionsBtn">Review Submissions</button>
         </div>
         <hr class="separator">
        <div class="sidebar-admin-section">
@@ -1535,15 +1613,27 @@
     <div id="duplicatesList" style="max-height: 50vh; overflow-y: auto;"></div>
   </div>
 </div>
-<!-- MODAL: UI Preferences -->
-<div class="modal-backdrop" id="preferencesPanel">
+<!-- MODAL: Review Submissions -->
+<div class="modal-backdrop" id="reviewSubmissionsModal">
+  <div class="modal-content submissions-review-content">
+    <button class="close-modal-btn" id="closeReviewSubmissionsModalBtn">&times;</button>
+    <h3>Review Submissions</h3>
+    <p style="margin-bottom: 0.8rem;">Links and images sent in through the public "Submit" button. Add whichever images are worth keeping to a folder, then dismiss the submission.</p>
+    <div id="reviewSubmissionsList"></div>
+  </div>
+</div>
+<!-- MODAL: Admin Sign In -->
+<div class="modal-backdrop" id="adminLoginModal">
   <div class="modal-content">
-    <button class="close-modal-btn" id="closePreferencesPanelBtn">&times;</button>
-    <h3>UI Preferences</h3>
-    <label for="userPreference">ID:</label>
-    <input type="password" id="userPreference" placeholder="Enter ID">
+    <button class="close-modal-btn" id="closeAdminLoginModalBtn">&times;</button>
+    <h3>Admin Sign In</h3>
+    <label for="adminEmailInput">Email:</label>
+    <input type="email" id="adminEmailInput" placeholder="you@example.com" autocomplete="username">
+    <label for="adminPasswordInput">Password:</label>
+    <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="current-password">
+    <div id="adminLoginError" class="modal-hint" style="display:none;"></div>
     <div style="margin-top:0.8rem;">
-      <button id="applyPreferenceBtn">Apply</button>
+      <button id="adminLoginBtn">Sign In</button>
     </div>
   </div>
 </div>
@@ -1556,6 +1646,7 @@
   <!-- Load Firebase SDKs via CDN -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script>
     // Initialize Firebase with your configuration
     const firebaseConfig = {
@@ -1570,6 +1661,7 @@
       firebase.initializeApp(firebaseConfig);
     }
     const db = firebase.firestore();
+    const auth = firebase.auth();
 
     // Initial variables
     let folders = [
@@ -1661,30 +1753,79 @@
     const newFolderAdminBtn = document.getElementById("newFolderAdminBtn");
     const addImageAdminBtn = document.getElementById("addImageAdminBtn");
 
-    // Admin login elements
-    const adminBtn = document.getElementById("adminBtn");
-    const adminModal = document.getElementById("adminModal");
-    const closeAdminModalBtn = document.getElementById("closeAdminModalBtn");
-    const confirmAdminBtn = document.getElementById("confirmAdminBtn");
+    // Admin sign-in elements
+    const adminLoginModal = document.getElementById("adminLoginModal");
+    const closeAdminLoginModalBtn = document.getElementById("closeAdminLoginModalBtn");
+    const adminEmailInput = document.getElementById("adminEmailInput");
+    const adminPasswordInput = document.getElementById("adminPasswordInput");
+    const adminLoginError = document.getElementById("adminLoginError");
+    const adminLoginBtn = document.getElementById("adminLoginBtn");
 
-    // All editing buttons in the sidebar footer and separators
-    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminaccessBtn)");
+    // Review Submissions elements
+    const reviewSubmissionsBtn = document.getElementById("reviewSubmissionsBtn");
+    const reviewSubmissionsModal = document.getElementById("reviewSubmissionsModal");
+    const closeReviewSubmissionsModalBtn = document.getElementById("closeReviewSubmissionsModalBtn");
+    const reviewSubmissionsList = document.getElementById("reviewSubmissionsList");
+
+    // All editing buttons in the sidebar footer and separators - shown/hidden
+    // by the onAuthStateChanged listener below, not by this initial pass.
+    // This is a UI convenience only: the real gate is the Firestore security
+    // rules keyed on the signed-in user's exact email, so even someone who
+    // forces these buttons visible via devtools still can't actually write
+    // anything without being authenticated as the admin account.
+    const editButtons = document.querySelectorAll(".sidebar-footer button:not(#adminaccessbtn)");
     const separators = document.querySelectorAll(".separator");
 
-    
-
-    // Hide edit buttons and separators by default
-      editButtons.forEach(button => { button.style.display = "none"; });
-      separators.forEach(separator => { separator.style.display = "none"; });
-  
+    editButtons.forEach(button => { button.style.display = "none"; });
+    separators.forEach(separator => { separator.style.display = "none"; });
 
     const mainImageSearch = document.getElementById("mainImageSearch");
 
     const adminAccessBtn = document.getElementById("adminaccessbtn");
 
-   document.getElementById("adminaccessbtn").addEventListener("click", () => {
-   document.getElementById("preferencesPanel").classList.add("active");
-});
+    adminAccessBtn.addEventListener("click", () => {
+      if (auth.currentUser) {
+        auth.signOut();
+      } else {
+        adminLoginError.style.display = "none";
+        adminLoginModal.classList.add("active");
+      }
+    });
+
+    closeAdminLoginModalBtn.addEventListener("click", () => { adminLoginModal.classList.remove("active"); });
+    adminLoginModal.addEventListener("click", (e) => { if (e.target === adminLoginModal) { adminLoginModal.classList.remove("active"); } });
+
+    adminLoginBtn.addEventListener("click", async () => {
+      const email = adminEmailInput.value.trim();
+      const password = adminPasswordInput.value;
+      adminLoginError.style.display = "none";
+      if (!email || !password) {
+        adminLoginError.textContent = "Enter both an email and a password.";
+        adminLoginError.style.display = "block";
+        return;
+      }
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        adminEmailInput.value = "";
+        adminPasswordInput.value = "";
+        adminLoginModal.classList.remove("active");
+      } catch (error) {
+        adminLoginError.textContent = `Sign in failed: ${error.message}`;
+        adminLoginError.style.display = "block";
+      }
+    });
+
+    // The single source of truth for whether admin controls show - fires
+    // once immediately with whatever session Firebase already has (e.g.
+    // still signed in from a previous visit), then again on every sign-in/
+    // sign-out.
+    auth.onAuthStateChanged((user) => {
+      const isSignedIn = !!user;
+      editButtons.forEach(button => { button.style.display = isSignedIn ? "block" : "none"; });
+      separators.forEach(separator => { separator.style.display = isSignedIn ? "block" : "none"; });
+      adminAccessBtn.textContent = isSignedIn ? "SIGN OUT" : "ADMIN ACCESS";
+      adminAccessBtn.style.display = "block";
+    });
 
     /********************************************************
      * Justified Gallery Layout
@@ -1818,11 +1959,12 @@ aboutModal.addEventListener("click", (e) => {
     /********************************************************
      * Submit Reference (public - not admin-gated)
      * Lets anyone send a link and/or images without needing an email
-     * address. Emailed straight to the site owner (see
-     * sendSubmissionEmailNotification below) - not written to Firestore or
-     * the gallery at all, so nothing shows up publicly and there's no
-     * separate place to go check; reviewing and adding anything worth
-     * keeping is entirely manual, through the existing Add Image flow.
+     * address. Written to the 'submissions' Firestore collection - never
+     * the gallery's own 'images'/'folders' collections, so nothing shows
+     * up publicly - for review in the admin-only Review Submissions panel,
+     * plus a best-effort email heads-up (see sendSubmissionEmailNotification
+     * below). Reviewing and adding anything worth keeping is a deliberate,
+     * manual action taken from that panel, never automatic.
      ********************************************************/
     const submitReferenceBtn = document.getElementById("submitReferenceBtn");
     const submitReferenceModal = document.getElementById("submitReferenceModal");
@@ -1892,14 +2034,14 @@ aboutModal.addEventListener("click", (e) => {
       submitReferenceStatus.textContent = "";
     }
 
-    // Best-effort email notification via FormSubmit's AJAX relay - no backend
-    // of our own, no API key. isakovicadrien@gmail.com must click the
-    // one-time "activate this inbox" email FormSubmit sends on the very
-    // first submission before notifications start arriving. This email is
-    // the only record of a submission - deliberately not also written to
-    // Firestore, so there isn't a second place to check for these; the site
-    // owner wants to receive them by email and add anything worth keeping
-    // by hand through the existing Add Image flow, nothing automatic.
+    // Best-effort email heads-up via FormSubmit's AJAX relay - no backend of
+    // our own, no API key. isakovicadrien@gmail.com must click the one-time
+    // "activate this inbox" email FormSubmit sends on the very first
+    // submission before notifications start arriving. This is just a ping;
+    // the actual review happens in the Review Submissions panel, which reads
+    // the Firestore doc written alongside this call, so a failed/slow email
+    // here is only logged (see the .catch() at the call site), never a
+    // reason to fail the submission.
     // Note this address is visible in the browser's network tab (it's a
     // client-side POST), just never shown anywhere in the page's own UI.
     async function sendSubmissionEmailNotification({ link, imageUrls, note }) {
@@ -1945,7 +2087,19 @@ aboutModal.addEventListener("click", (e) => {
           imageUrls.push(url);
         }
 
-        await sendSubmissionEmailNotification({ link: linkValue, imageUrls, note: noteValue });
+        // The Firestore write is what the Review Submissions panel actually
+        // reads, so it's what must succeed. The email is just a heads-up on
+        // top of it - fire-and-forget, not awaited, so a slow/unreachable
+        // relay can't delay or fail an otherwise-successful submission.
+        await db.collection('submissions').add({
+          link: linkValue,
+          imageUrls: imageUrls,
+          note: noteValue,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          addTime: Date.now()
+        });
+        sendSubmissionEmailNotification({ link: linkValue, imageUrls, note: noteValue })
+          .catch(error => console.warn('Submission saved, but the email notification failed to send:', error));
 
         showSubmitReferenceStatus("Thanks! Your submission was received.", false);
         setTimeout(() => {
@@ -3246,6 +3400,145 @@ function closeEnlargeModal() {
     closeDuplicatesModalBtn.addEventListener("click", () => { duplicatesModal.classList.remove("active"); });
     duplicatesModal.addEventListener("click", (e) => { if (e.target === duplicatesModal) duplicatesModal.classList.remove("active"); });
 
+    /********************************************************
+     * Review Submissions
+     * Admin-only view of what's landed in the 'submissions' collection via
+     * the public Submit button. Each image gets its own folder picker so
+     * they can be added independently (skip the ones not worth keeping) -
+     * adding reuses saveImageToFirebase()/addImageToGallery() directly since
+     * the file is already on Cloudinary from the original submission, no
+     * re-upload needed. Dismissing a submission deletes its Firestore doc
+     * entirely once it's been dealt with (added, some, all, or none).
+     ********************************************************/
+    function populateFolderSelectOptions(selectEl) {
+      selectEl.innerHTML = '<option value="">Choose folder…</option>';
+      const structure = buildFolderStructure();
+      Object.keys(structure).sort().forEach(parent => {
+        const opt = document.createElement("option");
+        opt.value = parent;
+        opt.textContent = parent;
+        selectEl.appendChild(opt);
+        (structure[parent] || []).forEach(child => {
+          const childOpt = document.createElement("option");
+          childOpt.value = parent + "/" + child;
+          childOpt.textContent = "— " + child;
+          selectEl.appendChild(childOpt);
+        });
+      });
+    }
+
+    function renderSubmissionRow(id, data) {
+      const row = document.createElement("div");
+      row.className = "submission-row";
+
+      const meta = document.createElement("div");
+      meta.className = "submission-meta";
+      const when = data.addTime ? new Date(data.addTime).toLocaleString() : "";
+      meta.textContent = when;
+      row.appendChild(meta);
+
+      if (data.link) {
+        const link = document.createElement("a");
+        link.className = "submission-link";
+        link.href = data.link;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = data.link;
+        row.appendChild(link);
+      }
+
+      if (data.note) {
+        const note = document.createElement("div");
+        note.className = "submission-note";
+        note.textContent = data.note;
+        row.appendChild(note);
+      }
+
+      if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0) {
+        const imagesWrap = document.createElement("div");
+        imagesWrap.className = "submission-images";
+        data.imageUrls.forEach(url => {
+          const item = document.createElement("div");
+          item.className = "submission-image-item";
+
+          const thumb = document.createElement("img");
+          thumb.src = cloudinaryDisplayUrl(url, { width: 300 });
+          item.appendChild(thumb);
+
+          const folderSelectEl = document.createElement("select");
+          populateFolderSelectOptions(folderSelectEl);
+          item.appendChild(folderSelectEl);
+
+          const addBtn = document.createElement("button");
+          addBtn.type = "button";
+          addBtn.textContent = "Add";
+          addBtn.addEventListener("click", async () => {
+            const folder = folderSelectEl.value;
+            if (!folder) { alert("Choose a folder first."); return; }
+            addBtn.disabled = true;
+            addBtn.textContent = "Adding…";
+            try {
+              await saveImageToFirebase(url, folder, "", "submission-image");
+              addImageToGallery(url, folder, "", "submission-image", Date.now());
+              updateFolderCounts();
+              addBtn.textContent = "Added";
+              folderSelectEl.disabled = true;
+            } catch (error) {
+              console.error("Error adding submitted image:", error);
+              addBtn.disabled = false;
+              addBtn.textContent = "Add";
+              alert(`Error adding image: ${error.message}`);
+            }
+          });
+          item.appendChild(addBtn);
+
+          imagesWrap.appendChild(item);
+        });
+        row.appendChild(imagesWrap);
+      }
+
+      const dismissBtn = document.createElement("button");
+      dismissBtn.type = "button";
+      dismissBtn.className = "submission-dismiss-btn";
+      dismissBtn.textContent = "Dismiss";
+      dismissBtn.addEventListener("click", async () => {
+        if (!confirm("Dismiss this submission? This can't be undone.")) return;
+        try {
+          await db.collection("submissions").doc(id).delete();
+          row.remove();
+        } catch (error) {
+          console.error("Error dismissing submission:", error);
+          alert(`Error dismissing submission: ${error.message}`);
+        }
+      });
+      row.appendChild(dismissBtn);
+
+      reviewSubmissionsList.appendChild(row);
+    }
+
+    async function loadSubmissions() {
+      reviewSubmissionsList.innerHTML = "<p class=\"modal-hint\">Loading…</p>";
+      try {
+        const snapshot = await db.collection("submissions").orderBy("timestamp", "desc").get();
+        reviewSubmissionsList.innerHTML = "";
+        if (snapshot.empty) {
+          reviewSubmissionsList.innerHTML = '<p class="modal-hint">No pending submissions.</p>';
+          return;
+        }
+        snapshot.forEach(doc => { renderSubmissionRow(doc.id, doc.data()); });
+      } catch (error) {
+        console.error("Error loading submissions:", error);
+        reviewSubmissionsList.innerHTML = `<p class="modal-hint">Error loading submissions: ${error.message}</p>`;
+      }
+    }
+
+    reviewSubmissionsBtn.addEventListener("click", () => {
+      reviewSubmissionsModal.classList.add("active");
+      loadSubmissions();
+    });
+    closeReviewSubmissionsModalBtn.addEventListener("click", () => { reviewSubmissionsModal.classList.remove("active"); });
+    reviewSubmissionsModal.addEventListener("click", (e) => { if (e.target === reviewSubmissionsModal) reviewSubmissionsModal.classList.remove("active"); });
+
     // Confirm Rename Folder button
     confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
@@ -3288,8 +3581,9 @@ function closeEnlargeModal() {
     return; 
   }
   
-  // Check if admin mode is active
-  const isAdminMode = editButtons[0].style.display === "block";
+  // Check if admin mode is active - the Firestore security rules are the
+  // real enforcement, this is just a friendlier client-side message.
+  const isAdminMode = !!auth.currentUser;
   if (!isAdminMode) {
     alert("You need admin access to upload files.");
     return;
@@ -3899,38 +4193,10 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       });
     });
 
-   
-document.getElementById("closePreferencesPanelBtn").addEventListener("click", () => { 
-  document.getElementById("preferencesPanel").classList.remove("active"); 
-});
-document.getElementById("applyPreferenceBtn").addEventListener("click", () => {
-  // No password check for now — admin controls are granted as soon as the
-  // panel is applied, regardless of what's typed in the ID field.
-  editButtons.forEach(button => { button.style.display = "block"; });
-  separators.forEach(separator => { separator.style.display = "block"; });
-  document.getElementById("preferencesPanel").classList.remove("active");
-  document.getElementById("userPreference").value = "";
-});
-
    document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("DOM loaded, initializing application...");
-    // Hide admin buttons by default
-    const adminButtons = document.querySelectorAll(".sidebar-footer button:not(#adminaccessbtn)");
-    adminButtons.forEach(button => { button.style.display = "none"; });
-    
-    const seps = document.querySelectorAll(".separator");
-    seps.forEach(separator => { separator.style.display = "none"; });
-    
-    // Make sure admin access button is visible
-    const adminBtn = document.getElementById("adminaccessbtn");
-    if (adminBtn) {
-      adminBtn.style.display = "block";
-      console.log("Admin access button displayed");
-    } else {
-      console.error("Could not find admin access button");
-    }
-    
+
     // Initialize the upload dock
     const uploadDock = document.getElementById("uploadDock");
     if (uploadDock) {
