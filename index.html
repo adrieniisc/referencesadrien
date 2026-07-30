@@ -96,27 +96,29 @@
   color: var(--text);
 }
 
-/* Submit Reference Button CSS - stacked under About, same footprint so it
-   doesn't need its own clearance from the search bar's padding-right */
+/* Submit Reference Button CSS - sits on the same row as About, just to its
+   left, with matching visual weight so it doesn't read as an accidental
+   floating fragment. Same box model as .about-btn, different `right`. */
 .submit-reference-btn {
   position: absolute;
-  top: 65px;
-  right: 40px;
-  background-color: rgba(24, 24, 27, 0.35);
-  color: var(--text-faint);
+  top: 15px;
+  right: 172px;
+  background-color: rgba(24, 24, 27, 0.45);
+  color: var(--text-muted);
   border: 1px solid var(--border-color);
-  padding: 8px 16px;
+  padding: 10px 16px;
   border-radius: 12px;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 400;
   cursor: pointer;
   width: 120px;
   text-align: center;
   z-index: 1200;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  height: 34px;
-  line-height: 18px;
+  height: 40px;
+  line-height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -124,7 +126,7 @@
 }
 
 .submit-reference-btn:hover {
-  background-color: rgba(32, 32, 36, 0.75);
+  background-color: rgba(32, 32, 36, 0.8);
   border-color: var(--border-strong);
   color: var(--text);
 }
@@ -949,12 +951,14 @@
 .top-search-bar {
   position: absolute;
   top: 15px;
-  /* Fills the full width between the sidebar and the About button, each
-     kept as an explicit margin (left / padding-right below) rather than
-     centering a fixed-width pill with empty space on both sides. */
+  /* Fills the full width between the sidebar and the About/Submit button
+     pair, each kept as an explicit margin (left / padding-right below)
+     rather than centering a fixed-width pill with empty space on both
+     sides. padding-right covers both buttons (Submit sits just left of
+     About - see .submit-reference-btn's `right`) plus a clear gap. */
   left: calc(var(--sidebar-width) + 1.2rem);
   right: 0.8rem;
-  padding-right: 180px;
+  padding-right: 310px;
   z-index: 1000;
   display: flex;
   justify-content: center;
@@ -1179,6 +1183,21 @@
 }
 
 /* --------------------------------------------------
+   Header button pair (Submit + About) shrinks a bit before the main
+   640px breakpoint - two side-by-side buttons need more reserved width
+   than About alone used to, and the gap between "everything still fits"
+   and "sidebar starts shrinking too" is otherwise too wide, cramping the
+   search input around tablet-ish widths.
+-------------------------------------------------- */
+@media (max-width: 900px) {
+  :root { --sidebar-width: 230px; }
+  .top-search-bar { padding-right: 230px; }
+  .about-btn { width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  .submit-reference-btn { width: 90px; right: 138px; padding: 8px 10px; font-size: 0.85rem; }
+  #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
+}
+
+/* --------------------------------------------------
    Responsive layout for narrow windows
    (sidebar and header shrink so nothing overlaps
    or overflows the viewport)
@@ -1186,9 +1205,9 @@
 @media (max-width: 640px) {
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.8rem); right: 0.6rem; padding-right: 118px; top: 12px; }
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.8rem); right: 0.6rem; padding-right: 206px; top: 12px; }
   .about-btn { top: 12px; right: 14px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .submit-reference-btn { top: 60px; right: 14px; width: 90px; height: 30px; padding: 6px 8px; font-size: 0.75rem; }
+  .submit-reference-btn { top: 12px; right: 112px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
   .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 70px; }
   .floating-size-panel { right: 12px; bottom: 12px; }
@@ -1196,13 +1215,16 @@
   .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
 }
 
-/* Extra-narrow phones: shrink the sidebar further so the search bar
-   keeps usable room next to it */
+/* Extra-narrow phones: shrink the sidebar further, and - since there's no
+   longer room for Submit + About beside the search bar too - drop them to
+   their own row below it instead of shrinking them to an illegibly small,
+   hard-to-tap size. */
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.75rem); right: 0.6rem; padding-right: 100px; }
-  .about-btn { width: 78px; right: 10px; padding: 6px 8px; font-size: 0.78rem; }
-  .submit-reference-btn { width: 78px; right: 10px; padding: 5px 6px; font-size: 0.68rem; }
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.75rem); right: 0.6rem; padding-right: 10px; }
+  .about-btn { top: 54px; width: 78px; right: 10px; padding: 6px 8px; font-size: 0.78rem; }
+  .submit-reference-btn { top: 54px; width: 78px; right: 94px; padding: 6px 8px; font-size: 0.78rem; }
+  .main-content { padding-top: 96px; }
 }
 
 .batch-tag-review-content {
@@ -1319,7 +1341,7 @@
     <div class="modal-content">
       <button class="close-modal-btn" id="closeSubmitReferenceModalBtn">&times;</button>
       <h3>Submit a Reference</h3>
-      <p style="margin-bottom: 0.8rem; opacity: 0.8;">Got a Google Drive link or some images to share? Send them here - no need to look up an email address.</p>
+      <p style="margin-bottom: 0.8rem; opacity: 0.8;">Got a Google Drive link or some images to share? Send them here.</p>
 
       <label for="submitReferenceLink">Link (optional):</label>
       <input type="url" id="submitReferenceLink" placeholder="https://drive.google.com/...">
