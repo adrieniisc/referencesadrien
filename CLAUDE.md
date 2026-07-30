@@ -130,11 +130,55 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     paths behave identically). The queue is intentionally **not** cleared when the modal is closed
     without publishing — only an explicit Publish All (or a page reload) empties it — so
     accidentally dismissing the modal mid-batch doesn't lose staged work.
+    **Bug fixed the same day, found via real use:** reported as some images in a batch staying
+    stuck at "0%" in the upload dock forever, even though the upload itself was actually going
+    through. Cause: `startUploadBatch()` derived each dock row's DOM id from `Date.now()`
+    (`upload-<uploadBatchId>-<i>`), and Publish All calls `startUploadBatch()` once per queued
+    batch inside a single synchronous `batches.forEach(...)` - multiple batches published together
+    landed in the same millisecond often enough to give two different batches the *same*
+    `uploadBatchId`, so a batch's file at index `i` collided with another batch's file at the same
+    index: two dock rows with identical DOM ids. `document.getElementById()` always resolves to the
+    first matching element, so `setUploadItemProgress()` calls for the second (colliding) batch
+    silently updated the *first* batch's row instead of its own, leaving the second batch's actual
+    row frozen at its initial "0%" template state indefinitely, with no error and no console
+    output - the upload for that file was completing normally the whole time, just invisibly.
+    Fixed by adding a monotonically-incrementing counter (`uploadBatchCounter`) into the id
+    alongside `Date.now()`, guaranteeing uniqueness regardless of how many `startUploadBatch()`
+    calls land in the same millisecond. If another "stuck progress" report shows up, check whether
+    it's this same shape (multiple batches/uploads kicked off synchronously close together) before
+    assuming it's a new bug.
   - **Search now treats the folder/category name as an invisible tag too (2026-07-30)** —
     `performSearch()` matches the search term against `data-category` in addition to filename and
     `data-keywords`, so searching "metal" also surfaces every image filed under a Metal folder (or
     Metal/<subfolder>), on top of images anywhere else explicitly tagged "metal". This only affects
     the top search bar; the sidebar's folder-click filtering (`filterImages()`) is unchanged.
+    **Superseded 2026-07-30, later the same day:** `filterImages()` is no longer purely
+    folder-driven either - see the color filter bullet below.
+  - **Floating color filter panel (2026-07-30)** — a second floating pill panel, stacked directly
+    above the existing size selector (same visual treatment: `.floating-color-panel`/`.color-dot`,
+    modeled on `.floating-size-panel`/`.size-icon`), with one small round swatch per color name the
+    dominant-color auto-tagger can produce (black/white/gray/brown/beige/red/orange/yellow/green/
+    cyan/blue/purple/pink). Clicking a dot filters the gallery to images whose keywords include
+    that color word; clicking the already-selected dot again clears it back to no color filter
+    (single-select, like the size selector). This is the first *third* filter dimension the gallery
+    has had - folder (`currentFolderFilter`) and search text already existed, but neither function
+    that applies them (`filterImages()`, `performSearch()`) called the other or shared any common
+    combining logic, so adding color required touching both rather than composing with an existing
+    mechanism: `imageMatchesColorFilter(container)` is now ANDed onto the show/hide decision in
+    both, via `currentColorFilter` (module-level, null = no filter). Whichever of the two is
+    "active" (search text if non-empty, otherwise the folder filter - `performSearch()` already
+    delegates to `filterImages(currentFolderFilter)` when the search box is empty) still decides
+    the *base* set; color only ever narrows it further, never overrides it. If a future filter
+    dimension gets added, wire it into `imageMatchesColorFilter()`'s pattern (a small
+    `imageMatchesX()` predicate ANDed into both functions) rather than inventing a fourth
+    independent mechanism. Sidebar folder counts (`countImages()`/`updateFolderCounts()`)
+    deliberately do **not** account for the color filter, same as they already didn't account for
+    search text - they show each category's total size regardless of any other active filter.
+    **Images published before this feature (and before the dominant-color auto-tagger two commits
+    earlier) have no color tag at all**, so they won't match any dot until re-tagged (via Edit
+    Tags) or re-published - this was flagged and explicitly accepted rather than backfilling
+    existing images with a detected color, since backfilling would mean loading all ~191 images
+    just to color-tag them, and there was no clear request to do that.
   - **`.sidebar-brand` crop fix (2026-07-30)** — the "aReferences" header text could get silently
     cropped at the bottom (no scrollbar, no error) whenever the sidebar's total content grew taller
     than the viewport, e.g. right after admin sign-in reveals the extra footer buttons. Cause: it
@@ -178,40 +222,70 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     bold, visually-separated entry above "All" at the top of the sidebar (`.new-this-week` had its
     own `font-size: 1.1rem; font-weight: 600` rule, distinct from ordinary folder items). That
     rule was removed outright rather than adjusted, so it now falls through to the same plain
-    `.folder-list > li` styling every other category uses. It's still the first `<li>` rendered in
-    `renderFolders()` (unchanged), so it's still the first item in the list, just no longer
-    visually shouting above everything else - "All" (which still has its own bold/separator
-    styling) sits directly below it, unchanged.
-  - **Dominant-color auto-tagging (2026-07-30)** — every image that gets published now
-    automatically gets a plain-language color tag (e.g. `brown`, `gray`, `beige`) merged into its
-    keywords via `mergeTagStrings()`, with no admin input required. This is a coarse,
+    `.folder-list > li` styling every other category uses. **Reordered same day, second pass:**
+    initially left as the first `<li>` (above "All"), just smaller - but a normal-looking item
+    still being the very first thing above "All" read as its own kind of visual precedence, so
+    `renderFolders()` now appends "All" first and "New This Week" second, and "All"'s `border-top`
+    separator (originally there to separate it from "New This Week" sitting above it) was removed
+    since "All" is the first item now and has nothing above it to separate from. If either item's
+    position needs to change again, both the DOM order in `renderFolders()` and `.folder-list >
+    li.all`'s styling need checking together - they were designed as a pair.
+  - **Dominant-color auto-tagging (2026-07-30, reworked same day)** — every image that gets
+    published automatically gets a plain-language color tag (e.g. `brown`, `gray`, `beige`) merged
+    into its keywords via `mergeTagStrings()`, with no admin input required. This is a coarse,
     dependency-free heuristic, not anything ML-based (deliberately - see the AI tagging removal
-    note above; this doesn't reintroduce that): `dominantColorNameFromCanvas()` downsamples the
-    image to a 64x64 offscreen canvas, buckets pixels into a coarse histogram (colors quantized to
-    ~24-wide RGB buckets so near-identical shades collapse into one vote instead of splitting),
-    and takes the most-common bucket's average RGB. `nameColorFromRgb()` then maps that RGB to one
-    of a fixed set of names via HSL hue/saturation/lightness thresholds - neutrals (black/white/
-    gray) are checked first since hue is meaningless at extreme lightness or near-zero saturation,
-    then `brown` and `beige` are carved out of the orange hue range by lightness/saturation (common
-    on this gallery's actual content - wood, stone, concrete, rust - where "orange" alone wouldn't
-    be a useful tag), then the remaining hue wheel maps to red/orange/yellow/green/cyan/blue/
-    purple/pink. The thresholds were tuned by hand against a set of sample RGB values run through
-    the classifier directly in Node (not against real photos - there's no live Cloudinary access
-    in a sandboxed session) - if a published image gets an obviously wrong color tag, that's the
-    first place to adjust, and it's worth re-running a similar spot-check rather than guessing at
-    new threshold numbers. There are two call sites, because there are two different sources for
-    the image bytes at "publish" time: `detectDominantColorTag(file)` runs on the local `File`
-    object in the admin upload dock / Publish Queue path (`processUpload()`, in parallel with the
-    network upload itself so it adds no extra wait), while `detectDominantColorTagFromUrl(url)`
-    runs when Review Submissions' "Add" button publishes an image that's already sitting on
-    Cloudinary from the original public submission (no local `File` exists for that path at all -
-    see the Review Submissions note above) by loading a small `w_64` Cloudinary transform into an
-    `<img crossOrigin="anonymous">` and reading it back via canvas; this depends on Cloudinary
-    serving delivery URLs with CORS enabled, which it does by default, but if that were ever not
-    true the canvas read throws (a tainted-canvas security error) and detection just silently
-    returns `null` rather than blocking the Add. Both call sites are try/caught to never fail the
-    publish itself - a failed color detection just means no color tag gets added, same as if
-    nothing had been typed into Keywords.
+    note above; this doesn't reintroduce that). **The first version was wrong in practice and got
+    reworked the same day once real test photos came back badly misclassified** - worth reading
+    before touching this again: it bucketed raw RGB values into a histogram (nearby colors grouped
+    into buckets, most-populated bucket by raw pixel count wins, then that bucket's average color
+    gets named) and consistently picked the wrong region on real photos. A subject's own surface
+    has enough natural lighting variation (highlights, shadow, texture) that its pixels spread
+    across many nearby-but-distinct RGB buckets and split their own vote, while a flatter, more
+    uniform area elsewhere in the frame - a blurred gray floor in one corner, a shadow seam between
+    two wall planes, the dark gaps between leaves in foliage - stays tightly clustered in a couple
+    of buckets and out-votes the actual subject by raw count, even while visibly occupying less of
+    the frame. Confirmed against four real test photos: a yellow chair (blurred gray floor in one
+    corner) came back "gray", a reddish-brown weathered wall came back "gray", a white/gray wall
+    corner with a shadowed seam came back "black", and green foliage (with dark gaps between
+    leaves) came back "black" - background/shadow beating the actual subject in every case. Fixed
+    by reworking `dominantColorNameFromCanvas()` to classify every sampled pixel individually into
+    a color name first (via `nameColorFromRgb()`, unchanged in spirit) and tally votes per *name*
+    instead of per fine-grained RGB bucket - far less sensitive to lighting-driven RGB spread,
+    since a lit vs. shaded patch of the same material usually still names the same hue even when
+    their raw RGB values are nowhere near each other. Pixels below a chroma (max channel - min
+    channel) threshold are excluded from the vote entirely - the exact pixels that were winning
+    before - *unless* almost the whole image is low-chroma, in which case it falls back to voting
+    on every pixel, since that means the image is genuinely neutral (a true black/white/gray
+    material) rather than having its real color filtered out. Also fixed in the same pass:
+    `nameColorFromRgb()`'s own black/white/gray gate used HSL's `s` (saturation), whose formula
+    divides by `(2 - max - min)` near white and `(max + min)` near black - both shrink toward 0 at
+    those extremes, so tiny/insignificant RGB differences (sensor noise, JPEG artifacts) got
+    amplified into misleadingly large "saturation" readings exactly where it mattered most for
+    telling white/black apart from a weak tint (caught via a synthetic "near-white marble" test
+    case classifying as a random hue instead of white). Replaced with a chroma-based gate, which
+    has no such blowup; `s` is still used for the brown/beige lightness carve-out, safely away from
+    those unstable extremes. Verified against ~10 synthetic pixel-population test cases built to
+    mimic these exact failure shapes (a large-but-secondary neutral region alongside a smaller,
+    more-varied colorful subject) directly in Node before landing this - **there's still no live
+    Cloudinary access in a sandboxed session, so none of this has been checked against an actual
+    real uploaded photo end-to-end** - if a published image still gets an obviously wrong color
+    tag, add another synthetic case shaped like the failure and re-check there first, rather than
+    re-tuning thresholds blind again. `brown`/`beige` are still carved out of the orange hue range
+    by lightness/saturation (common on this gallery's actual content - wood, stone, concrete, rust
+    - where "orange" alone wouldn't be a useful tag), and the rest of the hue wheel still maps to
+    red/orange/yellow/green/cyan/blue/purple/pink, unchanged from the first version. The two call
+    sites are unchanged: `detectDominantColorTag(file)` runs on the local `File` object in the
+    admin upload dock / Publish Queue path (`processUpload()`, in parallel with the network upload
+    itself so it adds no extra wait), while `detectDominantColorTagFromUrl(url)` runs when Review
+    Submissions' "Add" button publishes an image that's already sitting on Cloudinary from the
+    original public submission (no local `File` exists for that path at all - see the Review
+    Submissions note above) by loading a small `w_64` Cloudinary transform into an `<img
+    crossOrigin="anonymous">` and reading it back via canvas; this depends on Cloudinary serving
+    delivery URLs with CORS enabled, which it does by default, but if that were ever not true the
+    canvas read throws (a tainted-canvas security error) and detection just silently returns
+    `null` rather than blocking the Add. Both call sites are try/caught to never fail the publish
+    itself - a failed color detection just means no color tag gets added, same as if nothing had
+    been typed into Keywords.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
@@ -248,6 +322,27 @@ done from a coding session, no Firebase CLI/project access here). Persistence is
 `SESSION` (not Firebase's `LOCAL` default) — closing the tab/browser signs the admin back out
 automatically, at the owner's request; a same-tab refresh still keeps the session, since
 `sessionStorage` (what `SESSION` persistence uses) survives a reload, just not closing the tab.
+
+**Chrome "save password?" false-trigger fix (2026-07-30)** — reported as the browser offering to
+save a password with a *category name* as the username while publishing images, nowhere near the
+login modal. Root cause: `#adminEmailInput`/`#adminPasswordInput` are always present in the DOM
+(just visually hidden via `.modal-backdrop`'s `opacity: 0; visibility: hidden`, not removed), and
+were never wrapped in a `<form>`, so Chrome's save-password heuristic wasn't scoped to just those
+two fields - it could pair the (structurally-present) password field with *any* text input typed
+elsewhere on the page later, e.g. the "Add Folder" name field. Two fixes, both worth keeping if
+this is revisited: (1) the fields are now wrapped in `<form id="adminLoginForm" autocomplete="off">`
+- `#adminLoginBtn` had to get an explicit `type="button"` to stop it becoming an implicit submit
+button once inside a real `<form>` (which would otherwise reload the page), and the form also has
+its own `submit` listener calling `preventDefault()` as a second layer against the browser's
+implicit-submit-on-Enter behavior, on top of the existing per-input keydown handlers; (2) the
+existing readonly-until-focused / cleared-on-modal-open trick (see below) had a gap - a successful
+sign-in cleared the fields' values but never restored `readonly`, so after signing in they sat in
+the DOM empty-but-editable for the rest of the admin's session (however long that was), which is
+exactly the state that let a later, unrelated text input get treated as loosely "part of the same
+form" by Chrome. `attemptAdminSignIn()` now restores `readonly` on success too, closing that
+window. Neither fix is a guaranteed 100% stop to this Chrome behavior (there isn't one - sites far
+bigger than this one still hit it occasionally), so if it recurs, layering on another mitigation is
+more promising than assuming these two didn't work at all.
 
 The client-side button-hiding (`auth.onAuthStateChanged` toggling `editButtons`/`separators`) is
 **cosmetic only** — it exists so a random visitor doesn't see admin controls cluttering the page,
