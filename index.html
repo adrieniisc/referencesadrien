@@ -297,12 +297,10 @@
     .folder-list > li.all {
       font-weight: 600;
       font-size: 1.1rem;
-      /* Thin separator from "New This Week" above, matching the .separator
-         <hr> used elsewhere in the sidebar - a border here instead of an
-         actual <hr> since <li> is the only valid direct child of the
-         <ul class="folder-list">. */
-      border-top: 1px solid var(--border-color);
-      padding-top: 0.6rem;
+      /* No top separator (2026-07-30: removed along with moving "New This
+         Week" below "All" instead of above it) - "All" is the first item
+         in the list now, so there's nothing above it left to separate
+         from. */
       margin-bottom: 0.8rem;
       color: var(--text);
     }
@@ -560,6 +558,58 @@
     .size-icon.selected {
       background-color: var(--accent-soft);
       color: var(--accent);
+    }
+
+    /* --------------------------------------------------
+       Floating Color Filter Panel (2026-07-30) - same floating-pill
+       treatment as the size panel above, stacked directly on top of it.
+    -------------------------------------------------- */
+    .floating-color-panel {
+      position: fixed;
+      bottom: 66px;
+      right: 18px;
+      left: auto;
+      background-color: rgba(26,26,30,0.85);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: var(--radius-md);
+      z-index: 1000;
+      padding: 6px;
+      max-width: 190px;
+      box-shadow: var(--shadow-md);
+    }
+    .color-dot-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      justify-content: flex-end;
+    }
+    .color-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+      box-sizing: border-box;
+      transition: box-shadow 0.15s ease, transform 0.15s ease;
+    }
+    .color-dot:hover { transform: scale(1.15); }
+    /* A plain border would be invisible against a same-colored swatch, so
+       "selected" is a ring built from two stacked box-shadows instead -
+       one matching the panel's own background as a gap, then the accent
+       color outside it - which reads clearly against any swatch color. */
+    .color-dot.selected {
+      box-shadow: 0 0 0 2px rgba(26,26,30,0.95), 0 0 0 4px var(--accent);
+    }
+    /* The white and black swatches need their own edge, or each
+       disappears into the panel's own dark background when not
+       selected - white because it's the opposite extreme, black because
+       it's nearly the same dark tone as the panel itself. */
+    .color-dot[data-color="white"] {
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+    .color-dot[data-color="black"] {
+      border: 1px solid rgba(255,255,255,0.2);
     }
 
     /* --------------------------------------------------
@@ -1400,6 +1450,7 @@
   .floating-size-panel { right: 12px; bottom: 12px; }
   .size-icon-container { gap: 4px; }
   .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
+  .floating-color-panel { right: 12px; bottom: 60px; max-width: 168px; }
 }
 
 /* Extra-narrow phones: shrink the sidebar further and drop the brand text
@@ -1703,6 +1754,28 @@
       <p id="emptyFolderMessage" class="empty-folder-message">Nothing here for now</p>
     </div>
   </div>
+  <!-- FLOATING COLOR FILTER PANEL - filters the gallery to images tagged
+       with the clicked color (see dominant-color auto-tagging); click the
+       selected dot again to clear. Images published before this feature
+       existed have no color tag yet and won't match any dot until
+       re-tagged/re-published. -->
+  <div class="floating-color-panel" id="colorFilterPanel" title="Filter by color">
+    <div class="color-dot-container">
+      <div class="color-dot" data-color="black" style="background-color:#1a1a1a;" title="Black"></div>
+      <div class="color-dot" data-color="white" style="background-color:#f5f5f0;" title="White"></div>
+      <div class="color-dot" data-color="gray" style="background-color:#8e8e93;" title="Gray"></div>
+      <div class="color-dot" data-color="brown" style="background-color:#8b5e34;" title="Brown"></div>
+      <div class="color-dot" data-color="beige" style="background-color:#d9c7a3;" title="Beige"></div>
+      <div class="color-dot" data-color="red" style="background-color:#e5484d;" title="Red"></div>
+      <div class="color-dot" data-color="orange" style="background-color:#f2994a;" title="Orange"></div>
+      <div class="color-dot" data-color="yellow" style="background-color:#f0c419;" title="Yellow"></div>
+      <div class="color-dot" data-color="green" style="background-color:#34a853;" title="Green"></div>
+      <div class="color-dot" data-color="cyan" style="background-color:#17c3b2;" title="Cyan"></div>
+      <div class="color-dot" data-color="blue" style="background-color:#3b82f6;" title="Blue"></div>
+      <div class="color-dot" data-color="purple" style="background-color:#8b5cf6;" title="Purple"></div>
+      <div class="color-dot" data-color="pink" style="background-color:#ec4899;" title="Pink"></div>
+    </div>
+  </div>
   <!-- FLOATING SIZE PANEL -->
  <div class="floating-size-panel">
     <div class="size-icon-container">
@@ -1841,14 +1914,23 @@
   <div class="modal-content">
     <button class="close-modal-btn" id="closeAdminLoginModalBtn">&times;</button>
     <h3>Admin Sign In</h3>
-    <label for="adminEmailInput">Email:</label>
-    <input type="email" id="adminEmailInput" placeholder="you@example.com" autocomplete="off" readonly>
-    <label for="adminPasswordInput">Password:</label>
-    <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="off" readonly>
-    <div id="adminLoginError" class="modal-hint" style="display:none;"></div>
-    <div style="margin-top:0.8rem;">
-      <button id="adminLoginBtn">Sign In</button>
-    </div>
+    <!-- Wrapped in its own <form> (2026-07-30) so Chrome scopes its
+         save-password heuristic to just these two fields, instead of
+         pairing the (structurally always-present, just visually hidden)
+         password field below with an unrelated text input typed
+         elsewhere on the page later - e.g. the "Add Folder" name field -
+         which is what was causing "save password?" prompts with a
+         category name offered as the username while publishing images. -->
+    <form id="adminLoginForm" autocomplete="off">
+      <label for="adminEmailInput">Email:</label>
+      <input type="email" id="adminEmailInput" placeholder="you@example.com" autocomplete="off" readonly>
+      <label for="adminPasswordInput">Password:</label>
+      <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="off" readonly>
+      <div id="adminLoginError" class="modal-hint" style="display:none;"></div>
+      <div style="margin-top:0.8rem;">
+        <button id="adminLoginBtn" type="button">Sign In</button>
+      </div>
+    </form>
   </div>
 </div>
   <!-- Delete Controls -->
@@ -1902,6 +1984,16 @@
     // folder path, so it's kept out of `folders`/Firestore and handled as a
     // special case anywhere filtering branches on the folder path shape.
     const NEW_THIS_WEEK_FILTER = "__new_this_week__";
+    // Active color-dot selection (see the floating color filter panel) -
+    // null means no color filter. ANDed on top of whatever folder/search
+    // filtering is currently showing, in both filterImages() and
+    // performSearch() below, via imageMatchesColorFilter().
+    let currentColorFilter = null;
+    function imageMatchesColorFilter(container) {
+      if (!currentColorFilter) return true;
+      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+      return keywords.split(",").map(k => k.trim()).includes(currentColorFilter);
+    }
     // "Week" here isn't a calendar week - it resets on the 1st of every
     // month and then every 7 days after that (1, 8, 15, 22), so the last
     // window of a month absorbs whatever days are left over (7-10 days
@@ -2001,11 +2093,18 @@
 
     // Admin sign-in elements
     const adminLoginModal = document.getElementById("adminLoginModal");
+    const adminLoginForm = document.getElementById("adminLoginForm");
     const closeAdminLoginModalBtn = document.getElementById("closeAdminLoginModalBtn");
     const adminEmailInput = document.getElementById("adminEmailInput");
     const adminPasswordInput = document.getElementById("adminPasswordInput");
     const adminLoginError = document.getElementById("adminLoginError");
     const adminLoginBtn = document.getElementById("adminLoginBtn");
+
+    // Belt-and-suspenders alongside the <form> wrapper itself: the Sign In
+    // button is already `type="button"` so a click can't trigger a native
+    // submit, but pressing Enter in a lone form field still can - stop
+    // that too rather than letting it reload the page.
+    adminLoginForm.addEventListener("submit", (e) => e.preventDefault());
 
     // Review Submissions elements
     const reviewSubmissionsBtn = document.getElementById("reviewSubmissionsBtn");
@@ -2068,6 +2167,15 @@
         await auth.signInWithEmailAndPassword(email, password);
         adminEmailInput.value = "";
         adminPasswordInput.value = "";
+        // Restore `readonly` here too, not just when the modal re-opens -
+        // otherwise these fields sit in the DOM empty-but-editable for the
+        // rest of the admin's session (however long that is), which is
+        // exactly the state that let Chrome's save-password heuristic
+        // pair this password field with an unrelated text input typed
+        // later elsewhere on the page (e.g. a folder name while
+        // publishing images).
+        adminEmailInput.setAttribute("readonly", "readonly");
+        adminPasswordInput.setAttribute("readonly", "readonly");
         adminLoginModal.classList.remove("active");
       } catch (error) {
         // Deliberately vague - doesn't confirm/deny whether the email is a
@@ -2221,11 +2329,8 @@
     // were explicitly tagged "metal".
     const category = (imgContainer.getAttribute("data-category") || "").toLowerCase();
 
-    if (imgName.includes(searchTerm) || keywords.includes(searchTerm) || category.includes(searchTerm)) {
-      imgContainer.classList.remove("hidden");
-    } else {
-      imgContainer.classList.add("hidden");
-    }
+    const matchesSearch = imgName.includes(searchTerm) || keywords.includes(searchTerm) || category.includes(searchTerm);
+    imgContainer.classList.toggle("hidden", !(matchesSearch && imageMatchesColorFilter(imgContainer)));
   });
   scheduleLayout();
 }
@@ -2440,17 +2545,47 @@ aboutModal.addEventListener("click", (e) => {
     }
 
     // --------------------------------------------------------------
-    // Dominant-color detection (2026-07-30) - run automatically on every
-    // publish (admin upload dock and Review Submissions' "Add") so the
-    // resulting image gets a plain-language color tag (e.g. "brown",
-    // "gray") without anyone typing one in. This is a coarse classifier,
-    // not a precise color picker: it buckets the image's most-common
-    // pixel color into one of a handful of everyday color names via HSL
-    // hue/saturation/lightness ranges, which is plenty for search/tagging
-    // purposes and far cheaper than anything ML-based (the AI tagging
-    // stack it might otherwise share space with was deliberately removed
-    // - see the note near processUpload() below - so this stays a small,
-    // dependency-free heuristic on purpose).
+    // Dominant-color detection (2026-07-30, re-worked same day after real
+    // test photos came back badly misclassified - see below) - run
+    // automatically on every publish (admin upload dock and Review
+    // Submissions' "Add") so the resulting image gets a plain-language
+    // color tag (e.g. "brown", "gray") without anyone typing one in.
+    // ------------------------------------------------------------------
+    // The first version bucketed raw RGB values into a histogram (pixels
+    // quantized into nearby-RGB buckets, most-populated bucket wins, name
+    // that bucket's average color) and picked the single most-frequent
+    // bucket by raw pixel count. On real photos this consistently picked
+    // the wrong region: a real subject's surface has enough natural
+    // lighting variation (highlights, shadow, texture) that its pixels
+    // spread across many nearby-but-distinct RGB buckets and split their
+    // own vote, while a flatter, more uniformly-lit area - a blurred gray
+    // floor in the background, a shadow seam between two wall planes, the
+    // dark gaps between leaves in foliage - stays tightly clustered in a
+    // few buckets and can out-vote the actual subject by raw count alone,
+    // even though it visibly occupies less of the frame. Confirmed against
+    // real test photos: a yellow chair (gray blurred floor in one corner)
+    // came back "gray", a reddish-brown weathered wall came back "gray", a
+    // white/gray wall corner (with a shadowed seam) came back "black", and
+    // green foliage (with dark gaps between leaves) came back "black" -
+    // background/shadow winning over the actual subject in every case.
+    //
+    // Fixed by classifying every sampled pixel individually into a color
+    // name first (via nameColorFromRgb(), same as before) and tallying
+    // votes per *name* instead of per fine-grained RGB bucket - this is
+    // far less sensitive to lighting-driven RGB spread, since a lit vs.
+    // shaded patch of the same material usually still names the same hue
+    // even when their raw RGB values are nowhere near each other. On top
+    // of that, low-chroma pixels (shadow, background blur, gaps - the
+    // exact pixels that were winning before) are excluded from the vote
+    // entirely, *unless* almost the whole image is low-chroma, in which
+    // case the image is genuinely neutral (a true black/white/gray
+    // material) and every pixel counts instead so those still tag
+    // correctly. Verified against ~10 synthetic photos built to mimic
+    // these exact failure shapes (a large but visually-secondary neutral
+    // region alongside a smaller, more-varied colorful subject) in Node
+    // before landing this - if a published image still gets a clearly
+    // wrong color tag, that's the first place to add another synthetic
+    // case and re-check, rather than re-tuning thresholds blind.
     // --------------------------------------------------------------
     function rgbToHsl(r, g, b) {
       r /= 255; g /= 255; b /= 255;
@@ -2471,17 +2606,28 @@ aboutModal.addEventListener("click", (e) => {
     }
 
     // Maps an RGB color to one of a small set of everyday color names.
-    // Neutral bands (black/white/gray) are checked first since hue is
-    // meaningless at very low saturation or extreme lightness; "brown"
-    // and "beige" are carved out of the orange hue range by lightness,
-    // since they're common on the reference materials this gallery
-    // actually holds (wood, concrete, stone, rust) and "orange" alone
-    // wouldn't read as a useful tag for them.
+    // Neutral bands (black/white/gray) are checked first via chroma
+    // (max channel - min channel, 0-1), not HSL's own `s` - `s`'s formula
+    // divides by `(2 - max - min)` near white and `(max + min)` near
+    // black, both of which shrink toward 0 at those extremes, so it
+    // amplifies tiny/insignificant RGB differences (sensor noise, JPEG
+    // artifacts) into misleadingly large "saturation" values right where
+    // it matters most for telling white/black apart from a weak tint.
+    // Chroma has no such blowup, so it's what decides "is this actually a
+    // color, or basically neutral" - `s` is still used below for the
+    // brown/beige lightness carve-out, away from those unstable extremes.
+    // "brown" and "beige" are carved out of the orange hue range by
+    // lightness, since they're common on the reference materials this
+    // gallery actually holds (wood, concrete, stone, rust) and "orange"
+    // alone wouldn't read as a useful tag for them.
     function nameColorFromRgb(r, g, b) {
       const [h, s, l] = rgbToHsl(r, g, b);
-      if (l < 0.10) return 'black';
-      if (l > 0.94 && s < 0.15) return 'white';
-      if (s < 0.10) return 'gray';
+      const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
+      if (chroma < 0.12) {
+        if (l < 0.12) return 'black';
+        if (l > 0.90) return 'white';
+        return 'gray';
+      }
       if (h >= 15 && h < 50 && l < 0.45) return 'brown';
       if (h >= 15 && h < 60 && l >= 0.45 && l < 0.88 && s < 0.55) return 'beige';
       if (h < 15 || h >= 345) return 'red';
@@ -2495,12 +2641,10 @@ aboutModal.addEventListener("click", (e) => {
       return 'gray';
     }
 
-    // Finds the most common color in a canvas via a coarse histogram
-    // (pixels quantized into 24-wide buckets per channel so near-identical
-    // shades of e.g. "concrete gray" collapse into one bucket instead of
-    // splitting the vote), then names that bucket's average color. Reads
-    // from a small offscreen copy (not the full-resolution canvas) purely
-    // for speed - dominant color doesn't need per-pixel precision.
+    // Classifies every sampled pixel (see the block comment above for why
+    // per-pixel name-voting replaced RGB-bucket histogramming) and returns
+    // the most-voted name. Reads from a small offscreen copy of the
+    // canvas, not the full-resolution original, purely for speed.
     function dominantColorNameFromCanvas(canvas) {
       const SAMPLE = 64;
       const sampleCanvas = document.createElement('canvas');
@@ -2510,25 +2654,47 @@ aboutModal.addEventListener("click", (e) => {
       ctx.drawImage(canvas, 0, 0, SAMPLE, SAMPLE);
       const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE);
 
-      const buckets = new Map();
+      // Below this, a pixel reads as "basically neutral" (shadow,
+      // background blur, gaps) and is excluded from the vote unless
+      // there's nothing else to work with - see the fallback below.
+      const CHROMA_THRESHOLD = 0.15;
+
+      const tallyInto = (votes, r, g, b) => {
+        const name = nameColorFromRgb(r, g, b);
+        votes.set(name, (votes.get(name) || 0) + 1);
+      };
+
+      let totalCount = 0;
+      let colorfulCount = 0;
+      const colorfulVotes = new Map();
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 128) continue; // skip transparent pixels
+        totalCount++;
         const r = data[i], g = data[i + 1], b = data[i + 2];
-        const key = `${r >> 3}_${g >> 3}_${b >> 3}`; // ~24-wide buckets (256/32)
-        let entry = buckets.get(key);
-        if (!entry) { entry = { count: 0, r: 0, g: 0, b: 0 }; buckets.set(key, entry); }
-        entry.count++; entry.r += r; entry.g += g; entry.b += b;
+        const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
+        if (chroma < CHROMA_THRESHOLD) continue;
+        colorfulCount++;
+        tallyInto(colorfulVotes, r, g, b);
+      }
+      if (totalCount === 0) return null;
+
+      // Almost nothing in the image cleared the colorfulness bar - that
+      // means the image itself is genuinely neutral (a true black/white/
+      // gray material), not that its real color got filtered out, so
+      // fall back to voting on every pixel instead of just the (near-
+      // nonexistent) colorful ones.
+      let votes = colorfulVotes;
+      if (colorfulCount < totalCount * 0.05) {
+        votes = new Map();
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 128) continue;
+          tallyInto(votes, data[i], data[i + 1], data[i + 2]);
+        }
       }
 
-      let best = null;
-      buckets.forEach(entry => { if (!best || entry.count > best.count) best = entry; });
-      if (!best) return null;
-
-      return nameColorFromRgb(
-        Math.round(best.r / best.count),
-        Math.round(best.g / best.count),
-        Math.round(best.b / best.count)
-      );
+      let bestName = null, bestCount = 0;
+      votes.forEach((count, name) => { if (count > bestCount) { bestCount = count; bestName = name; } });
+      return bestName;
     }
 
     // For a local File about to be uploaded (admin upload dock / Publish
@@ -2949,27 +3115,6 @@ downloadLink.addEventListener("click", function(e) {
       folderSelect.innerHTML = "";
       parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
 
-      const newThisWeekItem = document.createElement("li");
-      newThisWeekItem.classList.add("new-this-week");
-      newThisWeekItem.setAttribute("data-filter", NEW_THIS_WEEK_FILTER);
-      const newThisWeekLabel = document.createElement("span");
-      newThisWeekLabel.classList.add("folder-label");
-      const newThisWeekNameSpan = document.createElement("span");
-      newThisWeekNameSpan.classList.add("folder-name");
-      newThisWeekNameSpan.textContent = "New This Week";
-      const newThisWeekCountSpan = document.createElement("span");
-      newThisWeekCountSpan.classList.add("folder-count");
-      newThisWeekLabel.appendChild(newThisWeekCountSpan);
-      newThisWeekLabel.appendChild(newThisWeekNameSpan);
-      newThisWeekItem.appendChild(newThisWeekLabel);
-      newThisWeekItem.addEventListener("click", () => {
-        highlightSelected(newThisWeekItem);
-        hideAllSubfolders();
-        currentFolderFilter = NEW_THIS_WEEK_FILTER;
-        filterImages(NEW_THIS_WEEK_FILTER);
-      });
-      folderList.appendChild(newThisWeekItem);
-
       const allItem = document.createElement("li");
       allItem.classList.add("all");
       allItem.setAttribute("data-filter", "all");
@@ -2990,6 +3135,29 @@ downloadLink.addEventListener("click", function(e) {
         filterImages("all");
       });
       folderList.appendChild(allItem);
+
+      // Below "All" (2026-07-30, moved from above it) - a normal-looking
+      // category like any other, just first among the actual folders.
+      const newThisWeekItem = document.createElement("li");
+      newThisWeekItem.classList.add("new-this-week");
+      newThisWeekItem.setAttribute("data-filter", NEW_THIS_WEEK_FILTER);
+      const newThisWeekLabel = document.createElement("span");
+      newThisWeekLabel.classList.add("folder-label");
+      const newThisWeekNameSpan = document.createElement("span");
+      newThisWeekNameSpan.classList.add("folder-name");
+      newThisWeekNameSpan.textContent = "New This Week";
+      const newThisWeekCountSpan = document.createElement("span");
+      newThisWeekCountSpan.classList.add("folder-count");
+      newThisWeekLabel.appendChild(newThisWeekCountSpan);
+      newThisWeekLabel.appendChild(newThisWeekNameSpan);
+      newThisWeekItem.appendChild(newThisWeekLabel);
+      newThisWeekItem.addEventListener("click", () => {
+        highlightSelected(newThisWeekItem);
+        hideAllSubfolders();
+        currentFolderFilter = NEW_THIS_WEEK_FILTER;
+        filterImages(NEW_THIS_WEEK_FILTER);
+      });
+      folderList.appendChild(newThisWeekItem);
 
       const structure = buildFolderStructure();
       const parents = Object.keys(structure).sort();
@@ -3156,35 +3324,26 @@ downloadLink.addEventListener("click", function(e) {
   const allImages = document.querySelectorAll(".image-container");
   allImages.forEach(container => {
     const category = container.getAttribute("data-category");
+    let shouldShow;
 
     if (filterValue === "all") {
       // Show all images for "All" folder
-      container.classList.remove("hidden");
+      shouldShow = true;
     }
     else if (filterValue === NEW_THIS_WEEK_FILTER) {
       const addTime = parseInt(container.getAttribute("data-add-time")) || 0;
-      if (addTime >= windowStart) {
-        container.classList.remove("hidden");
-      } else {
-        container.classList.add("hidden");
-      }
+      shouldShow = addTime >= windowStart;
     }
     else if (!filterValue.includes("/")) {
       // For parent folders, show images from this folder AND any subfolders
-      if (category === filterValue || category.startsWith(filterValue + "/")) {
-        container.classList.remove("hidden");
-      } else {
-        container.classList.add("hidden");
-      }
+      shouldShow = category === filterValue || category.startsWith(filterValue + "/");
     }
     else {
       // For subfolders, only show exact matches
-      if (category === filterValue) {
-        container.classList.remove("hidden");
-      } else {
-        container.classList.add("hidden");
-      }
+      shouldShow = category === filterValue;
     }
+
+    container.classList.toggle("hidden", !(shouldShow && imageMatchesColorFilter(container)));
   });
   scheduleLayout();
 }
@@ -4332,11 +4491,22 @@ function closeEnlargeModal() {
       resetImageModal();
     });
 
+    // Bumped into every uploadBatchId below (2026-07-30) - Date.now() alone
+    // collides when Publish All fires startUploadBatch() once per queued
+    // batch in a single synchronous forEach: two batches landing in the
+    // same millisecond got identical uploadItemId values, so their dock
+    // rows had duplicate DOM ids. getElementById() always resolves to the
+    // *first* match, so the second batch's progress updates silently
+    // landed on the first batch's row instead of its own - leaving the
+    // second batch's actual row stuck at its initial "0%" template state
+    // forever, even though the upload itself was proceeding normally.
+    let uploadBatchCounter = 0;
+
     // Creates a dock row and kicks off processUpload() for each file in a
     // batch. Shared by the immediate Add button and Publish All so both
     // paths behave identically.
     function startUploadBatch(files, folderValue, keywords) {
-      const uploadBatchId = Date.now();
+      const uploadBatchId = `${Date.now()}-${uploadBatchCounter++}`;
 
       const uploadDock = document.getElementById("uploadDock");
       if (!uploadDock) {
@@ -4547,6 +4717,27 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
         const newSize = icon.getAttribute("data-size");
         document.documentElement.style.setProperty("--row-height", newSize + "px");
         layoutGallery();
+      });
+    });
+
+    // Color filter dots - single-select, click the selected dot again to
+    // clear. Re-runs performSearch() (not filterImages() directly) so
+    // whichever base filter is currently active - a folder selection or
+    // typed search text - gets re-applied with the color filter ANDed on
+    // top of it, via imageMatchesColorFilter() inside both functions.
+    const colorDots = document.querySelectorAll(".color-dot");
+    colorDots.forEach(dot => {
+      dot.addEventListener("click", () => {
+        const color = dot.getAttribute("data-color");
+        if (currentColorFilter === color) {
+          currentColorFilter = null;
+          dot.classList.remove("selected");
+        } else {
+          colorDots.forEach(d => d.classList.remove("selected"));
+          currentColorFilter = color;
+          dot.classList.add("selected");
+        }
+        performSearch();
       });
     });
 
