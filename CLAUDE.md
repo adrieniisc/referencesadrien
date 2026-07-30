@@ -24,6 +24,18 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     decode throws, converting to PNG first so the only lossy step stays the JPEG re-encode.
     Don't gate the HEIC path behind the size check again — that was the original (wrong) design
     and it's why the fix didn't work the first time.
+  - Delete Images, Move Images, and Edit Tags (2026-07-30) are three separate select-then-act
+    modes (`isDeleteMode`/`isMoveMode`/`isTagEditMode`, each with its own `.image-container`
+    overlay class and floating controls bar) that all read clicks on the same gallery thumbnails.
+    They're mutually exclusive by construction — turning one on turns the other two off — because
+    two active at once would double-fire click handlers on the same image. If you add a fourth
+    bulk-select mode, wire it into that same turn-off-the-others chain rather than assuming it's
+    the only one active. Also: the enlarge/lightbox modal's click handler reads tags from the live
+    `data-keywords` attribute (`container.getAttribute('data-keywords')`), not the `keywords`
+    function parameter closed over when the thumbnail was created — that parameter goes stale the
+    moment Edit Tags updates the attribute, and reintroducing a closure read there would make tag
+    edits silently not show up in the lightbox (same silent-failure shape as the delete/move bug
+    fixed earlier).
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
@@ -49,7 +61,7 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 
 There's no real auth. "ADMIN ACCESS" opens a `UI Preferences` modal (`#userPreference` field,
 `#applyPreferenceBtn`) that reveals the edit buttons (add/move/delete/rename folders+images,
-find duplicates) on Apply.
+edit image tags, find duplicates) on Apply.
 
 **2026-07-28: the password check was intentionally removed, at the site owner's explicit
 request ("no password for admin for now").** `applyPreferenceBtn`'s click handler now grants

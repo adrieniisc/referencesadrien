@@ -28,6 +28,8 @@
       --success: #4cd964;
       --move-accent: #4d9bf5;
       --move-soft: rgba(77,155,245,0.16);
+      --tag-accent: #a374e0;
+      --tag-soft: rgba(163,116,224,0.16);
       --radius-xs: 6px;   /* images: micro rounding */
       --radius-sm: 8px;
       --radius-md: 12px;
@@ -724,6 +726,59 @@
     }
 
     /* --------------------------------------------------
+       Edit Tags Feature
+    -------------------------------------------------- */
+    .sidebar-footer button.tag-btn {
+      background-color: var(--tag-soft);
+      color: var(--tag-accent);
+      border-color: transparent;
+    }
+    .image-container.tag-selectable { position: relative; }
+    .image-container.tag-selectable::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-color: rgba(163,116,224,0.18);
+      border: 2px dashed rgba(163,116,224,0.6);
+      border-radius: inherit;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .image-container.tag-selected::before {
+      background-color: rgba(163,116,224,0.42);
+      border: 2px solid var(--tag-accent);
+    }
+    .tag-edit-controls {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(26,26,30,0.9);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-md);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-shadow: var(--shadow-md);
+    }
+    .tag-edit-controls.active { display: flex; }
+    .tag-edit-controls button {
+      background-color: var(--tag-accent);
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tag-edit-controls button.cancel { background-color: rgba(255,255,255,0.12); color: var(--text); }
+
+    /* --------------------------------------------------
        Enlarge Image Modal (Lightbox)
     -------------------------------------------------- */
    #enlargeImageModal {
@@ -1249,6 +1304,7 @@
         <hr class="separator">
         <div class="admin-bottom-buttons">
           <button id="moveImageBtn" class="move-btn">Move Images</button>
+          <button id="editTagsBtn" class="tag-btn">Edit Tags</button>
           <button id="renameFolderBtn">Rename Folder</button>
           <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
@@ -1265,6 +1321,12 @@
       <span id="moveSelectedCount">0 selected</span>
       <button id="confirmMoveImagesBtn">Select Destination</button>
       <button id="cancelMoveImagesBtn" class="cancel">Cancel</button>
+    </div>
+    <!-- Edit Tags Controls -->
+    <div class="tag-edit-controls" id="tagEditControls">
+      <span id="tagEditSelectedCount">0 selected</span>
+      <button id="confirmTagEditBtn">Edit Tags</button>
+      <button id="cancelTagEditBtn" class="cancel">Cancel</button>
     </div>
     <!-- MAIN CONTENT -->
     <div class="main-content">
@@ -1361,6 +1423,18 @@
       </div>
     </div>
   </div>
+  <!-- MODAL: Edit Tags -->
+  <div class="modal-backdrop" id="editTagsModal">
+    <div class="modal-content batch-tag-review-content">
+      <button class="close-modal-btn" id="closeEditTagsModalBtn">&times;</button>
+      <h3>Edit Tags <span id="editTagsCount"></span></h3>
+      <p style="margin-bottom: 0.8rem;">Edit tags for each selected image, then save them all at once.</p>
+      <div id="editTagsList" class="batch-review-list"></div>
+      <div style="margin-top:0.8rem;">
+        <button id="saveEditTagsBtn">Save All</button>
+      </div>
+    </div>
+  </div>
 <!-- MODAL: Duplicate Images -->
 <div class="modal-backdrop" id="duplicatesModal">
   <div class="modal-content">
@@ -1425,6 +1499,10 @@
     let selectedImages = [];
     let isMoveMode = false;
     let selectedImagesForMove = [];
+    let isTagEditMode = false;
+    let selectedImagesForTagEdit = [];
+    // { container, input } pairs for the currently open Edit Tags modal
+    let tagEditRows = [];
     // Batch tag review: images that finished uploading + tagging, awaiting the
     // single end-of-batch review screen
     let batchReviewItems = [];
@@ -1476,6 +1554,18 @@
     const closeMoveDestinationModalBtn = document.getElementById("closeMoveDestinationModalBtn");
     const moveDestinationSelect = document.getElementById("moveDestinationSelect");
     const confirmMoveDestinationBtn = document.getElementById("confirmMoveDestinationBtn");
+
+    // Edit Tags elements
+    const editTagsBtn = document.getElementById("editTagsBtn");
+    const tagEditControls = document.getElementById("tagEditControls");
+    const tagEditSelectedCount = document.getElementById("tagEditSelectedCount");
+    const confirmTagEditBtn = document.getElementById("confirmTagEditBtn");
+    const cancelTagEditBtn = document.getElementById("cancelTagEditBtn");
+    const editTagsModal = document.getElementById("editTagsModal");
+    const closeEditTagsModalBtn = document.getElementById("closeEditTagsModalBtn");
+    const editTagsList = document.getElementById("editTagsList");
+    const editTagsCount = document.getElementById("editTagsCount");
+    const saveEditTagsBtn = document.getElementById("saveEditTagsBtn");
 
     // Admin sidebar buttons
     const newFolderAdminBtn = document.getElementById("newFolderAdminBtn");
@@ -1926,10 +2016,14 @@ aboutModal.addEventListener("click", (e) => {
       }
       // Enlarge image on click
       img.addEventListener("click", function(e) {
-        // When in delete or move mode, don't trigger the enlarge modal.
-        if (isDeleteMode || isMoveMode) return;
+        // When in delete, move, or tag-edit mode, don't trigger the enlarge modal.
+        if (isDeleteMode || isMoveMode || isTagEditMode) return;
         e.stopPropagation();
-        enlargeImage(url, filename, keywords);
+        // Read tags from the live attribute rather than the closed-over
+        // `keywords` param - Edit Tags updates data-keywords in place, and
+        // this param would otherwise keep showing whatever the image had
+        // when it was first added to the gallery.
+        enlargeImage(url, filename, container.getAttribute('data-keywords') || '');
       });
 
 // Replace your existing download link creation code with this:
@@ -2246,8 +2340,10 @@ downloadLink.addEventListener("click", function(e) {
      ********************************************************/
     function toggleDeleteMode() {
       isDeleteMode = !isDeleteMode;
-      
+
       if (isDeleteMode) {
+        if (isMoveMode) toggleMoveMode();
+        if (isTagEditMode) toggleTagEditMode();
         const allImages = document.querySelectorAll(".image-container");
         allImages.forEach(container => {
           container.classList.add("selectable");
@@ -2316,8 +2412,10 @@ downloadLink.addEventListener("click", function(e) {
      ********************************************************/
     function toggleMoveMode() {
       isMoveMode = !isMoveMode;
-      
+
       if (isMoveMode) {
+        if (isDeleteMode) toggleDeleteMode();
+        if (isTagEditMode) toggleTagEditMode();
         const allImages = document.querySelectorAll(".image-container");
         allImages.forEach(container => {
           container.classList.add("move-selectable");
@@ -2421,7 +2519,124 @@ downloadLink.addEventListener("click", function(e) {
       }
     }
 
-   
+    /********************************************************
+     * Edit Tags Functions
+     ********************************************************/
+    function toggleTagEditMode() {
+      isTagEditMode = !isTagEditMode;
+
+      if (isTagEditMode) {
+        if (isDeleteMode) toggleDeleteMode();
+        if (isMoveMode) toggleMoveMode();
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.add("tag-selectable");
+          container.addEventListener("click", toggleImageTagEditSelection);
+        });
+        tagEditControls.classList.add("active");
+        updateTagEditSelectedCount();
+      } else {
+        const allImages = document.querySelectorAll(".image-container");
+        allImages.forEach(container => {
+          container.classList.remove("tag-selectable");
+          container.classList.remove("tag-selected");
+          container.removeEventListener("click", toggleImageTagEditSelection);
+        });
+        tagEditControls.classList.remove("active");
+        selectedImagesForTagEdit = [];
+      }
+    }
+
+    function toggleImageTagEditSelection(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = e.currentTarget;
+      if (!isTagEditMode) return;
+      if (container.classList.contains("tag-selected")) {
+        container.classList.remove("tag-selected");
+        const index = selectedImagesForTagEdit.findIndex(img => img === container);
+        if (index !== -1) { selectedImagesForTagEdit.splice(index, 1); }
+      } else {
+        container.classList.add("tag-selected");
+        selectedImagesForTagEdit.push(container);
+      }
+      updateTagEditSelectedCount();
+    }
+
+    function updateTagEditSelectedCount() {
+      tagEditSelectedCount.textContent = `${selectedImagesForTagEdit.length} selected`;
+    }
+
+    function showEditTagsModal() {
+      if (selectedImagesForTagEdit.length === 0) {
+        alert("Please select at least one image to edit tags for.");
+        return;
+      }
+      populateEditTagsList();
+      editTagsModal.classList.add("active");
+    }
+
+    // Builds one editable row per selected image, reusing the same
+    // .batch-review-* markup/styling as the upload batch tag review panel.
+    function populateEditTagsList() {
+      editTagsList.innerHTML = "";
+      editTagsCount.textContent = `(${selectedImagesForTagEdit.length})`;
+      tagEditRows = selectedImagesForTagEdit.map(container => {
+        const row = document.createElement("div");
+        row.className = "batch-review-row";
+
+        const thumb = document.createElement("img");
+        thumb.className = "batch-review-thumb";
+        thumb.src = container.querySelector("img").src;
+        row.appendChild(thumb);
+
+        const info = document.createElement("div");
+        info.className = "batch-review-info";
+
+        const filename = document.createElement("div");
+        filename.className = "batch-review-filename";
+        filename.textContent = container.querySelector("img").alt || "image";
+        info.appendChild(filename);
+
+        const tagsInput = document.createElement("input");
+        tagsInput.type = "text";
+        tagsInput.className = "batch-review-tags-input";
+        tagsInput.placeholder = "Edit or add tags...";
+        tagsInput.value = container.getAttribute("data-keywords") || "";
+        info.appendChild(tagsInput);
+
+        row.appendChild(info);
+        editTagsList.appendChild(row);
+
+        return { container, input: tagsInput };
+      });
+    }
+
+    async function saveEditedTags() {
+      if (tagEditRows.length === 0) return;
+      try {
+        const savePromises = tagEditRows.map(async ({ container, input }) => {
+          const newTags = input.value.trim();
+          const previousTags = container.getAttribute("data-keywords") || "";
+          if (newTags === previousTags) return true; // nothing changed, skip the write
+          const imageUrl = container.dataset.url;
+          const imageId = await findImageIdByUrl(imageUrl);
+          if (imageId) {
+            await db.collection('images').doc(imageId).update({ keywords: newTags });
+            container.setAttribute('data-keywords', newTags);
+            return true;
+          }
+          return false;
+        });
+        await Promise.all(savePromises);
+        tagEditRows = [];
+        editTagsModal.classList.remove("active");
+        toggleTagEditMode();
+      } catch (error) {
+        console.error('Error saving tags:', error);
+        alert(`Error saving tags: ${error.message}`);
+      }
+    }
 
     /********************************************************
      * Enlarge Image Modal Closure (click outside image)
@@ -3429,6 +3644,14 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     closeMoveDestinationModalBtn.addEventListener("click", () => { moveDestinationModal.classList.remove("active"); });
     moveDestinationModal.addEventListener("click", (e) => { if (e.target === moveDestinationModal) { moveDestinationModal.classList.remove("active"); } });
     confirmMoveDestinationBtn.addEventListener("click", moveImagesToDestination);
+
+    editTagsBtn.addEventListener("click", toggleTagEditMode);
+    confirmTagEditBtn.addEventListener("click", showEditTagsModal);
+    cancelTagEditBtn.addEventListener("click", toggleTagEditMode);
+
+    closeEditTagsModalBtn.addEventListener("click", () => { editTagsModal.classList.remove("active"); });
+    editTagsModal.addEventListener("click", (e) => { if (e.target === editTagsModal) { editTagsModal.classList.remove("active"); } });
+    saveEditTagsBtn.addEventListener("click", saveEditedTags);
 
     filterButton.addEventListener("click", (e) => {
       e.stopPropagation();
