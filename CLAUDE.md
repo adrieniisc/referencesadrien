@@ -36,14 +36,29 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     moment Edit Tags updates the attribute, and reintroducing a closure read there would make tag
     edits silently not show up in the lightbox (same silent-failure shape as the delete/move bug
     fixed earlier).
+  - "Submit" (2026-07-30, `submitReferenceBtn`/`submitReferenceModal`) is deliberately **not**
+    admin-gated — it's the public-facing counterpart to the admin tools above, for visitors who
+    want to send the site owner a link (e.g. a Drive folder) or images without needing an email
+    address. It writes to its own `submissions` Firestore collection (`link`, `imageUrls`, `note`,
+    `timestamp`) rather than `images`/`folders`, so submissions never appear in the gallery on
+    their own — reviewing them and actually adding anything to the gallery is a manual step (via
+    Firebase console today; there's no admin review UI for this collection yet). Image uploads
+    reuse `compressImageIfNeeded()`/`uploadImage()` as-is (same Cloudinary path as admin uploads),
+    sequentially rather than in parallel, for the same reason upload.js's `Unexpected end of form`
+    fix made the admin upload dock sequential (see above).
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
 - **`netlify/functions/cloudVision.js`** — calls Google Cloud Vision (`LABEL_DETECTION`) to tag
   an uploaded image; falls back to client-side MobileNet (TensorFlow.js, loaded from a CDN) if
   Vision fails or the key is missing.
-- **Firestore** — two collections: `folders` (name, parent) and `images` (url, folder, keywords,
-  filename, timestamp). No auth backing this — see "Admin access" below.
+- **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
+  filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — public visitor
+  submissions via the "Submit" button, not surfaced anywhere in the UI, reviewed manually). No
+  auth backing any of this — see "Admin access" below. **If submissions aren't showing up in
+  Firestore, check the security rules allow writes to `submissions` specifically** — it's a
+  newer collection than `folders`/`images` and may not be covered by existing rules even if those
+  two already allow open writes.
 - **Cloudinary** — actual image storage/hosting + on-the-fly resizing via URL transforms.
 
 ## Environment variables (Netlify)
