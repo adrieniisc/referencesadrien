@@ -200,6 +200,16 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* .sidebar is a column flexbox and this is the only child with
+     `overflow: hidden`, which gives it an automatic min-height of 0
+     instead of its content size (unlike the other children, which resist
+     shrinking below their content). Without flex-shrink:0, whenever the
+     sidebar's total content grows taller than its viewport height (e.g.
+     admin sign-in reveals the extra footer buttons), the flex-shrink
+     algorithm silently crushes *this* element's height first - cropping
+     the brand text at the bottom - instead of letting .sidebar's own
+     overflow-y:auto scroll like it's supposed to. */
+  flex-shrink: 0;
 }
 
 .sidebar {
@@ -658,6 +668,52 @@
       margin-top: 2px;
       text-align: center;
     }
+    /* Add Image modal: queued (not-yet-uploaded) batches, each one a
+       files+folder+tags selection staged so several categories can be
+       uploaded in one go instead of reopening this modal per category. */
+    .upload-queue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 0 0 0.6rem;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    .upload-queue-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: var(--bg-sunken);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .upload-queue-item-remove {
+      background: none;
+      border: none;
+      color: var(--danger);
+      font-size: 1.1rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .upload-queue-item-remove:hover { opacity: 0.7; }
+    .publish-queue-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 0.6rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid var(--border-color);
+    }
+    .publish-queue-bar span {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
     .modal-content .close-modal-btn {
       background: none;
       color: var(--text-muted);
@@ -1115,15 +1171,19 @@
 .upload-dock {
   position: fixed;
   bottom: 20px;
-  right: 20px; /* Bottom-right corner, clear of centered modals like tag review */
-  width: 320px;
+  right: 20px; /* Bottom-right corner, clear of centered modals */
+  /* Wider and taller than before: with the tag review panel gone, this
+     dock is the only feedback surface for an upload, so it needs to
+     comfortably show a big multi-category batch at once instead of a
+     handful of truncated rows. */
+  width: 420px;
   background-color: rgba(26,26,30,0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   z-index: 20000; /* Above other modals, but no longer overlapping their controls now that it's in a corner */
-  max-height: 280px;
+  max-height: 440px;
   overflow-y: auto;
   box-shadow: var(--shadow-md);
   opacity: 0;
@@ -1145,11 +1205,11 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background-color: rgba(13,13,15,0.6);
   color: var(--text);
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   border-top-left-radius: var(--radius-md);
@@ -1174,12 +1234,12 @@
 }
 
 .upload-dock-content {
-  padding: 10px 14px;
+  padding: 12px 16px;
 }
 
 .upload-dock-item {
-  margin-bottom: 12px;
-  padding-bottom: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -1193,12 +1253,13 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .upload-dock-item-filename {
   font-weight: 500;
   color: var(--text);
+  font-size: 0.92rem;
   min-width: 0; /* let ellipsis actually kick in inside a flex row */
   white-space: nowrap;
   overflow: hidden;
@@ -1207,19 +1268,19 @@
 
 .upload-dock-item-percent {
   color: var(--text-faint);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
 
 .upload-dock-item-details {
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
 }
 
 .upload-dock-progress {
@@ -1322,25 +1383,6 @@
   max-width: 720px;
 }
 
-.batch-review-list {
-  max-height: 55vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 0.8rem;
-}
-
-.batch-review-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg-sunken);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 8px;
-}
-
 .batch-review-thumb {
   width: 64px;
   height: 64px;
@@ -1348,31 +1390,6 @@
   border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
-
-.batch-review-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.batch-review-filename {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.batch-review-remove {
-  background: none;
-  border: none;
-  color: var(--danger);
-  font-size: 1.3rem;
-  cursor: pointer;
-  flex-shrink: 0;
-  line-height: 1;
-}
-.batch-review-remove:hover { opacity: 0.7; }
 
 .batch-review-thumbs-strip {
   display: flex;
@@ -1404,7 +1421,6 @@
   cursor: text;
 }
 .tag-chip-input:focus-within { border-color: var(--border-strong); }
-.batch-review-info .tag-chip-input { margin: 4px 0 0; }
 .tag-chip {
   display: inline-flex;
   align-items: center;
@@ -1535,8 +1551,6 @@
 
   </style>
 
- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
- <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
 </head>
@@ -1717,10 +1731,17 @@
 
       <label for="imageKeywords">Keywords (optional):</label>
       <input type="text" id="imageKeywords" placeholder="e.g., red, green">
-      <div class="modal-hint">Tags are also generated automatically after upload.</div>
+      <div class="modal-hint">Goes live immediately - no review step.</div>
+
+      <div id="uploadQueueList" class="upload-queue-list"></div>
 
       <div style="margin-top:0.8rem;">
         <button id="confirmAddImageBtn">Add</button>
+        <button id="queueAddImageBtn">Add to Queue</button>
+      </div>
+      <div id="publishQueueBar" class="publish-queue-bar">
+        <span id="publishQueueSummary"></span>
+        <button id="publishQueueBtn">Publish All</button>
       </div>
     </div>
   </div>
@@ -1870,9 +1891,9 @@
     // whether Save replaces (matched) or adds to each image's own existing
     // tags (mismatched) - see saveEditedTags().
     let editTagsAllMatched = true;
-    // Batch tag review: images that finished uploading + tagging, awaiting the
-    // single end-of-batch review screen
-    let batchReviewItems = [];
+    // Publish queue: files+folder+keywords batches staged in the Add Image
+    // modal but not yet uploaded - see queueAddImageBtn/publishQueueBtn.
+    let uploadQueue = [];
 
     // DOM Elements
     const folderList = document.getElementById("folderList");
@@ -1883,6 +1904,7 @@
     const imageModal = document.getElementById("imageModal");
     const closeImageModalBtn = document.getElementById("closeImageModalBtn");
     const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
+    const queueAddImageBtn = document.getElementById("queueAddImageBtn");
     const fileInput = document.getElementById("fileInput");
     const folderSelect = document.getElementById("folderSelect");
     const imageKeywords = document.getElementById("imageKeywords");
@@ -2126,8 +2148,13 @@
   allImages.forEach(imgContainer => {
     const imgName = imgContainer.querySelector("img").alt.toLowerCase();
     const keywords = (imgContainer.getAttribute("data-keywords") || "").toLowerCase();
+    // The folder/category path counts as an invisible tag too, so
+    // searching "metal" also surfaces every image filed under a Metal
+    // folder (or Metal/<subfolder>), on top of images anywhere else that
+    // were explicitly tagged "metal".
+    const category = (imgContainer.getAttribute("data-category") || "").toLowerCase();
 
-    if (imgName.includes(searchTerm) || keywords.includes(searchTerm)) {
+    if (imgName.includes(searchTerm) || keywords.includes(searchTerm) || category.includes(searchTerm)) {
       imgContainer.classList.remove("hidden");
     } else {
       imgContainer.classList.add("hidden");
@@ -3996,17 +4023,17 @@ function closeEnlargeModal() {
     newFolderAdminBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
     addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
 
-    // Confirm Add Image button
+    // Confirm Add Image button - uploads this batch immediately.
   confirmAddImageBtn.addEventListener("click", async () => {
   // Copy into a plain array: fileInput.files is a live FileList, and
   // resetting fileInput.value below would otherwise empty it retroactively.
   const files = Array.from(fileInput.files);
-  
-  if (!files || files.length === 0) { 
-    alert("Please select at least one image file first."); 
-    return; 
+
+  if (!files || files.length === 0) {
+    alert("Please select at least one image file first.");
+    return;
   }
-  
+
   // Check if admin mode is active - the Firestore security rules are the
   // real enforcement, this is just a friendlier client-side message.
   const isAdminMode = !!auth.currentUser;
@@ -4014,413 +4041,135 @@ function closeEnlargeModal() {
     alert("You need admin access to upload files.");
     return;
   }
-  
+
   const folderValue = folderSelect.value || 'all';
   const keywords = imageKeywords.tagChipsAPI.getValue().toLowerCase();
-  
-  // Create a new batch of uploads
-  const uploadBatchId = Date.now();
 
-  // Ensure the TensorFlow libraries are loaded
-  let tensorflowReady = false;
-  try {
-    // Check if TensorFlow is available
-    if (typeof tf !== 'undefined' && typeof mobilenet !== 'undefined') {
-      console.log("TensorFlow and MobileNet are available");
-      tensorflowReady = true;
-    } else {
-      console.warn("TensorFlow or MobileNet is not available, auto-tagging will be disabled");
-    }
-  } catch (e) {
-    console.error("Error checking TensorFlow availability:", e);
-  }
-  
-  // Show the upload dock
-  const uploadDock = document.getElementById("uploadDock");
-  if (!uploadDock) {
-    console.error("Upload dock element not found");
-    alert("Upload system error: Could not find upload dock element");
-    return;
-  }
-  
-  uploadDock.classList.add("active");
-  
+  startUploadBatch(files, folderValue, keywords);
+
   // Close the modal - we don't need to wait for uploads to complete
   imageModal.classList.remove("active");
   resetImageModal();
-
-  // Get upload dock content
-  const uploadDockContent = document.querySelector(".upload-dock-content");
-  if (!uploadDockContent) {
-    console.error("Upload dock content element not found");
-    alert("Upload system error: Could not find upload dock content element");
-    return;
-  }
-  
-  // Process each file
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    
-    // Create upload item in the dock
-    const uploadItemId = `upload-${uploadBatchId}-${i}`;
-    
-    const uploadItem = document.createElement("div");
-    uploadItem.classList.add("upload-dock-item");
-    uploadItem.id = uploadItemId;
-    uploadItem.innerHTML = `
-      <div class="upload-dock-item-info">
-        <div class="upload-dock-item-filename">${file.name}</div>
-        <div class="upload-dock-item-percent" id="percent-${uploadItemId}">0%</div>
-      </div>
-      <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''} ${!tensorflowReady ? '| Auto-tagging disabled' : ''}</div>
-      <div class="upload-dock-progress">
-        <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
-      </div>
-    `;
-    
-    uploadDockContent.appendChild(uploadItem);
-    
-    // Actually call the processUpload function with the file
-    processUpload(file, folderValue, keywords, uploadItemId);
-  }
 });
 
-    // Add this function just before your processUpload function
+    // Stages the current selection (files + folder + keywords) into the
+    // publish queue instead of uploading it right away, so several
+    // categories can be lined up in one modal session - see
+    // publishQueueBtn below, which uploads everything queued at once.
+    queueAddImageBtn.addEventListener("click", () => {
+      const files = Array.from(fileInput.files);
+      if (!files || files.length === 0) {
+        alert("Please select at least one image file first.");
+        return;
+      }
+      const folderValue = folderSelect.value || 'all';
+      const keywords = imageKeywords.tagChipsAPI.getValue().toLowerCase();
 
-async function generateImageTags(imageUrl) {
-  try {
-    const res = await fetch('/.netlify/functions/cloudVision', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageUrl })
+      uploadQueue.push({ files, folderValue, keywords });
+      fileInput.value = "";
+      imageKeywords.tagChipsAPI.setTags("");
+      updateFilePreview();
+      renderUploadQueue();
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.tags !== undefined) {
-        return data;
+
+    function renderUploadQueue() {
+      const list = document.getElementById("uploadQueueList");
+      const bar = document.getElementById("publishQueueBar");
+      const summary = document.getElementById("publishQueueSummary");
+      list.innerHTML = "";
+      uploadQueue.forEach((batch, index) => {
+        const row = document.createElement("div");
+        row.className = "upload-queue-item";
+
+        const label = document.createElement("span");
+        const fileWord = batch.files.length === 1 ? "image" : "images";
+        label.textContent = `${batch.files.length} ${fileWord} → ${batch.folderValue}${batch.keywords ? ' (' + batch.keywords + ')' : ''}`;
+        row.appendChild(label);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "upload-queue-item-remove";
+        removeBtn.title = "Remove this batch from the queue";
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", () => {
+          uploadQueue.splice(index, 1);
+          renderUploadQueue();
+        });
+        row.appendChild(removeBtn);
+
+        list.appendChild(row);
+      });
+
+      const totalFiles = uploadQueue.reduce((sum, batch) => sum + batch.files.length, 0);
+      if (uploadQueue.length > 0) {
+        bar.style.display = "flex";
+        const categoryWord = uploadQueue.length === 1 ? "category" : "categories";
+        summary.textContent = `${uploadQueue.length} ${categoryWord} queued (${totalFiles} images)`;
+      } else {
+        bar.style.display = "none";
       }
     }
-    throw new Error('Cloud Vision failed');
-  } catch (err) {
-    console.warn('Cloud Vision API error, falling back to MobileNet:', err);
-    return await generateImageTagsWithMobileNet(imageUrl);
-  }
-}
 
-async function generateImageTagsWithMobileNet(imageUrl) {
-  try {
-    console.log("Starting tag generation for image:", imageUrl);
-    
-    // Create a new image element
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    // Wait for the image to load
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = (e) => {
-        console.error("Image loading error:", e);
-        reject(new Error("Failed to load image"));
-      };
-      img.src = cloudinaryDisplayUrl(imageUrl);
-
-      // Add a timeout in case the image doesn't load
-      setTimeout(() => reject(new Error("Image load timeout")), 10000);
+    // Uploads every queued batch at once - each batch goes to its own
+    // folder with its own tags, through the same instant-upload path as
+    // the plain Add button above.
+    document.getElementById("publishQueueBtn").addEventListener("click", () => {
+      const isAdminMode = !!auth.currentUser;
+      if (!isAdminMode) {
+        alert("You need admin access to upload files.");
+        return;
+      }
+      const batches = uploadQueue.slice();
+      uploadQueue = [];
+      renderUploadQueue();
+      batches.forEach(batch => startUploadBatch(batch.files, batch.folderValue, batch.keywords));
+      imageModal.classList.remove("active");
+      resetImageModal();
     });
-    
-    console.log("Image loaded successfully, size:", img.width, "x", img.height);
-    
-    // Use preloaded model if available
-    let model;
-    if (window.preloadedMobileNetModel) {
-      console.log("Using preloaded MobileNet model");
-      model = window.preloadedMobileNetModel;
-    } else {
-      console.log("Loading MobileNet model...");
-      model = await mobilenet.load();
-      console.log("Model loaded successfully");
-    }
-    
-    // Classify the image
-    console.log("Classifying image...");
-    const predictions = await model.classify(img);
-    console.log("Classification results:", predictions);
-    
-    // Define common incorrect classifications to filter out
-    const filtersToRemove = [
-      'envelope', 'mailbox', 'letter', 'web site', 'website', 'computer', 'screen',
-      'digital', 'display', 'monitor', 'window', 'frame', 'book', 'page'
-    ];
-    
-    // Define categories to favor for reference images
-    const textureCategories = [
-      'brick', 'stone', 'wood', 'metal', 'concrete', 'fabric', 'leather',
-      'grass', 'dirt', 'sand', 'rock', 'water', 'sky', 'cloud', 'fire',
-      'rust', 'paint', 'glass', 'ceramic', 'plastic', 'paper', 'cardboard'
-    ];
 
-    // Map specific tags to more general categories
-    const generalTagMappings = {
-      brick: ['wall', 'masonry'],
-      stone: ['rock', 'material'],
-      wood: ['material', 'timber'],
-      metal: ['material'],
-      concrete: ['material'],
-      leather: ['material'],
-      fabric: ['material'],
-      grass: ['plant'],
-      dirt: ['ground'],
-      sand: ['ground'],
-      rock: ['stone'],
-      water: ['liquid'],
-      sky: ['outdoor'],
-      cloud: ['sky'],
-      fire: ['flame'],
-      rust: ['metal'],
-      paint: ['color'],
-      glass: ['material'],
-      ceramic: ['material'],
-      plastic: ['material'],
-      paper: ['material'],
-      cardboard: ['paper']
-    };
-    
-    // Manual corrections for common objects
-    const specialObjects = {
-      'fire hydrant': true,
-      'door': true,
-      'brick wall': true,
-      'concrete wall': true,
-      'wood texture': true,
-      'metal surface': true
-    };
-    
-    // Check for common objects in predictions
-    const hasSpecialObject = predictions.some(p => 
-      specialObjects[p.className.toLowerCase()] && p.probability > 0.3
-    );
-    
-    // If the image has a red fire hydrant but it's not detected
-    const isRedFireHydrant = 
-      predictions.some(p => p.className.toLowerCase().includes('mailbox')) && 
-      // Here we would ideally do color analysis to detect red
-      // This is a placeholder - in a real implementation, you'd analyze the actual pixel data
-      false; 
-    
-    // Special case handling
-    if (isRedFireHydrant && 
-        !predictions.some(p => p.className.toLowerCase().includes('fire hydrant'))) {
-      // Add fire hydrant with high confidence
-      predictions.unshift({
-        className: "fire hydrant",
-        probability: 0.8
+    // Creates a dock row and kicks off processUpload() for each file in a
+    // batch. Shared by the immediate Add button and Publish All so both
+    // paths behave identically.
+    function startUploadBatch(files, folderValue, keywords) {
+      const uploadBatchId = Date.now();
+
+      const uploadDock = document.getElementById("uploadDock");
+      if (!uploadDock) {
+        console.error("Upload dock element not found");
+        alert("Upload system error: Could not find upload dock element");
+        return;
+      }
+      uploadDock.classList.add("active");
+
+      const uploadDockContent = document.querySelector(".upload-dock-content");
+      if (!uploadDockContent) {
+        console.error("Upload dock content element not found");
+        alert("Upload system error: Could not find upload dock content element");
+        return;
+      }
+
+      files.forEach((file, i) => {
+        const uploadItemId = `upload-${uploadBatchId}-${i}`;
+
+        const uploadItem = document.createElement("div");
+        uploadItem.classList.add("upload-dock-item");
+        uploadItem.id = uploadItemId;
+        uploadItem.innerHTML = `
+          <div class="upload-dock-item-info">
+            <div class="upload-dock-item-filename">${file.name}</div>
+            <div class="upload-dock-item-percent" id="percent-${uploadItemId}">0%</div>
+          </div>
+          <div class="upload-dock-item-details">To: ${folderValue} ${keywords ? '| Tags: ' + keywords : ''}</div>
+          <div class="upload-dock-progress">
+            <div class="upload-dock-progress-fill" id="progress-${uploadItemId}" style="width: 0%"></div>
+          </div>
+        `;
+
+        uploadDockContent.appendChild(uploadItem);
+        processUpload(file, folderValue, keywords, uploadItemId);
       });
     }
-    
-    // Filter and process the predictions
-    let processedTags = predictions
-      // Higher threshold - only keep predictions with >40% confidence
-      .filter(p => p.probability > 0.4)
-      .slice(0, 8) // Get more initial predictions to work with
-      .map(p => {
-        // Split the class names and filter out unwanted terms
-        return p.className.toLowerCase()
-          .replace(/,/g, '')
-          .split(' ')
-          .filter(tag => 
-            // Filter out common incorrect classifications
-            !filtersToRemove.some(filter => tag.includes(filter)) &&
-            tag.length > 2 // Minimum length for a tag
-          );
-      })
-      .flat()
-      // Remove duplicates
-      .filter((tag, index, self) => self.indexOf(tag) === index);
-    
-    // Boost texture-related tags to the front
-    processedTags.sort((a, b) => {
-      const aIsTexture = textureCategories.some(cat => a.includes(cat));
-      const bIsTexture = textureCategories.some(cat => b.includes(cat));
 
-      if (aIsTexture && !bIsTexture) return -1;
-      if (!aIsTexture && bIsTexture) return 1;
-      return 0;
-    });
-
-    // Backfill with lower-confidence predictions (still real detections)
-    // before falling back to category expansion, so we can reach a fixed
-    // count - but only down to a reasonable floor, otherwise near-random
-    // guesses get shown as if they were real tags
-    const BACKFILL_MIN_PROBABILITY = 0.15;
-    if (processedTags.length < 5) {
-      const lowerConfidenceWords = predictions
-        .filter(p => p.probability >= BACKFILL_MIN_PROBABILITY)
-        .map(p => p.className.toLowerCase().replace(/,/g, '').split(' '))
-        .flat()
-        .filter(tag => !filtersToRemove.some(filter => tag.includes(filter)) && tag.length > 2);
-      for (const tag of lowerConfidenceWords) {
-        if (processedTags.length >= 5) break;
-        if (!processedTags.includes(tag)) processedTags.push(tag);
-      }
-    }
-
-    // Expand with general categories if still fewer than five tags
-    if (processedTags.length < 5) {
-      for (const tag of [...processedTags]) {
-        const extras = generalTagMappings[tag];
-        if (extras) {
-          for (const extra of extras) {
-            if (processedTags.length >= 5) break;
-            if (!processedTags.includes(extra)) {
-              processedTags.push(extra);
-            }
-          }
-        }
-        if (processedTags.length >= 5) break;
-      }
-    }
-
-    // No further padding: showing fewer, accurate tags beats padding to 5
-    // with generic words that have nothing to do with the image
-
-    // Take up to the top 5 tags after processing
-    const tags = processedTags.slice(0, 5).join(', ');
-    
-    console.log("Generated tags:", tags);
-    
-    // Return both the final tags string and the original objects detected
-    return {
-      tags: tags,
-      possibleObjects: predictions
-        .filter(p => p.probability > 0.3)
-        .slice(0, 5)
-        .map(p => ({
-          name: p.className.toLowerCase(),
-          confidence: p.probability
-        }))
-    };
-  } catch (error) {
-    console.error('Error generating image tags:', error);
-    return {
-      tags: '',
-      possibleObjects: []
-    };
-  }
-}
-
-function initBatchTagReviewUI() {
-  // Set up event handlers for the batch tag review panel (shown once per
-  // upload batch, listing every image so tags can be reviewed all at once
-  // instead of one blocking popup per image).
-  const tagReviewPanel = document.getElementById('tagReviewPanel');
-  const closeTagReviewBtn = document.getElementById('closeTagReviewBtn');
-  const confirmTagsBtn = document.getElementById('confirmTagsBtn');
-  const skipTagsBtn = document.getElementById('skipTagsBtn');
-
-  closeTagReviewBtn.addEventListener('click', () => {
-    tagReviewPanel.classList.remove('active');
-  });
-
-  tagReviewPanel.addEventListener('click', (e) => {
-    if (e.target === tagReviewPanel) {
-      tagReviewPanel.classList.remove('active');
-    }
-  });
-
-  confirmTagsBtn.addEventListener('click', () => saveBatchReview({ useAiTags: true }));
-  skipTagsBtn.addEventListener('click', () => saveBatchReview({ useAiTags: false }));
-}
-
-// Adds one uploaded + tagged image as a row in the batch review panel,
-// opening the panel if this is the first image of the batch.
-function addBatchReviewRow(item) {
-  const tagReviewPanel = document.getElementById('tagReviewPanel');
-  const batchReviewList = document.getElementById('batchReviewList');
-
-  const row = document.createElement('div');
-  row.className = 'batch-review-row';
-
-  const thumb = document.createElement('img');
-  thumb.className = 'batch-review-thumb';
-  thumb.src = item.imageUrl;
-  row.appendChild(thumb);
-
-  const info = document.createElement('div');
-  info.className = 'batch-review-info';
-
-  const filename = document.createElement('div');
-  filename.className = 'batch-review-filename';
-  filename.textContent = item.file.name;
-  info.appendChild(filename);
-
-  const combinedInitial = item.keywords ?
-    (item.tagData.tags ? `${item.keywords}, ${item.tagData.tags}` : item.keywords) :
-    item.tagData.tags;
-
-  const tagsInput = document.createElement('input');
-  tagsInput.type = 'text';
-  tagsInput.placeholder = 'Edit or add tags...';
-  info.appendChild(tagsInput);
-  initTagChipInput(tagsInput);
-  tagsInput.tagChipsAPI.setTags(combinedInitial);
-
-  row.appendChild(info);
-
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'batch-review-remove';
-  removeBtn.title = "Don't save this image";
-  removeBtn.textContent = '×';
-  removeBtn.addEventListener('click', () => {
-    batchReviewItems = batchReviewItems.filter(i => i !== item);
-    row.remove();
-    markUploadItemSkipped(item.uploadItemId);
-    updateBatchReviewCount();
-    if (batchReviewItems.length === 0) {
-      tagReviewPanel.classList.remove('active');
-    }
-  });
-  row.appendChild(removeBtn);
-
-  item.tagsInput = tagsInput;
-  batchReviewList.appendChild(row);
-
-  updateBatchReviewCount();
-  tagReviewPanel.classList.add('active');
-}
-
-function updateBatchReviewCount() {
-  const batchReviewCount = document.getElementById('batchReviewCount');
-  batchReviewCount.textContent = batchReviewItems.length ? `(${batchReviewItems.length})` : '';
-}
-
-function markUploadItemSkipped(uploadItemId) {
-  const uploadItem = document.getElementById(uploadItemId);
-  if (!uploadItem) return;
-  const details = uploadItem.querySelector('.upload-dock-item-details');
-  if (details) details.textContent = 'Skipped (not saved)';
-  uploadItem.classList.add('upload-error');
-  setTimeout(() => {
-    if (uploadItem.parentNode) uploadItem.remove();
-  }, 5000);
-}
-
-// Saves every image currently in the batch review list at once.
-async function saveBatchReview({ useAiTags }) {
-  const tagReviewPanel = document.getElementById('tagReviewPanel');
-  const itemsToSave = batchReviewItems.slice();
-  batchReviewItems = [];
-  document.getElementById('batchReviewList').innerHTML = '';
-  updateBatchReviewCount();
-  tagReviewPanel.classList.remove('active');
-
-  await Promise.all(itemsToSave.map(item => {
-    const finalTags = useAiTags ? item.tagsInput.tagChipsAPI.getValue() : (item.keywords || '');
-    return completeUpload(item.imageUrl, item.folderValue, finalTags, item.file.name, item.uploadItemId)
-      .catch(error => console.error('Error completing upload:', error));
-  }));
-}
-    
     // Updates both the progress bar fill and its percentage label together
     function setUploadItemProgress(uploadItemId, percent, label) {
       const fill = document.getElementById(`progress-${uploadItemId}`);
@@ -4433,71 +4182,32 @@ async function saveBatchReview({ useAiTags }) {
 async function processUpload(file, folderValue, keywords, uploadItemId) {
   const progressFill = document.getElementById(`progress-${uploadItemId}`);
   const uploadItem = document.getElementById(uploadItemId);
-  
+
   if (!progressFill || !uploadItem) {
     console.error(`Missing DOM elements for upload ${uploadItemId}`);
     return;
   }
-  
+
+  let imageUrl;
   try {
     console.log(`Starting upload process for ${file.name}`);
-    
+
     // Update progress to 30%
     setUploadItemProgress(uploadItemId, 30);
-    
+
     // Upload the file (compressed first if it's too large for the upload function)
     console.log(`Uploading ${file.name}...`);
     const uploadFile = await compressImageIfNeeded(file);
-    const imageUrl = await uploadImage(uploadFile);
+    imageUrl = await uploadImage(uploadFile);
     console.log(`File uploaded successfully, URL: ${imageUrl}`);
-    
-    // Update progress to 50%
-    setUploadItemProgress(uploadItemId, 50);
-    
-    // Generate tags using enhanced function
-    console.log(`Generating tags for ${file.name}...`);
-    let tagData = { tags: '', possibleObjects: [] };
-    try {
-      tagData = await generateImageTags(imageUrl);
-      console.log(`Tags generated:`, tagData);
-    } catch (tagError) {
-      console.error(`Tag generation failed: ${tagError.message}`);
-      tagData = { tags: '', possibleObjects: [] }; // Fail gracefully
-    }
 
-    // If both Cloud Vision and MobileNet failed outright, there's nothing
-    // real to show - say so plainly instead of faking 5 descriptive-looking tags
-    if (!tagData.tags) {
-      tagData = { ...tagData, tags: 'untagged' };
-    }
-    
     // Update progress to 70%
     setUploadItemProgress(uploadItemId, 70);
-    
-    // Initialize the batch tag review UI if needed
-    if (!window.tagReviewInitialized) {
-      initBatchTagReviewUI();
-      window.tagReviewInitialized = true;
-    }
-
-    // Add this image to the batch review panel (all images in the batch
-    // are reviewed together at the end instead of one popup each)
-    const batchItem = {
-      imageUrl: imageUrl,
-      tagData: tagData,
-      file: file,
-      folderValue: folderValue,
-      keywords: keywords,
-      uploadItemId: uploadItemId
-    };
-    batchReviewItems.push(batchItem);
-    addBatchReviewRow(batchItem);
-
   } catch (error) {
     console.error(`Upload failed for ${file.name}:`, error);
     setUploadItemProgress(uploadItemId, 100, "Error");
     if (uploadItem) uploadItem.classList.add("upload-error");
-    
+
     // Add error message
     const details = uploadItem?.querySelector(".upload-dock-item-details");
     if (details) {
@@ -4505,10 +4215,17 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
       details.title = details.textContent; // full message on hover, since the row is truncated
       details.style.color = "var(--danger)";
     }
+    return;
   }
+
+  // No AI tagging, no review step: save straight to Firestore/gallery with
+  // whatever keywords were typed in, so it's live the moment the upload
+  // finishes. completeUpload() manages this stage's own progress/error UI.
+  await completeUpload(imageUrl, folderValue, keywords, file.name, uploadItemId)
+    .catch(error => console.error(`Error completing upload for ${file.name}:`, error));
 }
 
-// Helper function to complete the upload after tag review
+// Saves an already-uploaded (Cloudinary) image to Firestore and the gallery.
 async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName, uploadItemId) {
   try {
     // Save to Firebase
@@ -4530,7 +4247,7 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       // Update the display
       const details = uploadItem?.querySelector(".upload-dock-item-details");
       if (details) {
-        details.textContent = `To: ${folderValue} | Tags: ${combinedKeywords}`;
+        details.textContent = `To: ${folderValue}${combinedKeywords ? ' | Tags: ' + combinedKeywords : ''}`;
       }
       
       // Remove the item after 5 seconds
@@ -4631,31 +4348,6 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       console.error("Could not find upload dock element");
     }
 
-    // Preload the TensorFlow and MobileNet models to speed up first upload
-    try {
-      console.log("Preloading TensorFlow and MobileNet models...");
-      // Check if we have access to the libraries
-      if (typeof tf !== 'undefined' && typeof mobilenet !== 'undefined') {
-        // We don't await this, as it can take time and we don't want to block initialization
-        // This will just start the process in the background
-        setTimeout(async () => {
-          try {
-            const model = await mobilenet.load();
-            console.log("MobileNet model preloaded successfully");
-            window.preloadedMobileNetModel = model; // Store for future use
-          } catch (e) {
-            console.warn("MobileNet preloading failed:", e);
-            // This is fine, we'll try again when needed
-          }
-        }, 1000);
-      } else {
-        console.warn("TensorFlow or MobileNet libraries not available for preloading");
-      }
-    } catch (e) {
-      console.warn("Error during TensorFlow preloading:", e);
-      // Non-critical error, continue initialization
-    }
-    
     // Load data
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
@@ -4672,15 +4364,6 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       console.log("All folder selected");
     } else {
       console.error("Could not find 'All' folder item");
-    }
-    
-    // Initialize the batch tag review UI (after everything else is loaded)
-    if (document.getElementById('tagReviewPanel')) {
-      initBatchTagReviewUI();
-      window.tagReviewInitialized = true;
-      console.log('Batch tag review UI initialized');
-    } else {
-      console.warn('Tag review panel not found in the DOM');
     }
     
     console.log("App initialized successfully!");
@@ -4704,18 +4387,6 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
   </div>
 </div>
 
-<div id="tagReviewPanel" class="modal-backdrop">
-  <div class="modal-content batch-tag-review-content">
-    <button class="close-modal-btn" id="closeTagReviewBtn">&times;</button>
-    <h3>Review Tags <span id="batchReviewCount"></span></h3>
-    <p style="margin-bottom:0.8rem; opacity:0.8;">Edit tags for each image below, then save the whole batch at once.</p>
-    <div id="batchReviewList" class="batch-review-list"></div>
-    <div style="margin-top:0.8rem;">
-      <button id="confirmTagsBtn">Confirm All &amp; Save</button>
-      <button id="skipTagsBtn">Save All Without AI Tags</button>
-    </div>
-  </div>
-</div>
-  
+
 </body>
 </html>

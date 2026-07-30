@@ -29,7 +29,20 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     side) and restart the quality sweep at the smaller size. This ordering is the point — a huge
     photo stepped down to a still-generous resolution at good quality looks better than the same
     photo kept at full resolution and crushed to a very low quality, and most of that resolution is
-    invisible anyway once Cloudinary serves it back down to 1200/1920px for display.
+    invisible anyway once Cloudinary serves it back down to 1200/1920px for display. **2026-07-30:
+    considered and rejected** moving this client-side compression to a cloud/compression API
+    instead (skip local canvas work, let Cloudinary resize/recompress server-side on a direct
+    browser→Cloudinary upload). Rejected because: (1) it only works by bypassing
+    `netlify/functions/upload.js` entirely — that Busboy proxy is exactly why client compression
+    exists in the first place (its ~6MB request body cap, and its inability to reliably accept raw
+    HEIC bytes at all), so "use a cloud API" really means "add a new signed-upload endpoint and
+    rewrite the upload path," not a small swap; (2) the network cost of uploading a full-size
+    original (a 15-20MB HEIC/RAW phone photo, uncompressed) very plausibly exceeds whatever CPU
+    time it saves, especially on mobile/cellular — the local compression step's whole point was
+    keeping the bytes going over the wire small; (3) none of it is testable end-to-end in a
+    sandboxed session (no live Cloudinary/Firebase network access here). If revisited, the lower-
+    risk version of "make it lighter" is trimming `encodeCanvasUnderSize()`'s own quality/
+    resolution-stepping loop (e.g. fewer passes, coarser steps), not moving the work off-device.
   - Delete Images, Move Images, and Edit Tags (2026-07-30) are three separate select-then-act
     modes (`isDeleteMode`/`isMoveMode`/`isTagEditMode`, each with its own `.image-container`
     overlay class and floating controls bar) that all read clicks on the same gallery thumbnails.
@@ -94,12 +107,47 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     site-wide - if a future modal needs to be wider than roughly `viewport - 540px`, the real fix
     is raising `.modal-backdrop` above 1100 (and re-checking `.about-btn`/`.submit-reference-btn`,
     which sit at 1200 for the same reason), not just shrinking that modal too.
+  - **2026-07-30: AI tagging (Google Cloud Vision + client-side MobileNet) removed completely** —
+    `netlify/functions/cloudVision.js`, `generateImageTags()`/`generateImageTagsWithMobileNet()`,
+    the TF.js/MobileNet CDN `<script>` tags, and the whole end-of-batch "Review Tags" panel
+    (`tagReviewPanel`/`initBatchTagReviewUI()`/`addBatchReviewRow()`/`saveBatchReview()`) are gone
+    — this was a deliberate product decision (owner's request), not a bug fix, so don't reintroduce
+    any of it without a fresh explicit ask. `processUpload()` now goes straight from
+    `compressImageIfNeeded()`/`uploadImage()` to `completeUpload()` using only whatever was typed
+    into the Keywords field — an image is live in Firestore/the gallery the moment its upload
+    finishes, no review/confirm step in between. The upload dock (`.upload-dock`, widened to 420px/
+    440px max-height) is now the *only* upload feedback surface, which is why it got bigger — it
+    used to just track progress while the real review UI was the tag panel. `.batch-tag-review-
+    content`/`.batch-review-thumb`/`.batch-review-thumbs-strip` CSS classes were **kept** — they're
+    shared with the still-live Edit Tags modal (`editTagsThumbs`), not exclusive to the removed
+    panel; don't delete those again while cleaning up anything nearby.
+  - **Publish Queue (2026-07-30)**, in the Add Image modal: besides the existing "Add" button
+    (uploads the current file selection immediately, unchanged), "Add to Queue" stages the current
+    files+folder+keywords selection into an in-memory `uploadQueue` array instead, rendered as a
+    removable list, so several different categories can be staged in one modal session without
+    reopening it per folder. "Publish All" then runs every queued batch through the same
+    instant-upload path (`startUploadBatch()`, refactored out of the plain Add handler so both
+    paths behave identically). The queue is intentionally **not** cleared when the modal is closed
+    without publishing — only an explicit Publish All (or a page reload) empties it — so
+    accidentally dismissing the modal mid-batch doesn't lose staged work.
+  - **Search now treats the folder/category name as an invisible tag too (2026-07-30)** —
+    `performSearch()` matches the search term against `data-category` in addition to filename and
+    `data-keywords`, so searching "metal" also surfaces every image filed under a Metal folder (or
+    Metal/<subfolder>), on top of images anywhere else explicitly tagged "metal". This only affects
+    the top search bar; the sidebar's folder-click filtering (`filterImages()`) is unchanged.
+  - **`.sidebar-brand` crop fix (2026-07-30)** — the "aReferences" header text could get silently
+    cropped at the bottom (no scrollbar, no error) whenever the sidebar's total content grew taller
+    than the viewport, e.g. right after admin sign-in reveals the extra footer buttons. Cause: it
+    was the only flex child of the column-flex `.sidebar` with `overflow: hidden`, which per the
+    flexbox spec gives an element an automatic min-height of `0` instead of its content size —
+    every other child resisted shrinking below its content, so *this* element absorbed 100% of the
+    squeeze instead of `.sidebar`'s own `overflow-y: auto` kicking in and scrolling like it's
+    supposed to. Fixed with `flex-shrink: 0` on `.sidebar-brand`. If a similar "silently shrinks/
+    crops instead of scrolling" bug shows up on another flex child, check for the same
+    `overflow: hidden` + missing `flex-shrink: 0` combination first.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
-- **`netlify/functions/cloudVision.js`** — calls Google Cloud Vision (`LABEL_DETECTION`) to tag
-  an uploaded image; falls back to client-side MobileNet (TensorFlow.js, loaded from a CDN) if
-  Vision fails or the key is missing.
 - **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
   filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
   Access is controlled by real Firestore security rules now — see "Admin access" below and
@@ -114,11 +162,9 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 
 ## Environment variables (Netlify)
 
-- `CLOUD_VISION_API` — Google Cloud Vision API key. **Not** `VISION_API_KEY` — a previous
-  session used that name by mistake, which silently broke Vision tagging (fell back to
-  MobileNet) until it was caught and fixed. If Vision tagging ever looks broken again, check
-  this env var name first before assuming the key itself is bad.
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — used by `upload.js`.
+  (`CLOUD_VISION_API` is gone along with Cloud Vision itself — see the AI tagging removal note
+  above. If it's still set in the Netlify dashboard, it's just unused, not harmful.)
 - Firebase config is a public client-side config object inlined in `index.html` (normal for
   Firebase web apps — it's not a secret, access is controlled by Firestore security rules, not
   by hiding this config).
@@ -160,20 +206,25 @@ explicit request either way.
 ## Testing
 
 - `npm test` runs Jest against `tests/upload.test.js` (mocks Cloudinary, exercises the upload
-  handler's method-check and error paths). No tests exist for `cloudVision.js` or the frontend.
+  handler's method-check and error paths). No tests exist for the frontend.
 - There's no CI configured on this repo (no `.github/workflows`) — `npm test` before pushing is
   on you/the session, GitHub won't run anything automatically.
 - The frontend can't be meaningfully unit-tested (one big inline script, DOM-driven). To check
   a UI change actually works, serve `index.html` (e.g. `python3 -m http.server`) and drive it
-  with Playwright/a headless browser. Firebase and the TensorFlow/MobileNet CDN scripts may be
-  unreachable in a sandboxed session (egress policy blocking `cdn.jsdelivr.net`/`gstatic.com`) —
-  in that case, stub `window.firebase` via `page.addInitScript()` before navigating so the
-  top-level `firebase.initializeApp()`/`firebase.firestore()`/`firebase.auth()` calls don't throw
-  and the rest of the inline script (event listener wiring) still runs. The stub needs a fake
-  `auth()` too now (not just `firestore()`) to test anything admin-gated: at minimum
-  `onAuthStateChanged(cb)` (call `cb` immediately, keep it to notify on sign-in/out),
-  `signInWithEmailAndPassword(email, password)`, `signOut()`, and a `currentUser` getter — real
-  Firebase Auth can't run in this sandbox any more than real Firestore can.
+  with Playwright/a headless browser (`npm install --no-save playwright` if it's not already
+  present; the sandbox's pre-installed Chromium binary lives under
+  `/opt/pw-browsers/chromium-*/chrome-linux/chrome` — pass that as `executablePath` explicitly if
+  Playwright's default `chromium.launch()` can't find it). Firebase's CDN scripts may be
+  unreachable in a sandboxed session (egress policy) — in that case, stub `window.firebase` via
+  `page.addInitScript()` before navigating so the top-level `firebase.initializeApp()`/
+  `firebase.firestore()`/`firebase.auth()` calls don't throw and the rest of the inline script
+  (event listener wiring) still runs. The stub needs a fake `auth()` too (not just `firestore()`)
+  to test anything admin-gated: at minimum `onAuthStateChanged(cb)` (call `cb` immediately, keep
+  it to notify on sign-in/out), `signInWithEmailAndPassword(email, password)`, `signOut()`, and a
+  `currentUser` getter — real Firebase Auth can't run in this sandbox any more than real
+  Firestore can. Mock the `fetch('/.netlify/functions/upload', …)` call too (e.g.
+  `page.route('**/.netlify/functions/upload', …)`) if exercising the upload flow — there's no
+  live Cloudinary in a sandboxed session either.
 
 ## Working across sessions
 
