@@ -8,31 +8,109 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 - **`index.html`** — the entire frontend. One page, one big inline `<style>` block, one big
   inline `<script>` block. No build step, no bundler, no framework. Data flows straight from
   Firestore/Cloudinary into DOM manipulation.
-  - `compressImageIfNeeded()` handles two separate problems that produce the identical symptom
-    (`upload.js`'s Busboy parser dies mid-stream with "Unexpected end of form", not a clean
-    error): (1) **any** HEIC/HEIF upload, regardless of size — confirmed by reproduction that
-    Netlify's function can't reliably accept raw HEIC bytes at all, so these always get decoded
-    and re-encoded as JPEG before upload, even a small 2MB HEIC that's nowhere near the size
-    limit; (2) oversized photos in general, since Netlify Functions cap request bodies around
-    6MB — those get the same JPEG re-encode, quality lowered (not resized) just enough to fit.
-    HEIC detection (`isHeicFile()`) sniffs the file's actual ISO-BMFF `ftyp` box instead of
-    trusting the name/MIME type, since both can lie (iOS/Safari sometimes hands the page raw
-    HEIC bytes under a misleading `.jpeg` name/type). Decoding goes through `<img>`/canvas first
-    (most browsers can't read HEIC this way, but it's faster and avoids an unnecessary decode
-    round-trip when it does work — e.g. Safari, which often can); `heic2any` (another CDN
-    script, same pattern as the TF.js/MobileNet ones below) is the fallback decoder when native
-    decode throws, converting to PNG first so the only lossy step stays the JPEG re-encode.
-    Don't gate the HEIC path behind the size check again — that was the original (wrong) design
-    and it's why the fix didn't work the first time.
+  - `compressImageIfNeeded()` (2026-07-30: retargeted to 1.5MB, was ~4.5MB) handles two separate
+    problems: (1) **any** HEIC/HEIF upload, regardless of size — confirmed by reproduction that
+    Netlify's function can't reliably accept raw HEIC bytes at all (Busboy dies mid-stream with
+    "Unexpected end of form"), so these always get decoded and re-encoded as JPEG before upload,
+    even a small 2MB HEIC that's nowhere near the size limit; (2) **every** upload over 1.5MB,
+    period — this is now a deliberate blanket "keep uploads small" policy (the owner's request),
+    not just dodging Netlify's ~6MB request body cap the way it originally was. HEIC detection
+    (`isHeicFile()`) sniffs the file's actual ISO-BMFF `ftyp` box instead of trusting the name/MIME
+    type, since both can lie (iOS/Safari sometimes hands the page raw HEIC bytes under a misleading
+    `.jpeg` name/type). Decoding goes through `<img>`/canvas first (most browsers can't read HEIC
+    this way, but it's faster and avoids an unnecessary decode round-trip when it does work — e.g.
+    Safari, which often can); `heic2any` (another CDN script, same pattern as the TF.js/MobileNet
+    ones below) is the fallback decoder when native decode throws, converting to PNG first so the
+    only lossy step stays the JPEG re-encode. Don't gate the HEIC path behind the size check again
+    — that was the original (wrong) design and it's why the fix didn't work the first time.
+    `encodeCanvasUnderSize()` does the actual fitting: quality drops first (0.92 down to a 0.5
+    floor) at the image's original resolution, and only once quality alone can't hit 1.5MB does it
+    actually shrink the canvas (in 15%-per-step passes, down to an 800px floor on the shorter
+    side) and restart the quality sweep at the smaller size. This ordering is the point — a huge
+    photo stepped down to a still-generous resolution at good quality looks better than the same
+    photo kept at full resolution and crushed to a very low quality, and most of that resolution is
+    invisible anyway once Cloudinary serves it back down to 1200/1920px for display.
+  - Delete Images, Move Images, and Edit Tags (2026-07-30) are three separate select-then-act
+    modes (`isDeleteMode`/`isMoveMode`/`isTagEditMode`, each with its own `.image-container`
+    overlay class and floating controls bar) that all read clicks on the same gallery thumbnails.
+    They're mutually exclusive by construction — turning one on turns the other two off — because
+    two active at once would double-fire click handlers on the same image. If you add a fourth
+    bulk-select mode, wire it into that same turn-off-the-others chain rather than assuming it's
+    the only one active. Also: the enlarge/lightbox modal's click handler reads tags from the live
+    `data-keywords` attribute (`container.getAttribute('data-keywords')`), not the `keywords`
+    function parameter closed over when the thumbnail was created — that parameter goes stale the
+    moment Edit Tags updates the attribute, and reintroducing a closure read there would make tag
+    edits silently not show up in the lightbox (same silent-failure shape as the delete/move bug
+    fixed earlier). `enlargeImage()` also takes the `.image-container` itself as a 4th argument now
+    (2026-07-30), stashed in module-level `currentEnlargedContainer` purely so the lightbox's
+    prev/next arrows (click or ←/→ keys) know where they are in the currently-visible gallery
+    order (`getVisibleGalleryContainers()` — same filtered/sorted list the grid itself shows) and
+    can wrap to the next/previous one. Any other future caller of `enlargeImage()` should pass the
+    container too, or prev/next will silently no-op for that entry point. Edit Tags' shared field
+    (2026-07-30) has two modes tracked by `editTagsAllMatched`, set when the modal opens: if every
+    selected image already had identical tags, Save **replaces** them (unchanged from the original
+    design); if they differed, Save instead **adds** whatever was typed to each image's own
+    existing tags via `mergeTagStrings()` (comma-list union, case-insensitive dedupe) - each image
+    keeps its individual previous tags rather than having them clobbered by one value that was
+    never even shown for that image. Don't collapse this back to always-replace; that's the exact
+    behavior that was reported as a problem.
+  - "Submit" (2026-07-30, `submitReferenceBtn`/`submitReferenceModal`) is deliberately **not**
+    admin-gated — it's the public-facing counterpart to the admin tools above, for visitors who
+    want to send the site owner a link (e.g. a Drive folder) or images without needing an email
+    address. Submitting writes a doc to the `submissions` Firestore collection (`link`,
+    `imageUrls`, `note`, `timestamp`) — **this went through two reversals in the same session,
+    worth understanding before touching it again**: first it wrote to Firestore as a backup
+    alongside email; then, misread as "automatically adds to the gallery," it was stripped down to
+    email-only; then, once the real problem turned out to be "opening 40 individual email links
+    one at a time is unworkable," Firestore storage came back — this time specifically to back the
+    **Review Submissions** admin panel (see below), not as a backup. The Firestore write is what
+    must succeed for a submission to count; the email (`sendSubmissionEmailNotification()`, via
+    FormSubmit's AJAX relay to **isakovicadrien@gmail.com**) is fire-and-forget on top of it, just
+    a heads-up ping, and its failure is only logged (`.catch()` at the call site), never surfaced
+    to the submitter. **isakovicadrien@gmail.com must click the one-time "activate this inbox"**
+    email FormSubmit sends on the very first real submission, or the ping just silently never
+    arrives — annoying but not load-bearing, since the Firestore doc (and thus the review panel)
+    is unaffected either way. Image uploads reuse `compressImageIfNeeded()`/`uploadImage()` as-is
+    (same Cloudinary path as admin uploads), sequentially rather than in parallel, for the same
+    reason upload.js's `Unexpected end of form` fix made the admin upload dock sequential (see
+    above).
+  - **Review Submissions** (2026-07-30, `reviewSubmissionsBtn`/`reviewSubmissionsModal`) is the
+    admin-only screen that reads the `submissions` collection above: every pending submission
+    rendered as real image thumbnails (not raw links) with a per-image folder picker + "Add"
+    button, so reviewing a batch of e.g. 40 submitted images means glancing at a grid and clicking
+    "Add" on the ones worth keeping, not opening 40 links one at a time. "Add" reuses
+    `saveImageToFirebase()`/`addImageToGallery()` **directly** — the image is already sitting on
+    Cloudinary from the original submission, so this is not a re-upload, just the same two calls
+    `completeUpload()` makes after a normal admin upload finishes. "Dismiss" hard-deletes the
+    submission's Firestore doc once it's been dealt with (whether 0, some, or all of its images
+    got added) — there's no "mark as reviewed" limbo state, so don't add one without a reason;
+    the point was to keep the queue short, not to grow a permanent log. **`.sidebar` has a higher
+    z-index (1100) than `.modal-backdrop` (999)** - a pre-existing mismatch, not introduced here,
+    that only bites when a modal is wide enough to visually extend under the sidebar's ~270px
+    width, at which point that overlapping strip's clicks land on whatever sidebar button is
+    there instead of the modal content underneath (found the hard way: widening this panel to
+    980px did exactly that to its own Dismiss button on a 1400px-wide test viewport). Fixed here
+    by keeping this panel's `max-width` at 840px instead of properly reordering the z-index stack
+    site-wide - if a future modal needs to be wider than roughly `viewport - 540px`, the real fix
+    is raising `.modal-backdrop` above 1100 (and re-checking `.about-btn`/`.submit-reference-btn`,
+    which sit at 1200 for the same reason), not just shrinking that modal too.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
 - **`netlify/functions/cloudVision.js`** — calls Google Cloud Vision (`LABEL_DETECTION`) to tag
   an uploaded image; falls back to client-side MobileNet (TensorFlow.js, loaded from a CDN) if
   Vision fails or the key is missing.
-- **Firestore** — two collections: `folders` (name, parent) and `images` (url, folder, keywords,
-  filename, timestamp). No auth backing this — see "Admin access" below.
+- **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
+  filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
+  Access is controlled by real Firestore security rules now — see "Admin access" below and
+  `firestore.rules`.
 - **Cloudinary** — actual image storage/hosting + on-the-fly resizing via URL transforms.
+- **`firestore.rules`** — the security rules text, checked into this repo **for reference only**.
+  There's no `firebase.json`/`.firebaserc` here and this session has no Firebase CLI access, so
+  this file is **not** deployed automatically by anything — it has to be manually pasted into
+  Firebase Console → Firestore Database → Rules any time it changes, and it's on whoever does
+  that to keep this file in sync with what's actually live. Don't assume editing it or committing
+  it has any live effect on its own.
 
 ## Environment variables (Netlify)
 
@@ -47,19 +125,37 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 
 ## Admin access
 
-There's no real auth. "ADMIN ACCESS" opens a `UI Preferences` modal (`#userPreference` field,
-`#applyPreferenceBtn`) that reveals the edit buttons (add/move/delete/rename folders+images,
-find duplicates) on Apply.
+**2026-07-30: real auth, replacing the no-password gate below.** "Admin Log In" (the button was
+renamed from "ADMIN ACCESS" the same day, and becomes "SIGN OUT" once signed in) opens an
+`#adminLoginModal` (email + password, Enter submits from either field) that calls Firebase Auth's
+`signInWithEmailAndPassword()`. There is exactly **one** admin account, created manually in
+Firebase Console → Authentication → Users, using **isakovicadrien@gmail.com** (the Email/Password
+sign-in method must be enabled first, under Authentication → Sign-in method — neither step can be
+done from a coding session, no Firebase CLI/project access here). Persistence is explicitly set to
+`SESSION` (not Firebase's `LOCAL` default) — closing the tab/browser signs the admin back out
+automatically, at the owner's request; a same-tab refresh still keeps the session, since
+`sessionStorage` (what `SESSION` persistence uses) survives a reload, just not closing the tab.
 
-**2026-07-28: the password check was intentionally removed, at the site owner's explicit
-request ("no password for admin for now").** `applyPreferenceBtn`'s click handler now grants
-admin controls unconditionally — it no longer compares `#userPreference` against the old
-base64'd value. The modal/button/field are still there (least invasive change), just gated on
-nothing. This directly reverses the previous "keep the gate as-is" guidance below, which stood
-only until someone actually asked for it to change — now it has been asked. If you're picking
-this back up: don't silently re-add a password check, and don't silently remove the gate
-further (e.g. deleting the button/modal) without a fresh explicit request either way — confirm
-with the user before changing this again in either direction.
+The client-side button-hiding (`auth.onAuthStateChanged` toggling `editButtons`/`separators`) is
+**cosmetic only** — it exists so a random visitor doesn't see admin controls cluttering the page,
+nothing more. The actual enforcement is `firestore.rules`: writes to `folders`/`images`, and
+reads/writes to `submissions`, require `request.auth.token.email == 'isakovicadrien@gmail.com'`.
+This means even someone who forces the hidden buttons visible via devtools still can't write
+anything without actually authenticating as that exact account — unlike the previous gate, this
+one holds up against a technical visitor reading the page's source, which was the specific
+complaint that prompted this change. **The Firestore rules must actually be pasted into the
+Firebase Console for any of this to be real** — until then, whatever rules are currently live
+there are what's actually enforced, regardless of what `firestore.rules` in this repo says.
+
+**Superseded history, kept for context:** on 2026-07-28 the password check was intentionally
+*removed* entirely, at the site owner's explicit request ("no password for admin for now") —
+`applyPreferenceBtn` granted admin controls unconditionally, gated on nothing. That decision stood
+only until the site owner ran into a concrete problem it caused (an admin-only "Review
+Submissions" panel needed to exist, and a client-side-only gate around it was explicitly called
+out as insufficient — "can be opened by anyone that decoded the password in the script"). If
+you're picking this back up again: don't silently weaken this back to a client-side-only check,
+and don't silently change the sign-in method or which account(s) count as admin, without a fresh
+explicit request either way.
 
 ## Testing
 
@@ -72,8 +168,12 @@ with the user before changing this again in either direction.
   with Playwright/a headless browser. Firebase and the TensorFlow/MobileNet CDN scripts may be
   unreachable in a sandboxed session (egress policy blocking `cdn.jsdelivr.net`/`gstatic.com`) —
   in that case, stub `window.firebase` via `page.addInitScript()` before navigating so the
-  top-level `firebase.initializeApp()`/`firebase.firestore()` calls don't throw and the rest of
-  the inline script (event listener wiring) still runs.
+  top-level `firebase.initializeApp()`/`firebase.firestore()`/`firebase.auth()` calls don't throw
+  and the rest of the inline script (event listener wiring) still runs. The stub needs a fake
+  `auth()` too now (not just `firestore()`) to test anything admin-gated: at minimum
+  `onAuthStateChanged(cb)` (call `cb` immediately, keep it to notify on sign-in/out),
+  `signInWithEmailAndPassword(email, password)`, `signOut()`, and a `currentUser` getter — real
+  Firebase Auth can't run in this sandbox any more than real Firestore can.
 
 ## Working across sessions
 
