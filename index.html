@@ -52,6 +52,21 @@
        Base Reset & Body
     -------------------------------------------------- */
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* Custom scrollbars everywhere that scrolls (sidebar, gallery, modal
+       lists, upload dock) instead of the default OS scrollbar. */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-strong) transparent;
+    }
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb {
+      background-color: var(--border-strong);
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+    *::-webkit-scrollbar-thumb:hover { background-color: var(--text-faint); }
     html, body {
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
@@ -68,7 +83,7 @@
   position: absolute;
   top: 15px;
   right: 24px;
-  background-color: rgba(24, 24, 27, 0.45);
+  background-color: rgba(15, 15, 17, 0.82);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
   padding: 10px 16px;
@@ -91,7 +106,7 @@
 }
 
 .about-btn:hover {
-  background-color: rgba(32, 32, 36, 0.8);
+  background-color: rgba(38, 38, 43, 0.9);
   border-color: var(--border-strong);
   color: var(--text);
 }
@@ -103,7 +118,7 @@
   position: absolute;
   top: 15px;
   right: 168px;
-  background-color: rgba(24, 24, 27, 0.45);
+  background-color: rgba(15, 15, 17, 0.82);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
   padding: 10px 16px;
@@ -126,7 +141,7 @@
 }
 
 .submit-reference-btn:hover {
-  background-color: rgba(32, 32, 36, 0.8);
+  background-color: rgba(38, 38, 43, 0.9);
   border-color: var(--border-strong);
   color: var(--text);
 }
@@ -299,11 +314,10 @@
     }
     .folder-list > li.new-this-week {
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 1.1rem;
       margin-bottom: 0.3rem;
-      color: var(--accent);
+      color: var(--text);
     }
-    .folder-list > li.new-this-week:hover { color: var(--accent); }
     .folder-list > li.new-this-week.selected {
       background-color: var(--accent-soft);
       color: var(--accent);
@@ -311,6 +325,12 @@
     .folder-list > li.all {
       font-weight: 600;
       font-size: 1.1rem;
+      /* Thin separator from "New This Week" above, matching the .separator
+         <hr> used elsewhere in the sidebar - a border here instead of an
+         actual <hr> since <li> is the only valid direct child of the
+         <ul class="folder-list">. */
+      border-top: 1px solid var(--border-color);
+      padding-top: 0.6rem;
       margin-bottom: 0.8rem;
       color: var(--text);
     }
@@ -670,12 +690,32 @@
     }
     /* Add Image modal: queued (not-yet-uploaded) batches, each one a
        files+folder+tags selection staged so several categories can be
-       uploaded in one go instead of reopening this modal per category. */
+       uploaded in one go instead of reopening this modal per category.
+       Wrapped in a tinted, labeled panel (.publish-queue-panel) so this
+       staging area reads as clearly separate from the instant Add/Add to
+       Queue controls below it, instead of blending into the rest of the
+       plain modal. Hidden entirely while nothing is queued. */
+    .publish-queue-panel {
+      display: none;
+      margin-top: 0.6rem;
+      padding: 10px 12px 12px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(221, 149, 86, 0.35);
+      border-radius: var(--radius-md);
+    }
+    .publish-queue-panel.active { display: block; }
+    .publish-queue-panel-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
     .upload-queue-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      margin: 0 0 0.6rem;
       max-height: 140px;
       overflow-y: auto;
     }
@@ -708,11 +748,24 @@
       gap: 10px;
       margin-top: 0.6rem;
       padding-top: 0.6rem;
-      border-top: 1px solid var(--border-color);
+      border-top: 1px solid rgba(221, 149, 86, 0.35);
     }
     .publish-queue-bar span {
       font-size: 0.82rem;
       color: var(--text-muted);
+    }
+    /* "Add to Queue" is a secondary/staging action, visually distinct from
+       the primary solid-accent "Add" (instant upload) button next to it -
+       two equal-weight solid buttons made the two very different actions
+       (upload now vs. stage for later) look interchangeable. */
+    #queueAddImageBtn {
+      background-color: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    #queueAddImageBtn:hover {
+      background-color: var(--accent-soft);
+      opacity: 1;
     }
     .modal-content .close-modal-btn {
       background: none;
@@ -1108,7 +1161,7 @@
   padding: 10px 16px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  background-color: rgba(26, 26, 30, 0.65);
+  background-color: rgba(15, 15, 17, 0.82);
   color: var(--text);
   font-size: 0.95rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
@@ -1121,7 +1174,7 @@
   outline: none;
   border-color: var(--border-strong);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-  background-color: rgba(30, 30, 34, 0.75);
+  background-color: rgba(22, 22, 25, 0.9);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -1147,10 +1200,10 @@
     /* Add a fallback for browsers that don't support backdrop-filter */
 @supports not (backdrop-filter: blur(10px)) {
   #mainImageSearch {
-    background-color: rgba(26, 26, 30, 0.92);
+    background-color: rgba(15, 15, 17, 0.96);
   }
   #mainImageSearch:focus {
-    background-color: rgba(30, 30, 34, 0.96);
+    background-color: rgba(22, 22, 25, 0.98);
   }
 }
 
@@ -1612,7 +1665,7 @@
   <div class="main-container">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <div class="sidebar-brand">aReferences</div>
+      <div class="sidebar-brand">aReference</div>
       <div class="search-bar-container">
         <div class="filter-icon-container">
           <button class="filter-button" id="filterButton" title="Sort Options">
@@ -1733,15 +1786,18 @@
       <input type="text" id="imageKeywords" placeholder="e.g., red, green">
       <div class="modal-hint">Goes live immediately - no review step.</div>
 
-      <div id="uploadQueueList" class="upload-queue-list"></div>
+      <div id="publishQueuePanel" class="publish-queue-panel">
+        <div class="publish-queue-panel-label">Queued — not published yet</div>
+        <div id="uploadQueueList" class="upload-queue-list"></div>
+        <div id="publishQueueBar" class="publish-queue-bar">
+          <span id="publishQueueSummary"></span>
+          <button id="publishQueueBtn">Publish All</button>
+        </div>
+      </div>
 
       <div style="margin-top:0.8rem;">
         <button id="confirmAddImageBtn">Add</button>
         <button id="queueAddImageBtn">Add to Queue</button>
-      </div>
-      <div id="publishQueueBar" class="publish-queue-bar">
-        <span id="publishQueueSummary"></span>
-        <button id="publishQueueBtn">Publish All</button>
       </div>
     </div>
   </div>
@@ -1806,9 +1862,9 @@
     <button class="close-modal-btn" id="closeAdminLoginModalBtn">&times;</button>
     <h3>Admin Sign In</h3>
     <label for="adminEmailInput">Email:</label>
-    <input type="email" id="adminEmailInput" placeholder="you@example.com" autocomplete="username">
+    <input type="email" id="adminEmailInput" placeholder="you@example.com" autocomplete="off" readonly>
     <label for="adminPasswordInput">Password:</label>
-    <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="current-password">
+    <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="off" readonly>
     <div id="adminLoginError" class="modal-hint" style="display:none;"></div>
     <div style="margin-top:0.8rem;">
       <button id="adminLoginBtn">Sign In</button>
@@ -1993,11 +2049,25 @@
 
     const adminAccessBtn = document.getElementById("adminaccessbtn");
 
+    // Defeats both accidental pre-filled values and browser/password-manager
+    // autofill: fields start `readonly` (browsers won't autofill a readonly
+    // field) and only become editable once actually focused, and are force-
+    // cleared every time the modal opens. Without this, a saved credential
+    // in a shared/public browser would let anyone open this modal and sign
+    // in without typing anything.
+    [adminEmailInput, adminPasswordInput].forEach(input => {
+      input.addEventListener("focus", () => input.removeAttribute("readonly"));
+    });
+
     adminAccessBtn.addEventListener("click", () => {
       if (auth.currentUser) {
         auth.signOut();
       } else {
         adminLoginError.style.display = "none";
+        adminEmailInput.value = "";
+        adminPasswordInput.value = "";
+        adminEmailInput.setAttribute("readonly", "readonly");
+        adminPasswordInput.setAttribute("readonly", "readonly");
         adminLoginModal.classList.add("active");
       }
     });
@@ -2097,16 +2167,33 @@
       let row = [];
       let aspectSum = 0;
 
-      // Every row — including the trailing one — is stretched to fill the
-      // full container width. Rounding each image's width individually can
-      // leave the row a pixel or two short of the container, so the
-      // remainder is folded into the last image's width to avoid a stray
-      // gap at the row's edge. A 1px safety margin keeps the row a hair
-      // under the container's true (sub-pixel) width so this rounding never
-      // pushes the row's total width just over the edge and wraps an image.
-      const flushRow = () => {
+      // Every full row is stretched to fill the full container width.
+      // Rounding each image's width individually can leave the row a pixel
+      // or two short of the container, so the remainder is folded into the
+      // last image's width to avoid a stray gap at the row's edge. A 1px
+      // safety margin keeps the row a hair under the container's true
+      // (sub-pixel) width so this rounding never pushes the row's total
+      // width just over the edge and wraps an image.
+      //
+      // The trailing row is the exception: if it's short of a full row
+      // (e.g. only 3 images left after a search), stretching it to the
+      // container's full width would blow those few images up way past the
+      // target size. A short trailing row instead renders at the plain
+      // target height, left-aligned, same as if the missing images were
+      // just off-screen rather than absent.
+      const flushRow = (isTrailingRow) => {
         if (row.length === 0) return;
         const gaps = GALLERY_GAP * (row.length - 1);
+        const naturalWidth = aspectSum * targetRowHeight + gaps;
+        if (isTrailingRow && naturalWidth < containerWidth) {
+          row.forEach(item => {
+            item.el.style.height = `${Math.round(targetRowHeight)}px`;
+            item.el.style.width = `${Math.round(targetRowHeight * item.aspect)}px`;
+          });
+          row = [];
+          aspectSum = 0;
+          return;
+        }
         const availableWidth = containerWidth - gaps - 1;
         const rowHeight = availableWidth / aspectSum;
         let widthSum = 0;
@@ -2128,9 +2215,9 @@
         row.push({ el, aspect });
         aspectSum += aspect;
         const projectedWidth = aspectSum * targetRowHeight + GALLERY_GAP * (row.length - 1);
-        if (projectedWidth >= containerWidth) flushRow();
+        if (projectedWidth >= containerWidth) flushRow(false);
       });
-      flushRow();
+      flushRow(true);
     }
 
     window.addEventListener("resize", () => scheduleLayout());
@@ -4073,6 +4160,7 @@ function closeEnlargeModal() {
     });
 
     function renderUploadQueue() {
+      const panel = document.getElementById("publishQueuePanel");
       const list = document.getElementById("uploadQueueList");
       const bar = document.getElementById("publishQueueBar");
       const summary = document.getElementById("publishQueueSummary");
@@ -4102,10 +4190,12 @@ function closeEnlargeModal() {
 
       const totalFiles = uploadQueue.reduce((sum, batch) => sum + batch.files.length, 0);
       if (uploadQueue.length > 0) {
+        panel.classList.add("active");
         bar.style.display = "flex";
         const categoryWord = uploadQueue.length === 1 ? "category" : "categories";
         summary.textContent = `${uploadQueue.length} ${categoryWord} queued (${totalFiles} images)`;
       } else {
+        panel.classList.remove("active");
         bar.style.display = "none";
       }
     }
