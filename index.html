@@ -1818,9 +1818,11 @@ aboutModal.addEventListener("click", (e) => {
     /********************************************************
      * Submit Reference (public - not admin-gated)
      * Lets anyone send a link and/or images without needing an email
-     * address. Stored in its own 'submissions' Firestore collection,
-     * separate from 'images'/'folders', so nothing shows up in the public
-     * gallery until reviewed and added deliberately through Add Image.
+     * address. Emailed straight to the site owner (see
+     * sendSubmissionEmailNotification below) - not written to Firestore or
+     * the gallery at all, so nothing shows up publicly and there's no
+     * separate place to go check; reviewing and adding anything worth
+     * keeping is entirely manual, through the existing Add Image flow.
      ********************************************************/
     const submitReferenceBtn = document.getElementById("submitReferenceBtn");
     const submitReferenceModal = document.getElementById("submitReferenceModal");
@@ -1893,7 +1895,11 @@ aboutModal.addEventListener("click", (e) => {
     // Best-effort email notification via FormSubmit's AJAX relay - no backend
     // of our own, no API key. isakovicadrien@gmail.com must click the
     // one-time "activate this inbox" email FormSubmit sends on the very
-    // first submission before notifications start arriving.
+    // first submission before notifications start arriving. This email is
+    // the only record of a submission - deliberately not also written to
+    // Firestore, so there isn't a second place to check for these; the site
+    // owner wants to receive them by email and add anything worth keeping
+    // by hand through the existing Add Image flow, nothing automatic.
     // Note this address is visible in the browser's network tab (it's a
     // client-side POST), just never shown anywhere in the page's own UI.
     async function sendSubmissionEmailNotification({ link, imageUrls, note }) {
@@ -1939,26 +1945,7 @@ aboutModal.addEventListener("click", (e) => {
           imageUrls.push(url);
         }
 
-        // Firestore is the durable record and must succeed; the email
-        // notification is best-effort and shouldn't fail the submission if
-        // the relay is down or not yet activated.
-        const [firestoreResult, emailResult] = await Promise.allSettled([
-          db.collection('submissions').add({
-            link: linkValue,
-            imageUrls: imageUrls,
-            note: noteValue,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            addTime: Date.now()
-          }),
-          sendSubmissionEmailNotification({ link: linkValue, imageUrls, note: noteValue })
-        ]);
-
-        if (firestoreResult.status === 'rejected') {
-          throw firestoreResult.reason;
-        }
-        if (emailResult.status === 'rejected') {
-          console.warn('Submission saved, but the email notification failed to send:', emailResult.reason);
-        }
+        await sendSubmissionEmailNotification({ link: linkValue, imageUrls, note: noteValue });
 
         showSubmitReferenceStatus("Thanks! Your submission was received.", false);
         setTimeout(() => {
@@ -1966,7 +1953,7 @@ aboutModal.addEventListener("click", (e) => {
           submitReferenceModal.classList.remove("active");
         }, 1800);
       } catch (error) {
-        console.error('Error saving submission:', error);
+        console.error('Error sending submission:', error);
         showSubmitReferenceStatus(`Something went wrong: ${error.message}`, true);
       } finally {
         confirmSubmitReferenceBtn.disabled = false;

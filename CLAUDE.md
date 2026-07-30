@@ -39,38 +39,37 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   - "Submit" (2026-07-30, `submitReferenceBtn`/`submitReferenceModal`) is deliberately **not**
     admin-gated — it's the public-facing counterpart to the admin tools above, for visitors who
     want to send the site owner a link (e.g. a Drive folder) or images without needing an email
-    address. It writes to its own `submissions` Firestore collection (`link`, `imageUrls`, `note`,
-    `timestamp`) rather than `images`/`folders`, so submissions never appear in the gallery on
-    their own — reviewing them and actually adding anything to the gallery is a manual step (via
-    Firebase console today; there's no admin review UI for this collection yet). Image uploads
-    reuse `compressImageIfNeeded()`/`uploadImage()` as-is (same Cloudinary path as admin uploads),
+    address. It's **email-only, on purpose**: submitting fires `sendSubmissionEmailNotification()`,
+    which posts straight to FormSubmit's AJAX relay (`https://formsubmit.co/ajax/...`) addressed
+    to **isakovicadrien@gmail.com**, and that's it — nothing is written to Firestore, nothing
+    touches `images`/`folders`, and there is deliberately no second place (like a Firestore
+    collection) to go check for these. The site owner explicitly asked for exactly this: receive
+    submissions by email, then decide by hand whether to add anything through the existing Add
+    Image flow. **Don't reintroduce a Firestore write for submissions** without a fresh explicit
+    request - that was tried once in this same feature and rejected specifically because it created
+    a second, easy-to-forget-about place submissions could land invisibly. Because there's no
+    backend of our own here, a failed/unreachable relay call is a hard, user-visible error (not a
+    silently-swallowed one) — email is the *only* delivery path, so the submitter needs to know if
+    it didn't go through. **isakovicadrien@gmail.com must click the one-time "activate this inbox"
+    email FormSubmit sends on the very first real submission**, or every submission after that will
+    keep failing loudly until that's done. The destination address is a plain string in the
+    client-side fetch call, so it's visible in the browser's network tab to anyone who looks, even
+    though it's never printed anywhere in the page's own UI — an inherent trade-off of doing this
+    with no backend of our own, not an oversight. If the address ever needs to change, it's a
+    single string to edit in `index.html`, not an env var. Image uploads reuse
+    `compressImageIfNeeded()`/`uploadImage()` as-is (same Cloudinary path as admin uploads),
     sequentially rather than in parallel, for the same reason upload.js's `Unexpected end of form`
-    fix made the admin upload dock sequential (see above).
-  - Each submission also fires a best-effort email notification (2026-07-30,
-    `sendSubmissionEmailNotification()`) to **isakovicadrien@gmail.com** via FormSubmit's AJAX
-    relay (`https://formsubmit.co/ajax/...`) — chosen specifically to avoid standing up any new
-    backend/API key for this. **That inbox must click the one-time "activate this inbox" email
-    FormSubmit sends on the very first real submission**, or silently no notifications will ever
-    arrive (the Firestore `submissions` doc still gets written regardless — that's the durable
-    record; the email is just a heads-up, and its failure is caught and logged, not surfaced to
-    the submitter). The destination address is a plain string in the client-side fetch call, so
-    it's visible in the browser's network tab to anyone who looks, even though it's never printed
-    anywhere in the page's own UI — that's an inherent trade-off of doing this with no backend of
-    our own, not an oversight. If this address ever needs to change, it's a single string to edit
-    in `index.html`, not an env var.
+    fix made the admin upload dock sequential (see above) — so the images themselves do land in
+    Cloudinary (their URLs are what gets emailed), just not in Firestore/the gallery.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
 - **`netlify/functions/cloudVision.js`** — calls Google Cloud Vision (`LABEL_DETECTION`) to tag
   an uploaded image; falls back to client-side MobileNet (TensorFlow.js, loaded from a CDN) if
   Vision fails or the key is missing.
-- **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
-  filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — public visitor
-  submissions via the "Submit" button, not surfaced anywhere in the UI, reviewed manually). No
-  auth backing any of this — see "Admin access" below. **If submissions aren't showing up in
-  Firestore, check the security rules allow writes to `submissions` specifically** — it's a
-  newer collection than `folders`/`images` and may not be covered by existing rules even if those
-  two already allow open writes.
+- **Firestore** — two collections: `folders` (name, parent) and `images` (url, folder, keywords,
+  filename, timestamp). No auth backing this — see "Admin access" below. Public "Submit"
+  submissions deliberately do **not** go through Firestore at all — see the "Submit" note above.
 - **Cloudinary** — actual image storage/hosting + on-the-fly resizing via URL transforms.
 
 ## Environment variables (Netlify)
