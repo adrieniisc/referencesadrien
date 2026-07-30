@@ -192,12 +192,14 @@
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
 .sidebar-brand {
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
   padding: 0.4rem 0.4rem 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar {
@@ -216,7 +218,7 @@
 }
     .search-bar-container {
       display: flex;
-      justify-content: flex-end; /* the sidebar's own search input was replaced by the floating top search bar */
+      justify-content: flex-start; /* the sidebar's own search input was replaced by the floating top search bar */
       margin-bottom: 0.4rem;
     }
     .filter-icon-container {
@@ -224,7 +226,7 @@
       align-items: center;
       justify-content: center;
       width: 32px;
-      margin-left: 0.4rem;
+      margin-left: 0;
     }
     .filter-button {
       width: 28px;
@@ -237,8 +239,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      color: var(--text-muted);
     }
-    .filter-button:hover { background-color: rgba(255,255,255,0.08); }
+    .filter-button:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
     .filter-button svg {
       width: 18px;
       height: 18px;
@@ -283,6 +286,17 @@
       transition: background-color 0.15s ease, color 0.15s ease;
       text-align: left;
       color: var(--text-muted);
+    }
+    .folder-list > li.new-this-week {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 0.3rem;
+      color: var(--accent);
+    }
+    .folder-list > li.new-this-week:hover { color: var(--accent); }
+    .folder-list > li.new-this-week.selected {
+      background-color: var(--accent-soft);
+      color: var(--accent);
     }
     .folder-list > li.all {
       font-weight: 600;
@@ -893,7 +907,13 @@
 }
 
 @keyframes enlarge-spin {
-  to { transform: rotate(360deg); }
+  /* Both keyframes must include the translate(-50%,-50%) centering from the
+     base rule - if only rotate() were listed here, the browser would
+     interpolate between mismatched transform function lists (translate ->
+     rotate) instead of just rotating in place, producing a visible drift
+     across the viewport instead of a clean spin. */
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 
@@ -1005,12 +1025,15 @@
   position: absolute;
   top: 15px;
   /* Fills the full width between the sidebar and the About/Submit button
-     pair. The same 24px unit is used for all four gaps in this row: sidebar
-     to search bar (left), search bar to Submit (padding-right minus the
-     button pair's width), Submit to About (see .submit-reference-btn's
-     `right`), and About to the viewport edge (.about-btn's `right`) - so
-     the margins around this whole row read as consistent, not ad hoc. */
-  left: calc(var(--sidebar-width) + 24px);
+     pair. `left` matches .main-content's own left padding (0.8rem) exactly,
+     so this bar's left edge lines up with the gallery grid directly below
+     it instead of drifting by whatever a hardcoded px guess happened to be
+     off by - the two are driven by the same value on purpose. The right
+     side isn't pinned to anything below it, so it keeps a plain 24px unit:
+     search bar to Submit (via padding-right minus the button pair's width),
+     Submit to About (.submit-reference-btn's `right`), and About to the
+     viewport edge (.about-btn's `right`). */
+  left: calc(var(--sidebar-width) + 0.8rem);
   right: 24px;
   padding-right: 288px;
   z-index: 1000;
@@ -1245,10 +1268,10 @@
 -------------------------------------------------- */
 @media (max-width: 900px) {
   :root { --sidebar-width: 230px; }
-  /* Same equal-gap approach as the base rule above, just a smaller 20px
-     unit: left, padding-right, Submit-About gap, and About's own `right`
-     are all derived from it. */
-  .top-search-bar { left: calc(var(--sidebar-width) + 20px); right: 20px; padding-right: 220px; }
+  /* Same approach as the base rule above: `left` still matches
+     .main-content's left padding (unchanged at this tier, still 0.8rem);
+     the right-hand gaps shrink to a 20px unit. */
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.8rem); right: 20px; padding-right: 220px; }
   .about-btn { right: 20px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .submit-reference-btn { right: 130px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
@@ -1262,8 +1285,10 @@
 @media (max-width: 640px) {
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
-  /* 16px unit for this tier - same equal-gap approach as the wider tiers. */
-  .top-search-bar { left: calc(var(--sidebar-width) + 16px); right: 16px; padding-right: 212px; top: 12px; }
+  /* `left` matches .main-content's left padding at this tier (0.6rem,
+     set below); the right-hand gaps use a 16px unit, same approach as the
+     wider tiers. */
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.6rem); right: 16px; padding-right: 212px; top: 12px; }
   .about-btn { top: 12px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .submit-reference-btn { top: 12px; right: 122px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
@@ -1279,13 +1304,15 @@
    hard-to-tap size. */
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
-  /* 12px unit: search bar's own left/right margins, and the Submit+About
-     row's left gap (via About/Submit `right`) and their shared gap, all
-     match - the button row just sits on a second line here instead of
-     sharing the search bar's row. `right` alone (not also padding-right,
-     which would stack on top of it) sets the right margin, matching how
-     `left` alone sets the left margin. */
-  .top-search-bar { left: calc(var(--sidebar-width) + 12px); right: 0; padding-right: 12px; }
+  /* At this sidebar width the brand text no longer fits at its normal
+     size - shrink it rather than relying on the ellipsis fallback. */
+  .sidebar-brand { font-size: 0.95rem; }
+  /* `left` still matches .main-content's left padding (0.6rem, unchanged
+     at this tier). `right` alone (not also padding-right, which would
+     stack on top of it) sets the right margin to a 12px unit - the
+     Submit+About row sits on its own line below here instead of sharing
+     the search bar's row, so it isn't tied to this same left value. */
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.6rem); right: 0; padding-right: 12px; }
   .about-btn { top: 60px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
   .submit-reference-btn { top: 60px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
   .main-content { padding-top: 100px; }
@@ -1336,16 +1363,6 @@
   text-overflow: ellipsis;
 }
 
-.batch-review-tags-input {
-  width: 100%;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background-color: var(--bg-elevated);
-  color: var(--text);
-  font-size: 0.9rem;
-}
-
 .batch-review-remove {
   background: none;
   border: none;
@@ -1364,6 +1381,68 @@
   max-height: 30vh;
   overflow-y: auto;
   margin-bottom: 0.8rem;
+}
+
+/* --------------------------------------------------
+   Tag chip input - existing tags render as removable chips,
+   the bare text field alongside is only ever for typing new
+   ones (Edit Tags, Add Image, and the batch tag review rows
+   all share this component)
+-------------------------------------------------- */
+.tag-chip-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  margin-top: 0.3rem;
+  margin-bottom: 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-sunken);
+  cursor: text;
+}
+.tag-chip-input:focus-within { border-color: var(--border-strong); }
+.batch-review-info .tag-chip-input { margin: 4px 0 0; }
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 2px 4px 2px 10px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.tag-chip-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 2px 4px;
+  opacity: 0.7;
+}
+.tag-chip-remove:hover { opacity: 1; }
+/* Two classes on the selector outrank the generic ".modal-content input"
+   rule's (class + element) specificity, so the field stays borderless/
+   transparent inside the chip box instead of picking up the standard
+   modal input's own border/background/margin. */
+.tag-chip-input .tag-chip-input-field {
+  flex: 1 1 70px;
+  min-width: 70px;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 2px 0;
+  margin: 0;
+  width: auto;
+  color: var(--text);
+  font-size: 0.9rem;
 }
 
 /* --------------------------------------------------
@@ -1519,7 +1598,7 @@
   <div class="main-container">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <div class="sidebar-brand">References</div>
+      <div class="sidebar-brand">aReferences</div>
       <div class="search-bar-container">
         <div class="filter-icon-container">
           <button class="filter-button" id="filterButton" title="Sort Options">
@@ -1676,7 +1755,7 @@
       <h3>Edit Tags <span id="editTagsCount"></span></h3>
       <p style="margin-bottom: 0.8rem;">If every image below already shares the same tags, this replaces them. Otherwise, whatever you type here is added to each image's own existing tags.</p>
       <div id="editTagsThumbs" class="batch-review-thumbs-strip"></div>
-      <input type="text" id="editTagsInput" class="batch-review-tags-input" placeholder="Edit or add tags...">
+      <input type="text" id="editTagsInput" placeholder="Edit or add tags...">
       <div style="margin-top:0.8rem;">
         <button id="saveEditTagsBtn">Save All</button>
       </div>
@@ -1762,6 +1841,21 @@
       "wood"
     ];
     let currentFolderFilter = "all";
+    // Virtual filter value for the "New This Week" category - not a real
+    // folder path, so it's kept out of `folders`/Firestore and handled as a
+    // special case anywhere filtering branches on the folder path shape.
+    const NEW_THIS_WEEK_FILTER = "__new_this_week__";
+    // "Week" here isn't a calendar week - it resets on the 1st of every
+    // month and then every 7 days after that (1, 8, 15, 22), so the last
+    // window of a month absorbs whatever days are left over (7-10 days
+    // depending on month length) instead of spilling into the next month.
+    // That's 3 resets mid-month plus the new-month reset itself, at the
+    // owner's explicit request, not an ISO week.
+    function getCurrentWeekWindowStart(date = new Date()) {
+      const day = date.getDate();
+      const windowStartDay = day >= 22 ? 22 : day >= 15 ? 15 : day >= 8 ? 8 : 1;
+      return new Date(date.getFullYear(), date.getMonth(), windowStartDay, 0, 0, 0, 0).getTime();
+    }
     // The .image-container currently open in the lightbox, so the prev/next
     // arrows know where they are within the currently visible gallery order.
     let currentEnlargedContainer = null;
@@ -1792,6 +1886,7 @@
     const fileInput = document.getElementById("fileInput");
     const folderSelect = document.getElementById("folderSelect");
     const imageKeywords = document.getElementById("imageKeywords");
+    initTagChipInput(imageKeywords);
 
     const gallery = document.getElementById("gallery");
     const sizeIcons = document.querySelectorAll(".size-icon");
@@ -1838,6 +1933,7 @@
     const closeEditTagsModalBtn = document.getElementById("closeEditTagsModalBtn");
     const editTagsThumbs = document.getElementById("editTagsThumbs");
     const editTagsInput = document.getElementById("editTagsInput");
+    initTagChipInput(editTagsInput);
     const editTagsCount = document.getElementById("editTagsCount");
     const saveEditTagsBtn = document.getElementById("saveEditTagsBtn");
 
@@ -2041,15 +2137,6 @@
 }
 
     mainImageSearch.addEventListener("input", performSearch);
-
-    /********************************************************
-     * Enlarge Image Modal Functionality
-     ********************************************************/
-    document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
-      if (e.target.id === "enlargeImageModal") {
-        this.style.display = "none";
-      }
-    });
 
     /** ABOUT JavaScript **/
 
@@ -2640,6 +2727,27 @@ downloadLink.addEventListener("click", function(e) {
       folderSelect.innerHTML = "";
       parentFolderSelect.innerHTML = "<option value=''>No Parent</option>";
 
+      const newThisWeekItem = document.createElement("li");
+      newThisWeekItem.classList.add("new-this-week");
+      newThisWeekItem.setAttribute("data-filter", NEW_THIS_WEEK_FILTER);
+      const newThisWeekLabel = document.createElement("span");
+      newThisWeekLabel.classList.add("folder-label");
+      const newThisWeekNameSpan = document.createElement("span");
+      newThisWeekNameSpan.classList.add("folder-name");
+      newThisWeekNameSpan.textContent = "New This Week";
+      const newThisWeekCountSpan = document.createElement("span");
+      newThisWeekCountSpan.classList.add("folder-count");
+      newThisWeekLabel.appendChild(newThisWeekCountSpan);
+      newThisWeekLabel.appendChild(newThisWeekNameSpan);
+      newThisWeekItem.appendChild(newThisWeekLabel);
+      newThisWeekItem.addEventListener("click", () => {
+        highlightSelected(newThisWeekItem);
+        hideAllSubfolders();
+        currentFolderFilter = NEW_THIS_WEEK_FILTER;
+        filterImages(NEW_THIS_WEEK_FILTER);
+      });
+      folderList.appendChild(newThisWeekItem);
+
       const allItem = document.createElement("li");
       allItem.classList.add("all");
       allItem.setAttribute("data-filter", "all");
@@ -2786,6 +2894,14 @@ downloadLink.addEventListener("click", function(e) {
     function countImages(filterValue) {
       const allImages = document.querySelectorAll(".image-container");
       if (filterValue === "all") return allImages.length;
+      if (filterValue === NEW_THIS_WEEK_FILTER) {
+        const windowStart = getCurrentWeekWindowStart();
+        let weekCount = 0;
+        allImages.forEach(container => {
+          if ((parseInt(container.getAttribute("data-add-time")) || 0) >= windowStart) weekCount++;
+        });
+        return weekCount;
+      }
       let count = 0;
       allImages.forEach(container => {
         const category = container.getAttribute("data-category") || "";
@@ -2814,14 +2930,23 @@ downloadLink.addEventListener("click", function(e) {
     }
 
    function filterImages(filterValue) {
+  const windowStart = filterValue === NEW_THIS_WEEK_FILTER ? getCurrentWeekWindowStart() : null;
   const allImages = document.querySelectorAll(".image-container");
   allImages.forEach(container => {
     const category = container.getAttribute("data-category");
-    
+
     if (filterValue === "all") {
       // Show all images for "All" folder
       container.classList.remove("hidden");
-    } 
+    }
+    else if (filterValue === NEW_THIS_WEEK_FILTER) {
+      const addTime = parseInt(container.getAttribute("data-add-time")) || 0;
+      if (addTime >= windowStart) {
+        container.classList.remove("hidden");
+      } else {
+        container.classList.add("hidden");
+      }
+    }
     else if (!filterValue.includes("/")) {
       // For parent folders, show images from this folder AND any subfolders
       if (category === filterValue || category.startsWith(filterValue + "/")) {
@@ -3143,10 +3268,83 @@ downloadLink.addEventListener("click", function(e) {
 
       const currentTags = selectedImagesForTagEdit.map(c => c.getAttribute("data-keywords") || "");
       editTagsAllMatched = currentTags.every(t => t === currentTags[0]);
-      editTagsInput.value = editTagsAllMatched ? currentTags[0] : "";
+      editTagsInput.tagChipsAPI.setTags(editTagsAllMatched ? currentTags[0] : "");
       editTagsInput.placeholder = editTagsAllMatched
         ? "Edit or add tags..."
         : "Add tags to every selected image...";
+    }
+
+    // Turns a plain text <input> into a tag-chip input: existing tags render
+    // as removable chip buttons, and the (now empty, borderless) original
+    // input stays in place purely for typing new ones. Comma, Space, or
+    // Enter commits whatever's currently typed as a new chip immediately -
+    // no need to type a trailing comma before it "counts". Callers read/
+    // write the full comma-separated value through the returned API's
+    // setTags()/getValue() rather than the input's own .value, which only
+    // ever holds the not-yet-committed text being typed right now.
+    function initTagChipInput(inputEl) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "tag-chip-input";
+      inputEl.parentNode.insertBefore(wrapper, inputEl);
+      wrapper.appendChild(inputEl);
+      inputEl.className = "tag-chip-input-field";
+
+      let tags = [];
+
+      function renderChips() {
+        wrapper.querySelectorAll(".tag-chip").forEach(chip => chip.remove());
+        tags.forEach((tag, index) => {
+          const chip = document.createElement("span");
+          chip.className = "tag-chip";
+          chip.appendChild(document.createTextNode(tag));
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "tag-chip-remove";
+          removeBtn.textContent = "×";
+          removeBtn.setAttribute("aria-label", `Remove tag "${tag}"`);
+          removeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            tags.splice(index, 1);
+            renderChips();
+            inputEl.focus();
+          });
+          chip.appendChild(removeBtn);
+          wrapper.insertBefore(chip, inputEl);
+        });
+      }
+
+      function commitPending() {
+        const val = inputEl.value.trim();
+        inputEl.value = "";
+        if (!val) return;
+        if (!tags.some(t => t.toLowerCase() === val.toLowerCase())) tags.push(val);
+        renderChips();
+      }
+
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "," || e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          commitPending();
+        } else if (e.key === "Backspace" && !inputEl.value && tags.length) {
+          tags.pop();
+          renderChips();
+        }
+      });
+      inputEl.addEventListener("blur", commitPending);
+
+      inputEl.tagChipsAPI = {
+        setTags(csv) {
+          tags = (csv || "").split(",").map(t => t.trim()).filter(Boolean);
+          inputEl.value = "";
+          renderChips();
+        },
+        getValue() {
+          const pending = inputEl.value.trim();
+          const list = pending ? tags.concat([pending]) : tags;
+          return list.join(", ");
+        }
+      };
+      return inputEl.tagChipsAPI;
     }
 
     // Combines two comma-separated tag strings, dropping case-insensitive
@@ -3166,7 +3364,7 @@ downloadLink.addEventListener("click", function(e) {
 
     async function saveEditedTags() {
       if (selectedImagesForTagEdit.length === 0) return;
-      const typedValue = editTagsInput.value.trim();
+      const typedValue = editTagsInput.tagChipsAPI.getValue();
       try {
         const savePromises = selectedImagesForTagEdit.map(async (container) => {
           const previousTags = container.getAttribute("data-keywords") || "";
@@ -3396,6 +3594,7 @@ function closeEnlargeModal() {
       if (document.getElementById("enlargeImageModal").style.display !== "flex") return;
       if (e.key === "ArrowRight") showAdjacentEnlargedImage(1);
       else if (e.key === "ArrowLeft") showAdjacentEnlargedImage(-1);
+      else if (e.key === "Escape") closeEnlargeModal();
     });
 
     /********************************************************
@@ -3422,7 +3621,7 @@ function closeEnlargeModal() {
     // needs to warn about work in progress.
     function resetImageModal() {
       fileInput.value = "";
-      imageKeywords.value = "";
+      imageKeywords.tagChipsAPI.setTags("");
       updateFilePreview();
     }
 
@@ -3817,7 +4016,7 @@ function closeEnlargeModal() {
   }
   
   const folderValue = folderSelect.value || 'all';
-  const keywords = imageKeywords.value.trim().toLowerCase();
+  const keywords = imageKeywords.tagChipsAPI.getValue().toLowerCase();
   
   // Create a new batch of uploads
   const uploadBatchId = Date.now();
@@ -4160,10 +4359,10 @@ function addBatchReviewRow(item) {
 
   const tagsInput = document.createElement('input');
   tagsInput.type = 'text';
-  tagsInput.className = 'batch-review-tags-input';
   tagsInput.placeholder = 'Edit or add tags...';
-  tagsInput.value = combinedInitial;
   info.appendChild(tagsInput);
+  initTagChipInput(tagsInput);
+  tagsInput.tagChipsAPI.setTags(combinedInitial);
 
   row.appendChild(info);
 
@@ -4216,7 +4415,7 @@ async function saveBatchReview({ useAiTags }) {
   tagReviewPanel.classList.remove('active');
 
   await Promise.all(itemsToSave.map(item => {
-    const finalTags = useAiTags ? item.tagsInput.value : (item.keywords || '');
+    const finalTags = useAiTags ? item.tagsInput.tagChipsAPI.getValue() : (item.keywords || '');
     return completeUpload(item.imageUrl, item.folderValue, finalTags, item.file.name, item.uploadItemId)
       .catch(error => console.error('Error completing upload:', error));
   }));
