@@ -144,7 +144,74 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     squeeze instead of `.sidebar`'s own `overflow-y: auto` kicking in and scrolling like it's
     supposed to. Fixed with `flex-shrink: 0` on `.sidebar-brand`. If a similar "silently shrinks/
     crops instead of scrolling" bug shows up on another flex child, check for the same
-    `overflow: hidden` + missing `flex-shrink: 0` combination first.
+    `overflow: hidden` + missing `flex-shrink: 0` combination first. **Superseded 2026-07-30:**
+    the brand text moved out of the sidebar entirely (see the header redesign bullet below), so
+    `.sidebar-brand` no longer exists and this specific instance is moot — the general lesson
+    (flex child with `overflow: hidden` needs `flex-shrink: 0` or it silently absorbs the squeeze)
+    still applies anywhere else in the sidebar.
+  - **Header redesign: brand moved next to the search bar (2026-07-30)** — "aReference" used to
+    live in `.sidebar-brand`, inside the sidebar; it's now `.top-bar-brand`, a flex child of
+    `.top-search-bar` itself, sitting directly left of the search input. `.top-search-bar` changed
+    from a floating, mostly-transparent pill positioned a bit inside the sidebar's right edge to a
+    full-width, solid/opaque header strip (`rgba(15, 15, 17, 0.92)` + blur, `border-bottom`,
+    `top: 0`, flush against the sidebar) — necessary because unlike the search `<input>` (which
+    always had its own background), plain brand text sitting in that bar would otherwise have
+    nothing behind it but the gallery scrolling past underneath, at whatever position the page
+    happened to be scrolled to. Adding the brand into that bar ate real horizontal space that
+    previously belonged entirely to the search input, which broke the responsive tiers: below
+    ~900px the About/Submit button pair (still `position: absolute`, reserving space via
+    `.top-search-bar`'s `padding-right`) started squeezing the search input down to an unusable
+    ~20-60px wide sliver well before the old 640px/420px breakpoints kicked in (confirmed by
+    measuring `#mainImageSearch`'s rendered width across the 320-900px range in a headless
+    browser). Fixed by moving the "About/Submit drop to their own row below the header" behavior
+    from its old ≤420px-only threshold up to ≤900px (freeing the reserved `padding-right` entirely
+    at that tier instead of just shrinking it further), and by hiding `.top-bar-brand` outright
+    (`display: none`) at ≤420px rather than continuing to shrink its font - real phone widths
+    mostly fall at or below that breakpoint anyway, and the search input mattering more than the
+    wordmark at that size was judged the right tradeoff. If you touch these breakpoints again,
+    re-measure `#mainImageSearch`'s actual rendered width across the full 320-1200px range rather
+    than eyeballing the CSS - the padding/gap/font-size arithmetic across three nested breakpoints
+    is easy to get subtly wrong in a way that only shows up at specific in-between viewport widths
+    (this bug was invisible at the exact breakpoint boundaries themselves, only in the ranges
+    between them).
+  - **"New This Week" demoted to a normal category (2026-07-30)** — it used to render as a large,
+    bold, visually-separated entry above "All" at the top of the sidebar (`.new-this-week` had its
+    own `font-size: 1.1rem; font-weight: 600` rule, distinct from ordinary folder items). That
+    rule was removed outright rather than adjusted, so it now falls through to the same plain
+    `.folder-list > li` styling every other category uses. It's still the first `<li>` rendered in
+    `renderFolders()` (unchanged), so it's still the first item in the list, just no longer
+    visually shouting above everything else - "All" (which still has its own bold/separator
+    styling) sits directly below it, unchanged.
+  - **Dominant-color auto-tagging (2026-07-30)** — every image that gets published now
+    automatically gets a plain-language color tag (e.g. `brown`, `gray`, `beige`) merged into its
+    keywords via `mergeTagStrings()`, with no admin input required. This is a coarse,
+    dependency-free heuristic, not anything ML-based (deliberately - see the AI tagging removal
+    note above; this doesn't reintroduce that): `dominantColorNameFromCanvas()` downsamples the
+    image to a 64x64 offscreen canvas, buckets pixels into a coarse histogram (colors quantized to
+    ~24-wide RGB buckets so near-identical shades collapse into one vote instead of splitting),
+    and takes the most-common bucket's average RGB. `nameColorFromRgb()` then maps that RGB to one
+    of a fixed set of names via HSL hue/saturation/lightness thresholds - neutrals (black/white/
+    gray) are checked first since hue is meaningless at extreme lightness or near-zero saturation,
+    then `brown` and `beige` are carved out of the orange hue range by lightness/saturation (common
+    on this gallery's actual content - wood, stone, concrete, rust - where "orange" alone wouldn't
+    be a useful tag), then the remaining hue wheel maps to red/orange/yellow/green/cyan/blue/
+    purple/pink. The thresholds were tuned by hand against a set of sample RGB values run through
+    the classifier directly in Node (not against real photos - there's no live Cloudinary access
+    in a sandboxed session) - if a published image gets an obviously wrong color tag, that's the
+    first place to adjust, and it's worth re-running a similar spot-check rather than guessing at
+    new threshold numbers. There are two call sites, because there are two different sources for
+    the image bytes at "publish" time: `detectDominantColorTag(file)` runs on the local `File`
+    object in the admin upload dock / Publish Queue path (`processUpload()`, in parallel with the
+    network upload itself so it adds no extra wait), while `detectDominantColorTagFromUrl(url)`
+    runs when Review Submissions' "Add" button publishes an image that's already sitting on
+    Cloudinary from the original public submission (no local `File` exists for that path at all -
+    see the Review Submissions note above) by loading a small `w_64` Cloudinary transform into an
+    `<img crossOrigin="anonymous">` and reading it back via canvas; this depends on Cloudinary
+    serving delivery URLs with CORS enabled, which it does by default, but if that were ever not
+    true the canvas read throws (a tainted-canvas security error) and detection just silently
+    returns `null` rather than blocking the Add. Both call sites are try/caught to never fail the
+    publish itself - a failed color detection just means no color tag gets added, same as if
+    nothing had been typed into Keywords.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.

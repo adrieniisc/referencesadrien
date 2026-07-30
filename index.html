@@ -206,26 +206,8 @@
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
-.sidebar-brand {
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--text);
-  padding: 0.4rem 0.4rem 1rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /* .sidebar is a column flexbox and this is the only child with
-     `overflow: hidden`, which gives it an automatic min-height of 0
-     instead of its content size (unlike the other children, which resist
-     shrinking below their content). Without flex-shrink:0, whenever the
-     sidebar's total content grows taller than its viewport height (e.g.
-     admin sign-in reveals the extra footer buttons), the flex-shrink
-     algorithm silently crushes *this* element's height first - cropping
-     the brand text at the bottom - instead of letting .sidebar's own
-     overflow-y:auto scroll like it's supposed to. */
-  flex-shrink: 0;
-}
+/* Brand text now lives in .top-search-bar, next to the search input,
+   instead of the sidebar - see .top-bar-brand below. */
 
 .sidebar {
   width: var(--sidebar-width);
@@ -311,16 +293,6 @@
       transition: background-color 0.15s ease, color 0.15s ease;
       text-align: left;
       color: var(--text-muted);
-    }
-    .folder-list > li.new-this-week {
-      font-weight: 600;
-      font-size: 1.1rem;
-      margin-bottom: 0.3rem;
-      color: var(--text);
-    }
-    .folder-list > li.new-this-week.selected {
-      background-color: var(--accent-soft);
-      color: var(--accent);
     }
     .folder-list > li.all {
       font-weight: 600;
@@ -1132,26 +1104,42 @@
     -------------------------------------------------- */
 .top-search-bar {
   position: absolute;
-  top: 15px;
-  /* Fills the full width between the sidebar and the About/Submit button
-     pair. `left` matches .main-content's own left padding (0.8rem) exactly,
-     so this bar's left edge lines up with the gallery grid directly below
-     it instead of drifting by whatever a hardcoded px guess happened to be
-     off by - the two are driven by the same value on purpose. The right
-     side isn't pinned to anything below it, so it keeps a plain 24px unit:
-     search bar to Submit (via padding-right minus the button pair's width),
-     Submit to About (.submit-reference-btn's `right`), and About to the
-     viewport edge (.about-btn's `right`). */
-  left: calc(var(--sidebar-width) + 0.8rem);
-  right: 24px;
-  padding-right: 288px;
+  top: 0;
+  /* Flush against the sidebar's right edge and the viewport's right edge -
+     unlike the old floating pill, this is a full header strip (solid
+     background, see below) so the brand text sitting in it stays legible
+     over the gallery scrolling underneath, instead of just the search
+     input itself having a background. Horizontal insets are handled by
+     padding instead of `left`/`right` so the bar's edge-to-edge background
+     doesn't leave gaps. The About/Submit buttons are `position: absolute`
+     and layer on top (z-index 1200 > this bar's 1000), so `padding-right`
+     still reserves the same visual gap for them as before. */
+  left: var(--sidebar-width);
+  right: 0;
+  padding: 14px 24px;
+  padding-right: 312px;
   z-index: 1000;
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: 1.2rem;
+  background-color: rgba(15, 15, 17, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.top-bar-brand {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .main-search-container {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   position: relative;
   border-radius: 12px;
 }
@@ -1374,21 +1362,22 @@
 }
 
 /* --------------------------------------------------
-   Header button pair (Submit + About) shrinks a bit before the main
-   640px breakpoint - two side-by-side buttons need more reserved width
-   than About alone used to, and the gap between "everything still fits"
-   and "sidebar starts shrinking too" is otherwise too wide, cramping the
-   search input around tablet-ish widths.
+   Header button pair (Submit + About) drops to its own row below the
+   header, instead of sharing its row with the brand + search input,
+   starting well above the main 640px breakpoint (2026-07-30: once the
+   brand moved into .top-search-bar alongside the search input, keeping
+   two buttons *also* inline stopped fitting far earlier than before -
+   brand + search + a reserved button gutter don't all fit in the
+   post-sidebar width below ~900px, so the buttons free up that space by
+   moving under the header instead of being shrunk further and further).
 -------------------------------------------------- */
 @media (max-width: 900px) {
   :root { --sidebar-width: 230px; }
-  /* Same approach as the base rule above: `left` still matches
-     .main-content's left padding (unchanged at this tier, still 0.8rem);
-     the right-hand gaps shrink to a 20px unit. */
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.8rem); right: 20px; padding-right: 220px; }
-  .about-btn { right: 20px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .submit-reference-btn { right: 130px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  .top-search-bar { padding-right: 24px; }
+  .about-btn { top: 76px; right: 20px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  .submit-reference-btn { top: 76px; right: 130px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
+  .main-content { padding-top: 128px; }
 }
 
 /* --------------------------------------------------
@@ -1399,37 +1388,31 @@
 @media (max-width: 640px) {
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
-  /* `left` matches .main-content's left padding at this tier (0.6rem,
-     set below); the right-hand gaps use a 16px unit, same approach as the
-     wider tiers. */
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.6rem); right: 16px; padding-right: 212px; top: 12px; }
-  .about-btn { top: 12px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .submit-reference-btn { top: 12px; right: 122px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
+  /* Brand shrinks and the brand/search gap tightens too, so the search
+     input keeps a usable minimum width even as the sidebar eats further
+     into this tier's already-narrower viewport. */
+  .top-bar-brand { font-size: 1rem; }
+  .top-search-bar { padding: 8px 12px; gap: 0.6rem; }
+  .about-btn { top: 64px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  .submit-reference-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
-  .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 70px; }
+  .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 112px; }
   .floating-size-panel { right: 12px; bottom: 12px; }
   .size-icon-container { gap: 4px; }
   .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
 }
 
-/* Extra-narrow phones: shrink the sidebar further, and - since there's no
-   longer room for Submit + About beside the search bar too - drop them to
-   their own row below it instead of shrinking them to an illegibly small,
-   hard-to-tap size. */
+/* Extra-narrow phones: shrink the sidebar further and drop the brand text
+   entirely (rather than shrinking it again) - at this width the search
+   input finding room to actually be usable matters more than the
+   wordmark, which is decorative. */
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
-  /* At this sidebar width the brand text no longer fits at its normal
-     size - shrink it rather than relying on the ellipsis fallback. */
-  .sidebar-brand { font-size: 0.95rem; }
-  /* `left` still matches .main-content's left padding (0.6rem, unchanged
-     at this tier). `right` alone (not also padding-right, which would
-     stack on top of it) sets the right margin to a 12px unit - the
-     Submit+About row sits on its own line below here instead of sharing
-     the search bar's row, so it isn't tied to this same left value. */
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.6rem); right: 0; padding-right: 12px; }
-  .about-btn { top: 60px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
-  .submit-reference-btn { top: 60px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
-  .main-content { padding-top: 100px; }
+  .top-bar-brand { display: none; }
+  .top-search-bar { padding: 8px 10px; }
+  .about-btn { top: 58px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
+  .submit-reference-btn { top: 58px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
+  .main-content { padding-top: 104px; }
 }
 
 .batch-tag-review-content {
@@ -1613,6 +1596,7 @@
     <button id="submitReferenceBtn" class="submit-reference-btn">Submit</button>
 
   <div class="top-search-bar">
+    <div class="top-bar-brand">aReference</div>
     <div class="main-search-container">
       <input type="search" id="mainImageSearch" placeholder="Search images...">
     </div>
@@ -1626,8 +1610,8 @@
     <h3>Welcome to my website !</h3>
     <div id="aboutContent">
       <!-- Your about text will go here -->
-      <p>This is an open website for everyone searching for references, textures or anything that could be useful to you.</p>
-      <p>You can browse by folder, search by keywords, and easily download any images for your work, freely and without restrictions.</p>
+      <p>Here you'll find a bunch of reference images of about anything (filling with new images frequently), for your creative works or any other projects that could benefit from them.</p>
+      <p>You can browse by folder, search by keywords, and easily download any images for your work, freely, without restrictions and absolutely no copyright or attributions needed. Feel free to contribute and share your own images/textures with the "SUBMIT" button :)</p>
       <p>Have fun :)</p>
       <p>Adrien</p>
     </div>
@@ -1638,8 +1622,8 @@
   <div class="modal-backdrop" id="submitReferenceModal">
     <div class="modal-content">
       <button class="close-modal-btn" id="closeSubmitReferenceModalBtn">&times;</button>
-      <h3>Submit a Reference</h3>
-      <p style="margin-bottom: 0.8rem; opacity: 0.8;">Got a Google Drive link or some images to share? Send them here.</p>
+      <h3>Submit your images/references</h3>
+      <p style="margin-bottom: 0.8rem; opacity: 0.8;">Either a google drive link or directly images here, I'll review them and add them as soon as possible</p>
 
       <label for="submitReferenceLink">Link (optional):</label>
       <input type="url" id="submitReferenceLink" placeholder="https://drive.google.com/...">
@@ -1648,9 +1632,6 @@
       <input type="file" id="submitReferenceFiles" accept="image/*" multiple>
       <div id="submitReferenceFileHint" class="modal-hint">No files selected</div>
       <div id="submitReferenceFilePreview" class="file-preview-list"></div>
-
-      <label for="submitReferenceNote">Note (optional):</label>
-      <input type="text" id="submitReferenceNote" placeholder="Anything we should know?">
 
       <div id="submitReferenceStatus" class="modal-hint" style="display:none;"></div>
 
@@ -1665,7 +1646,6 @@
   <div class="main-container">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <div class="sidebar-brand">aReference</div>
       <div class="search-bar-container">
         <div class="filter-icon-container">
           <button class="filter-button" id="filterButton" title="Sort Options">
@@ -2289,7 +2269,6 @@ aboutModal.addEventListener("click", (e) => {
     const submitReferenceFiles = document.getElementById("submitReferenceFiles");
     const submitReferenceFileHint = document.getElementById("submitReferenceFileHint");
     const submitReferenceFilePreview = document.getElementById("submitReferenceFilePreview");
-    const submitReferenceNote = document.getElementById("submitReferenceNote");
     const submitReferenceStatus = document.getElementById("submitReferenceStatus");
     const confirmSubmitReferenceBtn = document.getElementById("confirmSubmitReferenceBtn");
 
@@ -2342,7 +2321,6 @@ aboutModal.addEventListener("click", (e) => {
 
     function resetSubmitReferenceForm() {
       submitReferenceLink.value = "";
-      submitReferenceNote.value = "";
       submitReferenceFiles.value = "";
       submitReferenceFilePreview.innerHTML = "";
       submitReferenceFileHint.textContent = "No files selected";
@@ -2360,7 +2338,7 @@ aboutModal.addEventListener("click", (e) => {
     // reason to fail the submission.
     // Note this address is visible in the browser's network tab (it's a
     // client-side POST), just never shown anywhere in the page's own UI.
-    async function sendSubmissionEmailNotification({ link, imageUrls, note }) {
+    async function sendSubmissionEmailNotification({ link, imageUrls }) {
       const response = await fetch('https://formsubmit.co/ajax/isakovicadrien@gmail.com', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -2369,8 +2347,7 @@ aboutModal.addEventListener("click", (e) => {
           _template: 'box',
           _captcha: 'false',
           link: link || '(none)',
-          images: imageUrls.length ? imageUrls.join('\n') : '(none)',
-          note: note || '(none)'
+          images: imageUrls.length ? imageUrls.join('\n') : '(none)'
         })
       });
       if (!response.ok) {
@@ -2381,7 +2358,6 @@ aboutModal.addEventListener("click", (e) => {
 
     async function submitReference() {
       const linkValue = submitReferenceLink.value.trim();
-      const noteValue = submitReferenceNote.value.trim();
       const files = Array.from(submitReferenceFiles.files || []);
 
       if (!linkValue && files.length === 0) {
@@ -2410,11 +2386,10 @@ aboutModal.addEventListener("click", (e) => {
         await db.collection('submissions').add({
           link: linkValue,
           imageUrls: imageUrls,
-          note: noteValue,
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           addTime: Date.now()
         });
-        sendSubmissionEmailNotification({ link: linkValue, imageUrls, note: noteValue })
+        sendSubmissionEmailNotification({ link: linkValue, imageUrls })
           .catch(error => console.warn('Submission saved, but the email notification failed to send:', error));
 
         showSubmitReferenceStatus("Thanks! Your submission was received.", false);
@@ -2461,6 +2436,139 @@ aboutModal.addEventListener("click", (e) => {
         return canvas;
       } finally {
         URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    // --------------------------------------------------------------
+    // Dominant-color detection (2026-07-30) - run automatically on every
+    // publish (admin upload dock and Review Submissions' "Add") so the
+    // resulting image gets a plain-language color tag (e.g. "brown",
+    // "gray") without anyone typing one in. This is a coarse classifier,
+    // not a precise color picker: it buckets the image's most-common
+    // pixel color into one of a handful of everyday color names via HSL
+    // hue/saturation/lightness ranges, which is plenty for search/tagging
+    // purposes and far cheaper than anything ML-based (the AI tagging
+    // stack it might otherwise share space with was deliberately removed
+    // - see the note near processUpload() below - so this stays a small,
+    // dependency-free heuristic on purpose).
+    // --------------------------------------------------------------
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0, s = 0;
+      const l = (max + min) / 2;
+      const d = max - min;
+      if (d !== 0) {
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+          case g: h = ((b - r) / d + 2); break;
+          default: h = ((r - g) / d + 4); break;
+        }
+        h *= 60;
+      }
+      return [h, s, l];
+    }
+
+    // Maps an RGB color to one of a small set of everyday color names.
+    // Neutral bands (black/white/gray) are checked first since hue is
+    // meaningless at very low saturation or extreme lightness; "brown"
+    // and "beige" are carved out of the orange hue range by lightness,
+    // since they're common on the reference materials this gallery
+    // actually holds (wood, concrete, stone, rust) and "orange" alone
+    // wouldn't read as a useful tag for them.
+    function nameColorFromRgb(r, g, b) {
+      const [h, s, l] = rgbToHsl(r, g, b);
+      if (l < 0.10) return 'black';
+      if (l > 0.94 && s < 0.15) return 'white';
+      if (s < 0.10) return 'gray';
+      if (h >= 15 && h < 50 && l < 0.45) return 'brown';
+      if (h >= 15 && h < 60 && l >= 0.45 && l < 0.88 && s < 0.55) return 'beige';
+      if (h < 15 || h >= 345) return 'red';
+      if (h < 45) return 'orange';
+      if (h < 70) return 'yellow';
+      if (h < 170) return 'green';
+      if (h < 200) return 'cyan';
+      if (h < 255) return 'blue';
+      if (h < 290) return 'purple';
+      if (h < 345) return 'pink';
+      return 'gray';
+    }
+
+    // Finds the most common color in a canvas via a coarse histogram
+    // (pixels quantized into 24-wide buckets per channel so near-identical
+    // shades of e.g. "concrete gray" collapse into one bucket instead of
+    // splitting the vote), then names that bucket's average color. Reads
+    // from a small offscreen copy (not the full-resolution canvas) purely
+    // for speed - dominant color doesn't need per-pixel precision.
+    function dominantColorNameFromCanvas(canvas) {
+      const SAMPLE = 64;
+      const sampleCanvas = document.createElement('canvas');
+      sampleCanvas.width = SAMPLE;
+      sampleCanvas.height = SAMPLE;
+      const ctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(canvas, 0, 0, SAMPLE, SAMPLE);
+      const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE);
+
+      const buckets = new Map();
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) continue; // skip transparent pixels
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const key = `${r >> 3}_${g >> 3}_${b >> 3}`; // ~24-wide buckets (256/32)
+        let entry = buckets.get(key);
+        if (!entry) { entry = { count: 0, r: 0, g: 0, b: 0 }; buckets.set(key, entry); }
+        entry.count++; entry.r += r; entry.g += g; entry.b += b;
+      }
+
+      let best = null;
+      buckets.forEach(entry => { if (!best || entry.count > best.count) best = entry; });
+      if (!best) return null;
+
+      return nameColorFromRgb(
+        Math.round(best.r / best.count),
+        Math.round(best.g / best.count),
+        Math.round(best.b / best.count)
+      );
+    }
+
+    // For a local File about to be uploaded (admin upload dock / Publish
+    // Queue). Never throws - a failed detection just means no color tag,
+    // not a failed upload.
+    async function detectDominantColorTag(file) {
+      try {
+        const canvas = await decodeToCanvas(file);
+        return dominantColorNameFromCanvas(canvas);
+      } catch (err) {
+        console.warn(`Could not detect dominant color for ${file.name}:`, err);
+        return null;
+      }
+    }
+
+    // For an already-hosted Cloudinary URL (Review Submissions' "Add",
+    // which reuses the image already uploaded at submission time rather
+    // than re-uploading it - see completeUpload()/reviewSubmissions
+    // below). Requested small (w_64) since only a rough sample is needed,
+    // which also keeps the crossOrigin canvas read fast. Cloudinary serves
+    // its delivery URLs with CORS enabled, but if that ever isn't true for
+    // some reason the canvas read throws (a "tainted canvas" security
+    // error) and this just returns null rather than blocking the Add.
+    async function detectDominantColorTagFromUrl(url) {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = cloudinaryDisplayUrl(url, { width: 64 });
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        return dominantColorNameFromCanvas(canvas);
+      } catch (err) {
+        console.warn(`Could not detect dominant color for ${url}:`, err);
+        return null;
       }
     }
 
@@ -4018,8 +4126,15 @@ function closeEnlargeModal() {
             addBtn.disabled = true;
             addBtn.textContent = "Adding…";
             try {
-              await saveImageToFirebase(url, folder, "", "submission-image");
-              addImageToGallery(url, folder, "", "submission-image", Date.now());
+              // Submitted images never went through the admin upload dock's
+              // detectDominantColorTag() (they were never a local File on
+              // this device to begin with - see the note above), so this is
+              // where they get their first shot at an auto color tag,
+              // sampled from the Cloudinary URL directly.
+              const colorTag = await detectDominantColorTagFromUrl(url);
+              const keywords = colorTag || "";
+              await saveImageToFirebase(url, folder, keywords, "submission-image");
+              addImageToGallery(url, folder, keywords, "submission-image", Date.now());
               updateFolderCounts();
               addBtn.textContent = "Added";
               folderSelectEl.disabled = true;
@@ -4279,16 +4394,23 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
   }
 
   let imageUrl;
+  let colorTag;
   try {
     console.log(`Starting upload process for ${file.name}`);
 
     // Update progress to 30%
     setUploadItemProgress(uploadItemId, 30);
 
-    // Upload the file (compressed first if it's too large for the upload function)
+    // Upload the file (compressed first if it's too large for the upload function).
+    // Dominant-color detection runs on the same (already-decoded-once)
+    // compressed file, in parallel with the network upload, so it doesn't
+    // add extra wait time - see detectDominantColorTag() above.
     console.log(`Uploading ${file.name}...`);
     const uploadFile = await compressImageIfNeeded(file);
-    imageUrl = await uploadImage(uploadFile);
+    [imageUrl, colorTag] = await Promise.all([
+      uploadImage(uploadFile),
+      detectDominantColorTag(uploadFile)
+    ]);
     console.log(`File uploaded successfully, URL: ${imageUrl}`);
 
     // Update progress to 70%
@@ -4309,9 +4431,11 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
   }
 
   // No AI tagging, no review step: save straight to Firestore/gallery with
-  // whatever keywords were typed in, so it's live the moment the upload
+  // whatever keywords were typed in (plus the auto-detected dominant color
+  // tag, if detection succeeded), so it's live the moment the upload
   // finishes. completeUpload() manages this stage's own progress/error UI.
-  await completeUpload(imageUrl, folderValue, keywords, file.name, uploadItemId)
+  const finalKeywords = colorTag ? mergeTagStrings(keywords, colorTag) : keywords;
+  await completeUpload(imageUrl, folderValue, finalKeywords, file.name, uploadItemId)
     .catch(error => console.error(`Error completing upload for ${file.name}:`, error));
 }
 
