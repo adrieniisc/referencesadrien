@@ -68,18 +68,18 @@
   position: absolute;
   top: 15px;
   right: 40px;
-  background-color: rgba(24, 24, 27, 0.65);
-  color: var(--text);
+  background-color: rgba(24, 24, 27, 0.45);
+  color: var(--text-muted);
   border: 1px solid var(--border-color);
   padding: 10px 16px;
   border-radius: 12px;
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
   width: 120px;
   text-align: center;
   z-index: 1200;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   height: 40px;
@@ -87,12 +87,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .about-btn:hover {
   background-color: rgba(32, 32, 36, 0.8);
   border-color: var(--border-strong);
+  color: var(--text);
 }
 
 /* Updated About Modal with blur effect */
@@ -915,14 +916,12 @@
 .top-search-bar {
   position: absolute;
   top: 15px;
-  /* Same horizontal insets as .main-content, so this bar lines up with the
-     gallery below it instead of looking randomly narrower. padding-right
-     (not a bigger `right`) reserves room for the About button, so it only
-     nudges where the search pill is centered without shrinking the box
-     itself out of alignment with the gallery. */
-  left: calc(var(--sidebar-width) + 0.8rem);
+  /* Fills the full width between the sidebar and the About button, each
+     kept as an explicit margin (left / padding-right below) rather than
+     centering a fixed-width pill with empty space on both sides. */
+  left: calc(var(--sidebar-width) + 1.2rem);
   right: 0.8rem;
-  padding-right: 160px;
+  padding-right: 180px;
   z-index: 1000;
   display: flex;
   justify-content: center;
@@ -930,8 +929,6 @@
 
 .main-search-container {
   width: 100%;
-  max-width: 700px;
-  margin: 0 auto;
   position: relative;
   border-radius: 12px;
 }
@@ -1156,7 +1153,7 @@
 @media (max-width: 640px) {
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.6rem); right: 0.6rem; padding-right: 104px; top: 12px; }
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.8rem); right: 0.6rem; padding-right: 118px; top: 12px; }
   .about-btn { top: 12px; right: 14px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
   .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 70px; }
@@ -1169,7 +1166,7 @@
    keeps usable room next to it */
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.6rem); right: 0.6rem; padding-right: 88px; }
+  .top-search-bar { left: calc(var(--sidebar-width) + 0.75rem); right: 0.6rem; padding-right: 100px; }
   .about-btn { width: 78px; right: 10px; padding: 6px 8px; font-size: 0.78rem; }
 }
 
@@ -1238,6 +1235,15 @@
   line-height: 1;
 }
 .batch-review-remove:hover { opacity: 0.7; }
+
+.batch-review-thumbs-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 30vh;
+  overflow-y: auto;
+  margin-bottom: 0.8rem;
+}
 
   </style>
 
@@ -1428,8 +1434,9 @@
     <div class="modal-content batch-tag-review-content">
       <button class="close-modal-btn" id="closeEditTagsModalBtn">&times;</button>
       <h3>Edit Tags <span id="editTagsCount"></span></h3>
-      <p style="margin-bottom: 0.8rem;">Edit tags for each selected image, then save them all at once.</p>
-      <div id="editTagsList" class="batch-review-list"></div>
+      <p style="margin-bottom: 0.8rem;">These tags replace the current tags on every image selected below.</p>
+      <div id="editTagsThumbs" class="batch-review-thumbs-strip"></div>
+      <input type="text" id="editTagsInput" class="batch-review-tags-input" placeholder="Edit or add tags...">
       <div style="margin-top:0.8rem;">
         <button id="saveEditTagsBtn">Save All</button>
       </div>
@@ -1501,8 +1508,6 @@
     let selectedImagesForMove = [];
     let isTagEditMode = false;
     let selectedImagesForTagEdit = [];
-    // { container, input } pairs for the currently open Edit Tags modal
-    let tagEditRows = [];
     // Batch tag review: images that finished uploading + tagging, awaiting the
     // single end-of-batch review screen
     let batchReviewItems = [];
@@ -1563,7 +1568,8 @@
     const cancelTagEditBtn = document.getElementById("cancelTagEditBtn");
     const editTagsModal = document.getElementById("editTagsModal");
     const closeEditTagsModalBtn = document.getElementById("closeEditTagsModalBtn");
-    const editTagsList = document.getElementById("editTagsList");
+    const editTagsThumbs = document.getElementById("editTagsThumbs");
+    const editTagsInput = document.getElementById("editTagsInput");
     const editTagsCount = document.getElementById("editTagsCount");
     const saveEditTagsBtn = document.getElementById("saveEditTagsBtn");
 
@@ -2572,51 +2578,37 @@ downloadLink.addEventListener("click", function(e) {
         alert("Please select at least one image to edit tags for.");
         return;
       }
-      populateEditTagsList();
+      populateEditTagsModal();
       editTagsModal.classList.add("active");
     }
 
-    // Builds one editable row per selected image, reusing the same
-    // .batch-review-* markup/styling as the upload batch tag review panel.
-    function populateEditTagsList() {
-      editTagsList.innerHTML = "";
+    // Shows a thumbnail per selected image plus a single shared tags field -
+    // saving applies that one value to every selected image at once, the
+    // same way Move Images applies one destination folder to all of them.
+    function populateEditTagsModal() {
+      editTagsThumbs.innerHTML = "";
       editTagsCount.textContent = `(${selectedImagesForTagEdit.length})`;
-      tagEditRows = selectedImagesForTagEdit.map(container => {
-        const row = document.createElement("div");
-        row.className = "batch-review-row";
-
+      selectedImagesForTagEdit.forEach(container => {
         const thumb = document.createElement("img");
         thumb.className = "batch-review-thumb";
         thumb.src = container.querySelector("img").src;
-        row.appendChild(thumb);
-
-        const info = document.createElement("div");
-        info.className = "batch-review-info";
-
-        const filename = document.createElement("div");
-        filename.className = "batch-review-filename";
-        filename.textContent = container.querySelector("img").alt || "image";
-        info.appendChild(filename);
-
-        const tagsInput = document.createElement("input");
-        tagsInput.type = "text";
-        tagsInput.className = "batch-review-tags-input";
-        tagsInput.placeholder = "Edit or add tags...";
-        tagsInput.value = container.getAttribute("data-keywords") || "";
-        info.appendChild(tagsInput);
-
-        row.appendChild(info);
-        editTagsList.appendChild(row);
-
-        return { container, input: tagsInput };
+        thumb.alt = container.querySelector("img").alt || "image";
+        editTagsThumbs.appendChild(thumb);
       });
+
+      // Only prefill when every selected image already shares the exact same
+      // tags - otherwise leave it blank so saving can't silently overwrite
+      // tags on images the user never actually looked at.
+      const currentTags = selectedImagesForTagEdit.map(c => c.getAttribute("data-keywords") || "");
+      const allSame = currentTags.every(t => t === currentTags[0]);
+      editTagsInput.value = allSame ? currentTags[0] : "";
     }
 
     async function saveEditedTags() {
-      if (tagEditRows.length === 0) return;
+      if (selectedImagesForTagEdit.length === 0) return;
+      const newTags = editTagsInput.value.trim();
       try {
-        const savePromises = tagEditRows.map(async ({ container, input }) => {
-          const newTags = input.value.trim();
+        const savePromises = selectedImagesForTagEdit.map(async (container) => {
           const previousTags = container.getAttribute("data-keywords") || "";
           if (newTags === previousTags) return true; // nothing changed, skip the write
           const imageUrl = container.dataset.url;
@@ -2629,7 +2621,6 @@ downloadLink.addEventListener("click", function(e) {
           return false;
         });
         await Promise.all(savePromises);
-        tagEditRows = [];
         editTagsModal.classList.remove("active");
         toggleTagEditMode();
       } catch (error) {
