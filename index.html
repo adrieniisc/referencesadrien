@@ -67,7 +67,7 @@
 .about-btn {
   position: absolute;
   top: 15px;
-  right: 40px;
+  right: 24px;
   background-color: rgba(24, 24, 27, 0.45);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
@@ -102,7 +102,7 @@
 .submit-reference-btn {
   position: absolute;
   top: 15px;
-  right: 172px;
+  right: 168px;
   background-color: rgba(24, 24, 27, 0.45);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
@@ -435,6 +435,16 @@
   flex-wrap: wrap;
   gap: var(--gallery-gap);
   width: 100%;
+}
+
+.empty-folder-message {
+  display: none;
+  width: 100%;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-top: 15vh;
 }
 
 .image-container {
@@ -860,13 +870,22 @@
 }
 
 .enlarge-spinner {
+  /* Fixed to the viewport rather than centered within its flex parent -
+     that parent shrinks to near-zero size while the image is still
+     loading, and a stray auto-margin on a sibling (.enlarged-tags-container)
+     could pull the centering off anyway. Viewport-fixed sidesteps both. */
   display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 36px;
   height: 36px;
   border: 3px solid rgba(255, 255, 255, 0.25);
   border-top-color: #fff;
   border-radius: 50%;
   animation: enlarge-spin 0.8s linear infinite;
+  z-index: 15001;
 }
 
 .enlarge-spinner.active {
@@ -898,6 +917,40 @@
 
 .enlarged-download-btn:hover {
   opacity: 0.88;
+}
+
+.enlarge-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.18);
+  background-color: rgba(20,20,24,0.55);
+  color: var(--text);
+  font-size: 1.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 15001;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.enlarge-nav-btn:hover {
+  background-color: rgba(40,40,46,0.8);
+  border-color: rgba(255,255,255,0.35);
+}
+.enlarge-nav-prev { left: 20px; }
+.enlarge-nav-next { right: 20px; }
+
+@media (max-width: 640px) {
+  .enlarge-nav-btn { width: 38px; height: 38px; font-size: 1.4rem; }
+  .enlarge-nav-prev { left: 8px; }
+  .enlarge-nav-next { right: 8px; }
 }
 
 
@@ -952,13 +1005,14 @@
   position: absolute;
   top: 15px;
   /* Fills the full width between the sidebar and the About/Submit button
-     pair, each kept as an explicit margin (left / padding-right below)
-     rather than centering a fixed-width pill with empty space on both
-     sides. padding-right covers both buttons (Submit sits just left of
-     About - see .submit-reference-btn's `right`) plus a clear gap. */
-  left: calc(var(--sidebar-width) + 1.2rem);
-  right: 0.8rem;
-  padding-right: 310px;
+     pair. The same 24px unit is used for all four gaps in this row: sidebar
+     to search bar (left), search bar to Submit (padding-right minus the
+     button pair's width), Submit to About (see .submit-reference-btn's
+     `right`), and About to the viewport edge (.about-btn's `right`) - so
+     the margins around this whole row read as consistent, not ad hoc. */
+  left: calc(var(--sidebar-width) + 24px);
+  right: 24px;
+  padding-right: 288px;
   z-index: 1000;
   display: flex;
   justify-content: center;
@@ -1191,9 +1245,12 @@
 -------------------------------------------------- */
 @media (max-width: 900px) {
   :root { --sidebar-width: 230px; }
-  .top-search-bar { padding-right: 230px; }
-  .about-btn { width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .submit-reference-btn { width: 90px; right: 138px; padding: 8px 10px; font-size: 0.85rem; }
+  /* Same equal-gap approach as the base rule above, just a smaller 20px
+     unit: left, padding-right, Submit-About gap, and About's own `right`
+     are all derived from it. */
+  .top-search-bar { left: calc(var(--sidebar-width) + 20px); right: 20px; padding-right: 220px; }
+  .about-btn { right: 20px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  .submit-reference-btn { right: 130px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
 }
 
@@ -1205,9 +1262,10 @@
 @media (max-width: 640px) {
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.8rem); right: 0.6rem; padding-right: 206px; top: 12px; }
-  .about-btn { top: 12px; right: 14px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .submit-reference-btn { top: 12px; right: 112px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
+  /* 16px unit for this tier - same equal-gap approach as the wider tiers. */
+  .top-search-bar { left: calc(var(--sidebar-width) + 16px); right: 16px; padding-right: 212px; top: 12px; }
+  .about-btn { top: 12px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  .submit-reference-btn { top: 12px; right: 122px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
   .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 70px; }
   .floating-size-panel { right: 12px; bottom: 12px; }
@@ -1221,10 +1279,16 @@
    hard-to-tap size. */
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
-  .top-search-bar { left: calc(var(--sidebar-width) + 0.75rem); right: 0.6rem; padding-right: 10px; }
-  .about-btn { top: 54px; width: 78px; right: 10px; padding: 6px 8px; font-size: 0.78rem; }
-  .submit-reference-btn { top: 54px; width: 78px; right: 94px; padding: 6px 8px; font-size: 0.78rem; }
-  .main-content { padding-top: 96px; }
+  /* 12px unit: search bar's own left/right margins, and the Submit+About
+     row's left gap (via About/Submit `right`) and their shared gap, all
+     match - the button row just sits on a second line here instead of
+     sharing the search bar's row. `right` alone (not also padding-right,
+     which would stack on top of it) sets the right margin, matching how
+     `left` alone sets the left margin. */
+  .top-search-bar { left: calc(var(--sidebar-width) + 12px); right: 0; padding-right: 12px; }
+  .about-btn { top: 60px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
+  .submit-reference-btn { top: 60px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
+  .main-content { padding-top: 100px; }
 }
 
 .batch-tag-review-content {
@@ -1306,61 +1370,71 @@
    Review Submissions Panel
 -------------------------------------------------- */
 .submissions-review-content {
-  max-width: 820px;
+  /* Capped at 840px rather than wider - .sidebar has a higher z-index than
+     .modal-backdrop (a pre-existing mismatch, not introduced here), so a
+     modal wide enough to visually extend under the sidebar has that
+     overlapping strip's clicks swallowed by the sidebar instead of
+     reaching the modal underneath. 840px clears the 270px sidebar even at
+     a 1400px-wide viewport; the extra breathing room in this panel mostly
+     comes from the padding/gap increases below, not from raw width anyway. */
+  max-width: 840px;
+  padding: 1.6rem 2rem 2rem;
 }
 #reviewSubmissionsList {
-  max-height: 65vh;
+  max-height: 70vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 22px;
+  padding-right: 4px; /* clears the scrollbar so it doesn't sit flush against row borders */
 }
 .submission-row {
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 10px;
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
   background: var(--bg-sunken);
 }
 .submission-meta {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: var(--text-faint);
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 .submission-link {
   display: block;
-  font-size: 0.88rem;
-  margin-bottom: 6px;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
   word-break: break-all;
   color: var(--accent);
 }
 .submission-note {
-  font-size: 0.88rem;
-  margin-bottom: 8px;
+  font-size: 0.95rem;
+  margin-bottom: 16px;
   color: var(--text-muted);
+  line-height: 1.5;
 }
 .submission-images {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 18px;
+  margin-bottom: 16px;
 }
 .submission-image-item {
-  width: 104px;
+  width: 148px;
 }
 .submission-image-item img {
-  width: 104px;
-  height: 104px;
+  width: 148px;
+  height: 148px;
   object-fit: cover;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 .submission-image-item select {
   width: 100%;
-  font-size: 0.72rem;
-  padding: 2px 4px;
-  margin-bottom: 4px;
+  font-size: 0.8rem;
+  padding: 5px 6px;
+  margin-bottom: 8px;
   background-color: var(--bg-elevated);
   color: var(--text);
   border: 1px solid var(--border-color);
@@ -1368,8 +1442,8 @@
 }
 .submission-image-item button {
   width: 100%;
-  font-size: 0.72rem;
-  padding: 3px 4px;
+  font-size: 0.8rem;
+  padding: 6px 8px;
 }
 .submission-image-item button:disabled {
   opacity: 0.6;
@@ -1377,6 +1451,7 @@
 }
 .submission-dismiss-btn {
   background-color: var(--danger) !important;
+  margin-top: 4px;
 }
 
   </style>
@@ -1480,7 +1555,7 @@
         </div>
         <hr class="separator">
        <div class="sidebar-admin-section">
-  <button id="adminaccessbtn" class="admin-access-btn">ADMIN ACCESS</button>
+  <button id="adminaccessbtn" class="admin-access-btn">Admin Log In</button>
 </div>
       </div>
     </div>
@@ -1499,6 +1574,7 @@
     <!-- MAIN CONTENT -->
     <div class="main-content">
       <div class="gallery" id="gallery"></div>
+      <p id="emptyFolderMessage" class="empty-folder-message">Nothing here for now</p>
     </div>
   </div>
   <!-- FLOATING SIZE PANEL -->
@@ -1515,6 +1591,8 @@
 
   
  <div id="enlargeImageModal">
+  <button id="enlargePrevBtn" class="enlarge-nav-btn enlarge-nav-prev" aria-label="Previous image" type="button">&#8249;</button>
+  <button id="enlargeNextBtn" class="enlarge-nav-btn enlarge-nav-next" aria-label="Next image" type="button">&#8250;</button>
   <div class="enlarged-image-container">
     <div class="enlarge-spinner" id="enlargeSpinner"></div>
     <img id="enlargeImage" src="" alt="">
@@ -1596,7 +1674,7 @@
     <div class="modal-content batch-tag-review-content">
       <button class="close-modal-btn" id="closeEditTagsModalBtn">&times;</button>
       <h3>Edit Tags <span id="editTagsCount"></span></h3>
-      <p style="margin-bottom: 0.8rem;">These tags replace the current tags on every image selected below.</p>
+      <p style="margin-bottom: 0.8rem;">If every image below already shares the same tags, this replaces them. Otherwise, whatever you type here is added to each image's own existing tags.</p>
       <div id="editTagsThumbs" class="batch-review-thumbs-strip"></div>
       <input type="text" id="editTagsInput" class="batch-review-tags-input" placeholder="Edit or add tags...">
       <div style="margin-top:0.8rem;">
@@ -1618,7 +1696,7 @@
   <div class="modal-content submissions-review-content">
     <button class="close-modal-btn" id="closeReviewSubmissionsModalBtn">&times;</button>
     <h3>Review Submissions</h3>
-    <p style="margin-bottom: 0.8rem;">Links and images sent in through the public "Submit" button. Add whichever images are worth keeping to a folder, then dismiss the submission.</p>
+    <p style="margin-bottom: 1.4rem;">Links and images sent in through the public "Submit" button. Add whichever images are worth keeping to a folder, then dismiss the submission.</p>
     <div id="reviewSubmissionsList"></div>
   </div>
 </div>
@@ -1662,6 +1740,12 @@
     }
     const db = firebase.firestore();
     const auth = firebase.auth();
+    // Session-only persistence: signs out automatically when the tab/browser
+    // is closed, rather than Firebase's LOCAL default which survives that.
+    // A same-tab refresh still keeps the session (sessionStorage survives
+    // reload, just not closing the tab) - only closing/quitting logs out.
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+      .catch(error => console.warn('Could not set auth persistence:', error));
 
     // Initial variables
     let folders = [
@@ -1678,12 +1762,20 @@
       "wood"
     ];
     let currentFolderFilter = "all";
+    // The .image-container currently open in the lightbox, so the prev/next
+    // arrows know where they are within the currently visible gallery order.
+    let currentEnlargedContainer = null;
     let isDeleteMode = false;
     let selectedImages = [];
     let isMoveMode = false;
     let selectedImagesForMove = [];
     let isTagEditMode = false;
     let selectedImagesForTagEdit = [];
+    // Set by populateEditTagsModal(): whether every selected image already
+    // shared the exact same tags at the moment the modal opened. Determines
+    // whether Save replaces (matched) or adds to each image's own existing
+    // tags (mismatched) - see saveEditedTags().
+    let editTagsAllMatched = true;
     // Batch tag review: images that finished uploading + tagging, awaiting the
     // single end-of-batch review screen
     let batchReviewItems = [];
@@ -1795,7 +1887,7 @@
     closeAdminLoginModalBtn.addEventListener("click", () => { adminLoginModal.classList.remove("active"); });
     adminLoginModal.addEventListener("click", (e) => { if (e.target === adminLoginModal) { adminLoginModal.classList.remove("active"); } });
 
-    adminLoginBtn.addEventListener("click", async () => {
+    async function attemptAdminSignIn() {
       const email = adminEmailInput.value.trim();
       const password = adminPasswordInput.value;
       adminLoginError.style.display = "none";
@@ -1810,9 +1902,23 @@
         adminPasswordInput.value = "";
         adminLoginModal.classList.remove("active");
       } catch (error) {
-        adminLoginError.textContent = `Sign in failed: ${error.message}`;
+        // Deliberately vague - doesn't confirm/deny whether the email is a
+        // real account, just whether these particular credentials worked.
+        adminLoginError.textContent = "Are you really the admin?";
         adminLoginError.style.display = "block";
       }
+    }
+    adminLoginBtn.addEventListener("click", attemptAdminSignIn);
+
+    // Enter submits from either field, so signing in doesn't require
+    // reaching for the mouse.
+    [adminEmailInput, adminPasswordInput].forEach(input => {
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          attemptAdminSignIn();
+        }
+      });
     });
 
     // The single source of truth for whether admin controls show - fires
@@ -1823,7 +1929,7 @@
       const isSignedIn = !!user;
       editButtons.forEach(button => { button.style.display = isSignedIn ? "block" : "none"; });
       separators.forEach(separator => { separator.style.display = isSignedIn ? "block" : "none"; });
-      adminAccessBtn.textContent = isSignedIn ? "SIGN OUT" : "ADMIN ACCESS";
+      adminAccessBtn.textContent = isSignedIn ? "SIGN OUT" : "Admin Log In";
       adminAccessBtn.style.display = "block";
     });
 
@@ -1849,6 +1955,15 @@
       const containers = [...gallery.children].filter(
         el => getComputedStyle(el).display !== "none"
       );
+
+      // Shown whenever the current folder/search has nothing visible -
+      // checked here since layoutGallery() already runs after every filter,
+      // search, delete, move, and add.
+      const emptyMessage = document.getElementById("emptyFolderMessage");
+      if (emptyMessage) {
+        emptyMessage.style.display = containers.length === 0 ? "block" : "none";
+      }
+
       // getBoundingClientRect() (fractional) is used instead of clientWidth
       // (integer, rounded) — clientWidth can round up half a pixel above the
       // width the flex layout engine actually wraps against, which was
@@ -2165,13 +2280,20 @@ aboutModal.addEventListener("click", (e) => {
       }
     }
 
-    // Netlify's upload function (busboy) reliably fails on raw HEIC/HEIF uploads
-    // regardless of size ("Unexpected end of form"), so those always get converted
-    // to JPEG below. Separately, Netlify Functions reject request bodies over
-    // ~6MB (base64-encoding binary uploads in transit inflates size by ~33% first),
-    // so anything still oversized after that gets re-encoded too, lowering quality
-    // (not pixel dimensions) until it fits, so full-resolution camera photos don't 500.
-    async function compressImageIfNeeded(file, maxBytes = 4.5 * 1024 * 1024) {
+    // Every upload is rescaled to a max of ~1.5MB, regardless of source size -
+    // there's no reason to keep a 20MB camera original around when Cloudinary
+    // serves it back down to 1200/1920px for display anyway. Separately (and
+    // independent of size), HEIC/HEIF always gets converted to JPEG too, since
+    // Netlify's upload function can't reliably accept raw HEIC bytes at all
+    // ("Unexpected end of form") - don't gate that path behind the size check.
+    //
+    // To lose as little visible quality as possible for a given target size,
+    // quality is reduced first at the image's original resolution (see
+    // encodeCanvasUnderSize below) - only once quality alone can't hit the
+    // target does resolution actually shrink, since a huge photo stepped down
+    // to a more reasonable size at decent quality looks better than the same
+    // photo at full resolution crushed to a very low quality.
+    async function compressImageIfNeeded(file, maxBytes = 1.5 * 1024 * 1024) {
       const isHeic = await isHeicFile(file);
       if (!isHeic && file.size <= maxBytes) return file;
 
@@ -2189,12 +2311,8 @@ aboutModal.addEventListener("click", (e) => {
           canvas = await decodeToCanvas(pngBlob);
         }
 
-        let quality = 0.92;
-        let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
-        while (blob && blob.size > maxBytes && quality > 0.4) {
-          quality -= 0.1;
-          blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
-        }
+        const result = await encodeCanvasUnderSize(canvas, maxBytes);
+        const blob = result && result.blob;
 
         // For non-HEIC files this re-encode is purely a size optimization, so
         // skip it if it didn't actually help. HEIC always takes the converted
@@ -2203,12 +2321,50 @@ aboutModal.addEventListener("click", (e) => {
         if (!blob) return file;
         if (!isHeic && blob.size >= file.size) return file;
 
-        console.log(`Compressed ${file.name}: ${(file.size / 1024 / 1024).toFixed(1)}MB -> ${(blob.size / 1024 / 1024).toFixed(1)}MB (quality ${quality.toFixed(1)})`);
+        console.log(`Compressed ${file.name}: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(blob.size / 1024 / 1024).toFixed(2)}MB (quality ${result.quality.toFixed(2)}, ${result.width}x${result.height})`);
         const compressedName = file.name.replace(/\.[^./]+$/, '') + '.jpg';
         return new File([blob], compressedName, { type: 'image/jpeg' });
       } catch (err) {
         console.warn(`Could not compress ${file.name}, uploading original:`, err);
         return file;
+      }
+    }
+
+    // Encodes a canvas as JPEG under maxBytes, preferring lower quality over
+    // smaller dimensions: sweeps quality downward at the current size first,
+    // and only shrinks the canvas itself (redrawn onto a smaller one, then
+    // the quality sweep restarts) once quality alone - down to MIN_QUALITY -
+    // still isn't enough. Gives up and returns the smallest/lowest-quality
+    // attempt made if MIN_DIMENSION would be crossed, rather than degrading
+    // the image indefinitely.
+    async function encodeCanvasUnderSize(canvas, maxBytes) {
+      const MIN_QUALITY = 0.5;
+      const QUALITY_STEP = 0.08;
+      const SCALE_STEP = 0.85;
+      const MIN_DIMENSION = 800;
+
+      let workingCanvas = canvas;
+
+      while (true) {
+        let smallestAtThisSize = null;
+        for (let quality = 0.92; quality >= MIN_QUALITY; quality -= QUALITY_STEP) {
+          const blob = await new Promise(resolve => workingCanvas.toBlob(resolve, 'image/jpeg', quality));
+          if (!blob) break;
+          smallestAtThisSize = { blob, quality, width: workingCanvas.width, height: workingCanvas.height };
+          if (blob.size <= maxBytes) return smallestAtThisSize;
+        }
+
+        const nextWidth = Math.round(workingCanvas.width * SCALE_STEP);
+        const nextHeight = Math.round(workingCanvas.height * SCALE_STEP);
+        if (nextWidth < MIN_DIMENSION || nextHeight < MIN_DIMENSION) {
+          return smallestAtThisSize;
+        }
+
+        const scaledCanvas = document.createElement('canvas');
+        scaledCanvas.width = nextWidth;
+        scaledCanvas.height = nextHeight;
+        scaledCanvas.getContext('2d').drawImage(workingCanvas, 0, 0, nextWidth, nextHeight);
+        workingCanvas = scaledCanvas;
       }
     }
 
@@ -2413,7 +2569,7 @@ aboutModal.addEventListener("click", (e) => {
         // `keywords` param - Edit Tags updates data-keywords in place, and
         // this param would otherwise keep showing whatever the image had
         // when it was first added to the gallery.
-        enlargeImage(url, filename, container.getAttribute('data-keywords') || '');
+        enlargeImage(url, filename, container.getAttribute('data-keywords') || '', container);
       });
 
 // Replace your existing download link creation code with this:
@@ -2966,9 +3122,14 @@ downloadLink.addEventListener("click", function(e) {
       editTagsModal.classList.add("active");
     }
 
-    // Shows a thumbnail per selected image plus a single shared tags field -
-    // saving applies that one value to every selected image at once, the
-    // same way Move Images applies one destination folder to all of them.
+    // Shows a thumbnail per selected image plus a single shared tags field.
+    // When every selected image already has the exact same tags, the field
+    // is prefilled with that value and Save replaces it (same "one value ->
+    // all selected" shape as Move Images' destination picker). When they
+    // don't match, the field starts blank and Save instead *adds* whatever
+    // is typed to each image's own existing tags - each image keeps its own
+    // previous tags rather than having them overwritten by a value that was
+    // never shown for that particular image.
     function populateEditTagsModal() {
       editTagsThumbs.innerHTML = "";
       editTagsCount.textContent = `(${selectedImagesForTagEdit.length})`;
@@ -2980,20 +3141,47 @@ downloadLink.addEventListener("click", function(e) {
         editTagsThumbs.appendChild(thumb);
       });
 
-      // Only prefill when every selected image already shares the exact same
-      // tags - otherwise leave it blank so saving can't silently overwrite
-      // tags on images the user never actually looked at.
       const currentTags = selectedImagesForTagEdit.map(c => c.getAttribute("data-keywords") || "");
-      const allSame = currentTags.every(t => t === currentTags[0]);
-      editTagsInput.value = allSame ? currentTags[0] : "";
+      editTagsAllMatched = currentTags.every(t => t === currentTags[0]);
+      editTagsInput.value = editTagsAllMatched ? currentTags[0] : "";
+      editTagsInput.placeholder = editTagsAllMatched
+        ? "Edit or add tags..."
+        : "Add tags to every selected image...";
+    }
+
+    // Combines two comma-separated tag strings, dropping case-insensitive
+    // duplicates rather than appending a tag an image already has again.
+    function mergeTagStrings(existingTags, addedTags) {
+      const toList = (s) => s.split(",").map(t => t.trim()).filter(Boolean);
+      const merged = toList(existingTags);
+      const seenLower = new Set(merged.map(t => t.toLowerCase()));
+      toList(addedTags).forEach(tag => {
+        if (!seenLower.has(tag.toLowerCase())) {
+          merged.push(tag);
+          seenLower.add(tag.toLowerCase());
+        }
+      });
+      return merged.join(", ");
     }
 
     async function saveEditedTags() {
       if (selectedImagesForTagEdit.length === 0) return;
-      const newTags = editTagsInput.value.trim();
+      const typedValue = editTagsInput.value.trim();
       try {
         const savePromises = selectedImagesForTagEdit.map(async (container) => {
           const previousTags = container.getAttribute("data-keywords") || "";
+          // Matched: the field held (and may now hold an edited version of)
+          // the one shared value, so Save replaces it outright. Mismatched:
+          // an empty field means nothing to add for this image - leave it
+          // untouched rather than blanking tags the admin never saw.
+          let newTags;
+          if (editTagsAllMatched) {
+            newTags = typedValue;
+          } else if (!typedValue) {
+            return true;
+          } else {
+            newTags = mergeTagStrings(previousTags, typedValue);
+          }
           if (newTags === previousTags) return true; // nothing changed, skip the write
           const imageUrl = container.dataset.url;
           const imageId = await findImageIdByUrl(imageUrl);
@@ -3017,7 +3205,8 @@ downloadLink.addEventListener("click", function(e) {
      * Enlarge Image Modal Closure (click outside image)
      ********************************************************/
 
-  function enlargeImage(url, filename, keywords = "") {
+  function enlargeImage(url, filename, keywords = "", container = null) {
+  currentEnlargedContainer = container;
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
   const enlargeSpinner = document.getElementById("enlargeSpinner");
@@ -3157,19 +3346,57 @@ downloadLink.addEventListener("click", function(e) {
 function closeEnlargeModal() {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
-  
+
   enlargeModal.style.display = "none";
   if (downloadBtn) {
     downloadBtn.style.display = "none";
   }
+  currentEnlargedContainer = null;
 }
 
-    
+
     document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
   if (e.target.id === "enlargeImageModal") {
     closeEnlargeModal();
   }
 });
+
+    // Prev/Next navigation within the lightbox - same visible order (current
+    // filter/search/sort) as the gallery grid itself.
+    function getVisibleGalleryContainers() {
+      return [...gallery.children].filter(el => getComputedStyle(el).display !== "none");
+    }
+
+    function showAdjacentEnlargedImage(direction) {
+      if (!currentEnlargedContainer) return;
+      const visible = getVisibleGalleryContainers();
+      const index = visible.indexOf(currentEnlargedContainer);
+      if (index === -1) return;
+      const nextIndex = (index + direction + visible.length) % visible.length;
+      const nextContainer = visible[nextIndex];
+      const nextImg = nextContainer.querySelector("img");
+      enlargeImage(
+        nextContainer.dataset.url,
+        nextImg.alt,
+        nextContainer.getAttribute("data-keywords") || "",
+        nextContainer
+      );
+    }
+
+    document.getElementById("enlargePrevBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      showAdjacentEnlargedImage(-1);
+    });
+    document.getElementById("enlargeNextBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      showAdjacentEnlargedImage(1);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (document.getElementById("enlargeImageModal").style.display !== "flex") return;
+      if (e.key === "ArrowRight") showAdjacentEnlargedImage(1);
+      else if (e.key === "ArrowLeft") showAdjacentEnlargedImage(-1);
+    });
 
     /********************************************************
      * Event Listeners

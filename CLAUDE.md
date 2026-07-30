@@ -8,22 +8,28 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 - **`index.html`** — the entire frontend. One page, one big inline `<style>` block, one big
   inline `<script>` block. No build step, no bundler, no framework. Data flows straight from
   Firestore/Cloudinary into DOM manipulation.
-  - `compressImageIfNeeded()` handles two separate problems that produce the identical symptom
-    (`upload.js`'s Busboy parser dies mid-stream with "Unexpected end of form", not a clean
-    error): (1) **any** HEIC/HEIF upload, regardless of size — confirmed by reproduction that
-    Netlify's function can't reliably accept raw HEIC bytes at all, so these always get decoded
-    and re-encoded as JPEG before upload, even a small 2MB HEIC that's nowhere near the size
-    limit; (2) oversized photos in general, since Netlify Functions cap request bodies around
-    6MB — those get the same JPEG re-encode, quality lowered (not resized) just enough to fit.
-    HEIC detection (`isHeicFile()`) sniffs the file's actual ISO-BMFF `ftyp` box instead of
-    trusting the name/MIME type, since both can lie (iOS/Safari sometimes hands the page raw
-    HEIC bytes under a misleading `.jpeg` name/type). Decoding goes through `<img>`/canvas first
-    (most browsers can't read HEIC this way, but it's faster and avoids an unnecessary decode
-    round-trip when it does work — e.g. Safari, which often can); `heic2any` (another CDN
-    script, same pattern as the TF.js/MobileNet ones below) is the fallback decoder when native
-    decode throws, converting to PNG first so the only lossy step stays the JPEG re-encode.
-    Don't gate the HEIC path behind the size check again — that was the original (wrong) design
-    and it's why the fix didn't work the first time.
+  - `compressImageIfNeeded()` (2026-07-30: retargeted to 1.5MB, was ~4.5MB) handles two separate
+    problems: (1) **any** HEIC/HEIF upload, regardless of size — confirmed by reproduction that
+    Netlify's function can't reliably accept raw HEIC bytes at all (Busboy dies mid-stream with
+    "Unexpected end of form"), so these always get decoded and re-encoded as JPEG before upload,
+    even a small 2MB HEIC that's nowhere near the size limit; (2) **every** upload over 1.5MB,
+    period — this is now a deliberate blanket "keep uploads small" policy (the owner's request),
+    not just dodging Netlify's ~6MB request body cap the way it originally was. HEIC detection
+    (`isHeicFile()`) sniffs the file's actual ISO-BMFF `ftyp` box instead of trusting the name/MIME
+    type, since both can lie (iOS/Safari sometimes hands the page raw HEIC bytes under a misleading
+    `.jpeg` name/type). Decoding goes through `<img>`/canvas first (most browsers can't read HEIC
+    this way, but it's faster and avoids an unnecessary decode round-trip when it does work — e.g.
+    Safari, which often can); `heic2any` (another CDN script, same pattern as the TF.js/MobileNet
+    ones below) is the fallback decoder when native decode throws, converting to PNG first so the
+    only lossy step stays the JPEG re-encode. Don't gate the HEIC path behind the size check again
+    — that was the original (wrong) design and it's why the fix didn't work the first time.
+    `encodeCanvasUnderSize()` does the actual fitting: quality drops first (0.92 down to a 0.5
+    floor) at the image's original resolution, and only once quality alone can't hit 1.5MB does it
+    actually shrink the canvas (in 15%-per-step passes, down to an 800px floor on the shorter
+    side) and restart the quality sweep at the smaller size. This ordering is the point — a huge
+    photo stepped down to a still-generous resolution at good quality looks better than the same
+    photo kept at full resolution and crushed to a very low quality, and most of that resolution is
+    invisible anyway once Cloudinary serves it back down to 1200/1920px for display.
   - Delete Images, Move Images, and Edit Tags (2026-07-30) are three separate select-then-act
     modes (`isDeleteMode`/`isMoveMode`/`isTagEditMode`, each with its own `.image-container`
     overlay class and floating controls bar) that all read clicks on the same gallery thumbnails.
@@ -35,7 +41,19 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     function parameter closed over when the thumbnail was created — that parameter goes stale the
     moment Edit Tags updates the attribute, and reintroducing a closure read there would make tag
     edits silently not show up in the lightbox (same silent-failure shape as the delete/move bug
-    fixed earlier).
+    fixed earlier). `enlargeImage()` also takes the `.image-container` itself as a 4th argument now
+    (2026-07-30), stashed in module-level `currentEnlargedContainer` purely so the lightbox's
+    prev/next arrows (click or ←/→ keys) know where they are in the currently-visible gallery
+    order (`getVisibleGalleryContainers()` — same filtered/sorted list the grid itself shows) and
+    can wrap to the next/previous one. Any other future caller of `enlargeImage()` should pass the
+    container too, or prev/next will silently no-op for that entry point. Edit Tags' shared field
+    (2026-07-30) has two modes tracked by `editTagsAllMatched`, set when the modal opens: if every
+    selected image already had identical tags, Save **replaces** them (unchanged from the original
+    design); if they differed, Save instead **adds** whatever was typed to each image's own
+    existing tags via `mergeTagStrings()` (comma-list union, case-insensitive dedupe) - each image
+    keeps its individual previous tags rather than having them clobbered by one value that was
+    never even shown for that image. Don't collapse this back to always-replace; that's the exact
+    behavior that was reported as a problem.
   - "Submit" (2026-07-30, `submitReferenceBtn`/`submitReferenceModal`) is deliberately **not**
     admin-gated — it's the public-facing counterpart to the admin tools above, for visitors who
     want to send the site owner a link (e.g. a Drive folder) or images without needing an email
@@ -66,7 +84,16 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     `completeUpload()` makes after a normal admin upload finishes. "Dismiss" hard-deletes the
     submission's Firestore doc once it's been dealt with (whether 0, some, or all of its images
     got added) — there's no "mark as reviewed" limbo state, so don't add one without a reason;
-    the point was to keep the queue short, not to grow a permanent log.
+    the point was to keep the queue short, not to grow a permanent log. **`.sidebar` has a higher
+    z-index (1100) than `.modal-backdrop` (999)** - a pre-existing mismatch, not introduced here,
+    that only bites when a modal is wide enough to visually extend under the sidebar's ~270px
+    width, at which point that overlapping strip's clicks land on whatever sidebar button is
+    there instead of the modal content underneath (found the hard way: widening this panel to
+    980px did exactly that to its own Dismiss button on a 1400px-wide test viewport). Fixed here
+    by keeping this panel's `max-width` at 840px instead of properly reordering the z-index stack
+    site-wide - if a future modal needs to be wider than roughly `viewport - 540px`, the real fix
+    is raising `.modal-backdrop` above 1100 (and re-checking `.about-btn`/`.submit-reference-btn`,
+    which sit at 1200 for the same reason), not just shrinking that modal too.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
@@ -98,12 +125,16 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
 
 ## Admin access
 
-**2026-07-30: real auth, replacing the no-password gate below.** "ADMIN ACCESS" now opens an
-`#adminLoginModal` (email + password) that calls Firebase Auth's
+**2026-07-30: real auth, replacing the no-password gate below.** "Admin Log In" (the button was
+renamed from "ADMIN ACCESS" the same day, and becomes "SIGN OUT" once signed in) opens an
+`#adminLoginModal` (email + password, Enter submits from either field) that calls Firebase Auth's
 `signInWithEmailAndPassword()`. There is exactly **one** admin account, created manually in
 Firebase Console → Authentication → Users, using **isakovicadrien@gmail.com** (the Email/Password
 sign-in method must be enabled first, under Authentication → Sign-in method — neither step can be
-done from a coding session, no Firebase CLI/project access here).
+done from a coding session, no Firebase CLI/project access here). Persistence is explicitly set to
+`SESSION` (not Firebase's `LOCAL` default) — closing the tab/browser signs the admin back out
+automatically, at the owner's request; a same-tab refresh still keeps the session, since
+`sessionStorage` (what `SESSION` persistence uses) survives a reload, just not closing the tab.
 
 The client-side button-hiding (`auth.onAuthStateChanged` toggling `editButtons`/`separators`) is
 **cosmetic only** — it exists so a random visitor doesn't see admin controls cluttering the page,
