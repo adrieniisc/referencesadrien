@@ -46,6 +46,18 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     reuse `compressImageIfNeeded()`/`uploadImage()` as-is (same Cloudinary path as admin uploads),
     sequentially rather than in parallel, for the same reason upload.js's `Unexpected end of form`
     fix made the admin upload dock sequential (see above).
+  - Each submission also fires a best-effort email notification (2026-07-30,
+    `sendSubmissionEmailNotification()`) to **isakovicadrien@gmail.com** via FormSubmit's AJAX
+    relay (`https://formsubmit.co/ajax/...`) — chosen specifically to avoid standing up any new
+    backend/API key for this. **That inbox must click the one-time "activate this inbox" email
+    FormSubmit sends on the very first real submission**, or silently no notifications will ever
+    arrive (the Firestore `submissions` doc still gets written regardless — that's the durable
+    record; the email is just a heads-up, and its failure is caught and logged, not surfaced to
+    the submitter). The destination address is a plain string in the client-side fetch call, so
+    it's visible in the browser's network tab to anyone who looks, even though it's never printed
+    anywhere in the page's own UI — that's an inherent trade-off of doing this with no backend of
+    our own, not an oversight. If this address ever needs to change, it's a single string to edit
+    in `index.html`, not an env var.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.

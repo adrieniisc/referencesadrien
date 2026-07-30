@@ -1890,6 +1890,31 @@ aboutModal.addEventListener("click", (e) => {
       submitReferenceStatus.textContent = "";
     }
 
+    // Best-effort email notification via FormSubmit's AJAX relay - no backend
+    // of our own, no API key. isakovicadrien@gmail.com must click the
+    // one-time "activate this inbox" email FormSubmit sends on the very
+    // first submission before notifications start arriving.
+    // Note this address is visible in the browser's network tab (it's a
+    // client-side POST), just never shown anywhere in the page's own UI.
+    async function sendSubmissionEmailNotification({ link, imageUrls, note }) {
+      const response = await fetch('https://formsubmit.co/ajax/isakovicadrien@gmail.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          _subject: 'New reference submission',
+          _template: 'box',
+          _captcha: 'false',
+          link: link || '(none)',
+          images: imageUrls.length ? imageUrls.join('\n') : '(none)',
+          note: note || '(none)'
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`FormSubmit relay responded with ${response.status}`);
+      }
+      return response.json();
+    }
+
     async function submitReference() {
       const linkValue = submitReferenceLink.value.trim();
       const noteValue = submitReferenceNote.value.trim();
@@ -1914,13 +1939,26 @@ aboutModal.addEventListener("click", (e) => {
           imageUrls.push(url);
         }
 
-        await db.collection('submissions').add({
-          link: linkValue,
-          imageUrls: imageUrls,
-          note: noteValue,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          addTime: Date.now()
-        });
+        // Firestore is the durable record and must succeed; the email
+        // notification is best-effort and shouldn't fail the submission if
+        // the relay is down or not yet activated.
+        const [firestoreResult, emailResult] = await Promise.allSettled([
+          db.collection('submissions').add({
+            link: linkValue,
+            imageUrls: imageUrls,
+            note: noteValue,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            addTime: Date.now()
+          }),
+          sendSubmissionEmailNotification({ link: linkValue, imageUrls, note: noteValue })
+        ]);
+
+        if (firestoreResult.status === 'rejected') {
+          throw firestoreResult.reason;
+        }
+        if (emailResult.status === 'rejected') {
+          console.warn('Submission saved, but the email notification failed to send:', emailResult.reason);
+        }
 
         showSubmitReferenceStatus("Thanks! Your submission was received.", false);
         setTimeout(() => {
