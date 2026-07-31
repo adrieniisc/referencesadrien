@@ -512,13 +512,27 @@
 }
 
     /* --------------------------------------------------
-       Floating Size Panel
+       Floating controls row - color filter panel and size panel share one
+       fixed-positioned flex row, color panel on the left, size panel on
+       the right, instead of the color panel stacking in its own block
+       directly above the size panel (the original layout - see the
+       color-filter comment below for why that changed).
     -------------------------------------------------- */
-    .floating-size-panel {
+    .floating-controls-row {
       position: fixed;
       bottom: 18px;
       right: 18px;
-      left: auto;
+      z-index: 1000;
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    /* --------------------------------------------------
+       Floating Size Panel
+    -------------------------------------------------- */
+    .floating-size-panel {
+      position: static;
       width: auto;
       transform: none;
       background-color: rgba(26,26,30,0.85);
@@ -526,7 +540,6 @@
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border-radius: var(--radius-md);
-      z-index: 1000;
       display: inline-flex;
       align-items: center;
       justify-content: flex-end;
@@ -562,13 +575,14 @@
 
     /* --------------------------------------------------
        Floating Color Filter Panel (2026-07-30) - same floating-pill
-       treatment as the size panel above, stacked directly on top of it.
+       treatment as the size panel. Originally stacked directly above the
+       size panel in its own block; moved (same day) into the shared
+       `.floating-controls-row` flex row instead, sitting to the size
+       panel's left, since a separate block stacked on top of it read as
+       too much vertical clutter in one corner.
     -------------------------------------------------- */
     .floating-color-panel {
-      position: fixed;
-      bottom: 66px;
-      right: 18px;
-      left: auto;
+      position: static;
       background-color: rgba(26,26,30,0.85);
       border: 1px solid var(--border-color);
       backdrop-filter: blur(10px);
@@ -1257,25 +1271,30 @@
     }
 
 /* --------------------------------------------------
-   Floating Upload Dock
+   Floating Upload Dock (2026-07-31: rebuilt from a corner-anchored card
+   into a wide bar spanning the bottom of the content area - "angle
+   based" positioning, i.e. anchored to a screen corner, read as cramped
+   for a multi-file batch). The header now always shows one aggregate
+   progress bar + a done/total count; the per-file breakdown
+   (.upload-dock-content, unchanged internally) is collapsed by default
+   and only shows once expanded via .upload-dock-header-actions' toggle
+   button, instead of always being the only view.
 -------------------------------------------------- */
 .upload-dock {
   position: fixed;
-  bottom: 20px;
-  right: 20px; /* Bottom-right corner, clear of centered modals */
-  /* Wider and taller than before: with the tag review panel gone, this
-     dock is the only feedback surface for an upload, so it needs to
-     comfortably show a big multi-category batch at once instead of a
-     handful of truncated rows. */
-  width: 420px;
+  bottom: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  margin: 0 auto;
+  width: auto;
+  max-width: min(1100px, calc(100% - 40px));
   background-color: rgba(26,26,30,0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  z-index: 20000; /* Above other modals, but no longer overlapping their controls now that it's in a corner */
-  max-height: 440px;
-  overflow-y: auto;
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  z-index: 20000; /* Above other modals/floating panels while an upload is running */
   box-shadow: var(--shadow-md);
   opacity: 0;
   visibility: hidden;
@@ -1295,17 +1314,56 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 12px 18px;
   background-color: rgba(13,13,15,0.6);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.upload-dock.expanded .upload-dock-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.upload-dock-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-dock-title {
   color: var(--text);
   font-weight: 600;
   font-size: 0.9rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  border-top-left-radius: var(--radius-md);
-  border-top-right-radius: var(--radius-md);
-  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.upload-dock-global-progress {
+  flex: 1;
+  max-width: 480px;
+  height: 8px;
+  background-color: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.upload-dock-global-progress-fill {
+  height: 100%;
+  background-color: var(--move-accent);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.upload-dock-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .minimize-dock-btn {
@@ -1324,8 +1382,19 @@
   color: var(--text);
 }
 
+/* Collapsed by default (max-height:0, no padding) so the header's
+   aggregate bar is the only thing shown until "expanded" is toggled on -
+   see toggleUploadDockDetails() in script below. */
 .upload-dock-content {
-  padding: 12px 16px;
+  max-height: 0;
+  overflow-y: auto;
+  padding: 0 18px;
+  transition: max-height 0.25s ease, padding 0.25s ease;
+}
+
+.upload-dock.expanded .upload-dock-content {
+  max-height: 360px;
+  padding: 12px 18px;
 }
 
 .upload-dock-item {
@@ -1404,13 +1473,6 @@
   color: var(--danger);
 }
 
-/* Ensure the size panel and upload dock don't overlap */
-@media (max-height: 500px) {
-  .upload-dock {
-    bottom: 70px;
-  }
-}
-
 /* --------------------------------------------------
    Header button pair (Submit + About) drops to its own row below the
    header, instead of sharing its row with the brand + search input,
@@ -1447,10 +1509,10 @@
   .submit-reference-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
   .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 112px; }
-  .floating-size-panel { right: 12px; bottom: 12px; }
+  .floating-controls-row { right: 12px; bottom: 12px; gap: 6px; }
   .size-icon-container { gap: 4px; }
   .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
-  .floating-color-panel { right: 12px; bottom: 60px; max-width: 168px; }
+  .floating-color-panel { max-width: 168px; }
 }
 
 /* Extra-narrow phones: shrink the sidebar further and drop the brand text
@@ -1754,36 +1816,41 @@
       <p id="emptyFolderMessage" class="empty-folder-message">Nothing here for now</p>
     </div>
   </div>
-  <!-- FLOATING COLOR FILTER PANEL - filters the gallery to images tagged
-       with the clicked color (see dominant-color auto-tagging); click the
-       selected dot again to clear. Images published before this feature
-       existed have no color tag yet and won't match any dot until
-       re-tagged/re-published. -->
-  <div class="floating-color-panel" id="colorFilterPanel" title="Filter by color">
-    <div class="color-dot-container">
-      <div class="color-dot" data-color="black" style="background-color:#1a1a1a;" title="Black"></div>
-      <div class="color-dot" data-color="white" style="background-color:#f5f5f0;" title="White"></div>
-      <div class="color-dot" data-color="gray" style="background-color:#8e8e93;" title="Gray"></div>
-      <div class="color-dot" data-color="brown" style="background-color:#8b5e34;" title="Brown"></div>
-      <div class="color-dot" data-color="beige" style="background-color:#d9c7a3;" title="Beige"></div>
-      <div class="color-dot" data-color="red" style="background-color:#e5484d;" title="Red"></div>
-      <div class="color-dot" data-color="orange" style="background-color:#f2994a;" title="Orange"></div>
-      <div class="color-dot" data-color="yellow" style="background-color:#f0c419;" title="Yellow"></div>
-      <div class="color-dot" data-color="green" style="background-color:#34a853;" title="Green"></div>
-      <div class="color-dot" data-color="cyan" style="background-color:#17c3b2;" title="Cyan"></div>
-      <div class="color-dot" data-color="blue" style="background-color:#3b82f6;" title="Blue"></div>
-      <div class="color-dot" data-color="purple" style="background-color:#8b5cf6;" title="Purple"></div>
-      <div class="color-dot" data-color="pink" style="background-color:#ec4899;" title="Pink"></div>
+  <!-- Shared fixed row for the color filter panel and size panel - see
+       .floating-controls-row above for why these two live in one flex row
+       instead of the color panel stacking above the size panel. -->
+  <div class="floating-controls-row">
+    <!-- FLOATING COLOR FILTER PANEL - filters the gallery to images tagged
+         with the clicked color (see dominant-color auto-tagging); click the
+         selected dot again to clear. Images published before this feature
+         existed have no color tag yet and won't match any dot until
+         re-tagged/re-published. -->
+    <div class="floating-color-panel" id="colorFilterPanel" title="Filter by color">
+      <div class="color-dot-container">
+        <div class="color-dot" data-color="black" style="background-color:#1a1a1a;" title="Black"></div>
+        <div class="color-dot" data-color="white" style="background-color:#f5f5f0;" title="White"></div>
+        <div class="color-dot" data-color="gray" style="background-color:#8e8e93;" title="Gray"></div>
+        <div class="color-dot" data-color="brown" style="background-color:#8b5e34;" title="Brown"></div>
+        <div class="color-dot" data-color="beige" style="background-color:#d9c7a3;" title="Beige"></div>
+        <div class="color-dot" data-color="red" style="background-color:#e5484d;" title="Red"></div>
+        <div class="color-dot" data-color="orange" style="background-color:#f2994a;" title="Orange"></div>
+        <div class="color-dot" data-color="yellow" style="background-color:#f0c419;" title="Yellow"></div>
+        <div class="color-dot" data-color="green" style="background-color:#34a853;" title="Green"></div>
+        <div class="color-dot" data-color="cyan" style="background-color:#17c3b2;" title="Cyan"></div>
+        <div class="color-dot" data-color="blue" style="background-color:#3b82f6;" title="Blue"></div>
+        <div class="color-dot" data-color="purple" style="background-color:#8b5cf6;" title="Purple"></div>
+        <div class="color-dot" data-color="pink" style="background-color:#ec4899;" title="Pink"></div>
+      </div>
     </div>
-  </div>
-  <!-- FLOATING SIZE PANEL -->
- <div class="floating-size-panel">
-    <div class="size-icon-container">
-      <div class="size-icon" data-size="120"><span>XS</span></div>
-      <div class="size-icon selected" data-size="180"><span>S</span></div>
-      <div class="size-icon" data-size="240"><span>M</span></div>
-      <div class="size-icon" data-size="320"><span>L</span></div>
-      <div class="size-icon" data-size="420"><span>XL</span></div>
+    <!-- FLOATING SIZE PANEL -->
+    <div class="floating-size-panel">
+      <div class="size-icon-container">
+        <div class="size-icon" data-size="120"><span>XS</span></div>
+        <div class="size-icon selected" data-size="180"><span>S</span></div>
+        <div class="size-icon" data-size="240"><span>M</span></div>
+        <div class="size-icon" data-size="320"><span>L</span></div>
+        <div class="size-icon" data-size="420"><span>XL</span></div>
+      </div>
     </div>
   </div>
   <!-- Enlarge Image Modal -->
@@ -2545,47 +2612,49 @@ aboutModal.addEventListener("click", (e) => {
     }
 
     // --------------------------------------------------------------
-    // Dominant-color detection (2026-07-30, re-worked same day after real
-    // test photos came back badly misclassified - see below) - run
+    // Dominant-color detection (2026-07-30, re-worked twice now) - run
     // automatically on every publish (admin upload dock and Review
     // Submissions' "Add") so the resulting image gets a plain-language
     // color tag (e.g. "brown", "gray") without anyone typing one in.
     // ------------------------------------------------------------------
-    // The first version bucketed raw RGB values into a histogram (pixels
-    // quantized into nearby-RGB buckets, most-populated bucket wins, name
-    // that bucket's average color) and picked the single most-frequent
-    // bucket by raw pixel count. On real photos this consistently picked
-    // the wrong region: a real subject's surface has enough natural
-    // lighting variation (highlights, shadow, texture) that its pixels
-    // spread across many nearby-but-distinct RGB buckets and split their
-    // own vote, while a flatter, more uniformly-lit area - a blurred gray
-    // floor in the background, a shadow seam between two wall planes, the
-    // dark gaps between leaves in foliage - stays tightly clustered in a
-    // few buckets and can out-vote the actual subject by raw count alone,
-    // even though it visibly occupies less of the frame. Confirmed against
-    // real test photos: a yellow chair (gray blurred floor in one corner)
-    // came back "gray", a reddish-brown weathered wall came back "gray", a
-    // white/gray wall corner (with a shadowed seam) came back "black", and
-    // green foliage (with dark gaps between leaves) came back "black" -
-    // background/shadow winning over the actual subject in every case.
+    // v1 bucketed raw RGB values into a histogram (most-populated bucket
+    // by raw pixel count wins). On real photos this let a flatter,
+    // uniformly-lit area (a blurred gray floor, a shadow seam, dark gaps
+    // in foliage) out-vote the actual subject, whose lit/shadowed pixels
+    // spread across many distinct buckets and split their own vote.
     //
-    // Fixed by classifying every sampled pixel individually into a color
-    // name first (via nameColorFromRgb(), same as before) and tallying
-    // votes per *name* instead of per fine-grained RGB bucket - this is
-    // far less sensitive to lighting-driven RGB spread, since a lit vs.
-    // shaded patch of the same material usually still names the same hue
-    // even when their raw RGB values are nowhere near each other. On top
-    // of that, low-chroma pixels (shadow, background blur, gaps - the
-    // exact pixels that were winning before) are excluded from the vote
-    // entirely, *unless* almost the whole image is low-chroma, in which
-    // case the image is genuinely neutral (a true black/white/gray
-    // material) and every pixel counts instead so those still tag
-    // correctly. Verified against ~10 synthetic photos built to mimic
-    // these exact failure shapes (a large but visually-secondary neutral
-    // region alongside a smaller, more-varied colorful subject) in Node
-    // before landing this - if a published image still gets a clearly
-    // wrong color tag, that's the first place to add another synthetic
-    // case and re-check, rather than re-tuning thresholds blind.
+    // v2 (still 2026-07-30) classified every pixel into a name first
+    // (nameColorFromRgb(), same as now) and excluded low-chroma pixels
+    // from the vote entirely *unless* almost the whole image was
+    // low-chroma - the idea being a small colorful subject would then
+    // never compete against a large neutral background at all. It was
+    // only checked against synthetic Node test cases (no live Cloudinary
+    // access in a sandboxed session) and, against real uploaded photos,
+    // still failed the same way: real photos routinely have well over
+    // 95% of their sampled pixels under the chroma cutoff (shadow,
+    // asphalt, tile, glare, out-of-focus background), which kept tripping
+    // the "almost all low-chroma -> treat as neutral" fallback even for
+    // obviously-colored subjects - a red vending machine, a patch of
+    // green grass, and a yellow rail all still came back "black" (or
+    // never "yellow" at all).
+    //
+    // 2026-07-31: replaced the hard exclude/fallback split with a
+    // continuous weighted vote (see dominantColorNameFromCanvas below) -
+    // every pixel always votes for its own name, but its vote is worth
+    // its own chroma (with a small floor so a genuinely neutral material
+    // still wins its own vote cleanly). This has no percentage cliff to
+    // mis-tune: a smaller saturated area can outweigh a larger dull one
+    // by raw vote-weight without the algorithm first having to decide
+    // "is this image neutral overall" as a separate, brittle step.
+    // Also tightened beige's saturation gate (nameColorFromRgb below,
+    // 0.55 -> 0.35) - a moderately-desaturated-but-still-clearly-yellow
+    // pixel (s ~0.5, common on real paint under glare/indirect light) was
+    // being swallowed into "beige" before it ever reached the yellow
+    // check. Still no live Cloudinary access here, so still no automated
+    // end-to-end check - if a published image gets an obviously wrong
+    // color tag again, add another synthetic case shaped like the real
+    // failure (per the comment on dominantColorNameFromCanvas) and check
+    // there first.
     // --------------------------------------------------------------
     function rgbToHsl(r, g, b) {
       r /= 255; g /= 255; b /= 255;
@@ -2629,7 +2698,7 @@ aboutModal.addEventListener("click", (e) => {
         return 'gray';
       }
       if (h >= 15 && h < 50 && l < 0.45) return 'brown';
-      if (h >= 15 && h < 60 && l >= 0.45 && l < 0.88 && s < 0.55) return 'beige';
+      if (h >= 15 && h < 60 && l >= 0.45 && l < 0.88 && s < 0.35) return 'beige';
       if (h < 15 || h >= 345) return 'red';
       if (h < 45) return 'orange';
       if (h < 70) return 'yellow';
@@ -2641,10 +2710,19 @@ aboutModal.addEventListener("click", (e) => {
       return 'gray';
     }
 
-    // Classifies every sampled pixel (see the block comment above for why
-    // per-pixel name-voting replaced RGB-bucket histogramming) and returns
-    // the most-voted name. Reads from a small offscreen copy of the
-    // canvas, not the full-resolution original, purely for speed.
+    // Classifies every sampled pixel (nameColorFromRgb()) and returns the
+    // name with the most total vote-weight. Reads from a small offscreen
+    // copy of the canvas, not the full-resolution original, purely for
+    // speed. Each pixel always votes - unlike the previous version, there
+    // is no chroma cutoff that excludes a pixel outright and no "almost
+    // everything got excluded, so start over and vote on everything"
+    // fallback branch, since that branch is exactly what made real photos
+    // (see the block comment above) come back "black": a pixel's vote
+    // weight is its own chroma instead (floored so a genuinely neutral
+    // pixel still counts a little), so a vividly-colored area outweighs a
+    // numerically larger but dull one directly, without the algorithm
+    // ever having to first decide "is this whole image neutral" as a
+    // separate step that can mis-fire.
     function dominantColorNameFromCanvas(canvas) {
       const SAMPLE = 64;
       const sampleCanvas = document.createElement('canvas');
@@ -2654,46 +2732,33 @@ aboutModal.addEventListener("click", (e) => {
       ctx.drawImage(canvas, 0, 0, SAMPLE, SAMPLE);
       const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE);
 
-      // Below this, a pixel reads as "basically neutral" (shadow,
-      // background blur, gaps) and is excluded from the vote unless
-      // there's nothing else to work with - see the fallback below.
-      const CHROMA_THRESHOLD = 0.15;
+      // A fully neutral pixel (chroma 0) still casts this much of a vote
+      // for black/white/gray, so a genuinely neutral material still wins
+      // its own vote cleanly instead of ending up with zero weight. The
+      // cap on the other end matters just as much: outdoor material
+      // photos routinely have a sliver of genuinely vivid background in
+      // frame (a patch of blue sky through foliage, a bright sign) that's
+      // far more saturated than the actual subject even when the subject
+      // fills most of the frame - uncapped, that small-but-intense sliver
+      // could still outvote a much larger but only moderately-saturated
+      // subject. Capping means a moderately-colored subject only has to
+      // out-NUMBER the vivid sliver, not out-saturate it too.
+      const CHROMA_FLOOR = 0.05;
+      const CHROMA_CAP = 0.25;
 
-      const tallyInto = (votes, r, g, b) => {
-        const name = nameColorFromRgb(r, g, b);
-        votes.set(name, (votes.get(name) || 0) + 1);
-      };
-
-      let totalCount = 0;
-      let colorfulCount = 0;
-      const colorfulVotes = new Map();
+      const votes = new Map();
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 128) continue; // skip transparent pixels
-        totalCount++;
         const r = data[i], g = data[i + 1], b = data[i + 2];
         const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
-        if (chroma < CHROMA_THRESHOLD) continue;
-        colorfulCount++;
-        tallyInto(colorfulVotes, r, g, b);
+        const name = nameColorFromRgb(r, g, b);
+        const weight = Math.min(Math.max(chroma, CHROMA_FLOOR), CHROMA_CAP);
+        votes.set(name, (votes.get(name) || 0) + weight);
       }
-      if (totalCount === 0) return null;
+      if (votes.size === 0) return null;
 
-      // Almost nothing in the image cleared the colorfulness bar - that
-      // means the image itself is genuinely neutral (a true black/white/
-      // gray material), not that its real color got filtered out, so
-      // fall back to voting on every pixel instead of just the (near-
-      // nonexistent) colorful ones.
-      let votes = colorfulVotes;
-      if (colorfulCount < totalCount * 0.05) {
-        votes = new Map();
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i + 3] < 128) continue;
-          tallyInto(votes, data[i], data[i + 1], data[i + 2]);
-        }
-      }
-
-      let bestName = null, bestCount = 0;
-      votes.forEach((count, name) => { if (count > bestCount) { bestCount = count; bestName = name; } });
+      let bestName = null, bestWeight = 0;
+      votes.forEach((weight, name) => { if (weight > bestWeight) { bestWeight = weight; bestName = name; } });
       return bestName;
     }
 
@@ -3984,12 +4049,6 @@ function closeEnlargeModal() {
      
      ********************************************************/
 
-    document.getElementById("minimizeUploadDock")?.addEventListener("click", function() {
-  const uploadDock = document.getElementById("uploadDock");
-  if (uploadDock) {
-    uploadDock.classList.remove("active");
-  }
-});
     // Folder Modal handling
     document.getElementById("closeFolderModalBtn").addEventListener("click", () => {
       folderModal.classList.remove("active");
@@ -4543,6 +4602,8 @@ function closeEnlargeModal() {
         uploadDockContent.appendChild(uploadItem);
         processUpload(file, folderValue, keywords, uploadItemId);
       });
+
+      updateGlobalUploadProgress();
     }
 
     // Updates both the progress bar fill and its percentage label together
@@ -4551,6 +4612,33 @@ function closeEnlargeModal() {
       const percentLabel = document.getElementById(`percent-${uploadItemId}`);
       if (fill) fill.style.width = `${percent}%`;
       if (percentLabel) percentLabel.textContent = label || `${percent}%`;
+      updateGlobalUploadProgress();
+    }
+
+    // Aggregates every dock row currently in the DOM into the header's
+    // single progress bar + "done/total" count - the always-visible
+    // summary now that the per-file rows themselves are collapsed by
+    // default (see .upload-dock-content / toggleUploadDockDetails).
+    // Reads each row's own fill width back rather than tracking percents
+    // in a separate structure, so it stays correct regardless of how many
+    // batches (each with their own uploadBatchId) are running at once.
+    function updateGlobalUploadProgress() {
+      const items = document.querySelectorAll(".upload-dock-item");
+      const globalFill = document.getElementById("uploadDockGlobalProgress");
+      const countLabel = document.getElementById("uploadDockCount");
+      if (!items.length) {
+        if (globalFill) globalFill.style.width = "0%";
+        if (countLabel) countLabel.textContent = "0/0";
+        return;
+      }
+      let percentSum = 0, done = 0;
+      items.forEach(item => {
+        const fill = item.querySelector(".upload-dock-progress-fill");
+        percentSum += fill ? (parseFloat(fill.style.width) || 0) : 0;
+        if (item.classList.contains("upload-success") || item.classList.contains("upload-error")) done++;
+      });
+      if (globalFill) globalFill.style.width = `${percentSum / items.length}%`;
+      if (countLabel) countLabel.textContent = `${done}/${items.length}`;
     }
 
     // Start upload (non-blocking)
@@ -4589,6 +4677,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     console.error(`Upload failed for ${file.name}:`, error);
     setUploadItemProgress(uploadItemId, 100, "Error");
     if (uploadItem) uploadItem.classList.add("upload-error");
+    updateGlobalUploadProgress();
 
     // Add error message
     const details = uploadItem?.querySelector(".upload-dock-item-details");
@@ -4627,18 +4716,20 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     setUploadItemProgress(uploadItemId, 100, "Done");
     if (uploadItem) {
       uploadItem.classList.add("upload-success");
-      
+      updateGlobalUploadProgress();
+
       // Update the display
       const details = uploadItem?.querySelector(".upload-dock-item-details");
       if (details) {
         details.textContent = `To: ${folderValue}${combinedKeywords ? ' | Tags: ' + combinedKeywords : ''}`;
       }
-      
+
       // Remove the item after 5 seconds
       setTimeout(() => {
         if (uploadItem && uploadItem.parentNode) {
           uploadItem.remove();
-          
+          updateGlobalUploadProgress();
+
           // Check if dock is empty and hide it if so
           const uploadDockContent = document.querySelector(".upload-dock-content");
           if (uploadDockContent && uploadDockContent.children.length === 0) {
@@ -4650,16 +4741,17 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
         }
       }, 5000);
     }
-    
+
     return true; // Signal success
   } catch (error) {
     console.error(`Final upload steps failed:`, error);
-    
+
     // Update UI to show error
     const uploadItem = document.getElementById(uploadItemId);
     setUploadItemProgress(uploadItemId, 100, "Error");
     if (uploadItem) {
       uploadItem.classList.add("upload-error");
+      updateGlobalUploadProgress();
 
       // Update the display
       const details = uploadItem?.querySelector(".upload-dock-item-details");
@@ -4745,10 +4837,28 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
   try {
     console.log("DOM loaded, initializing application...");
 
-    // Initialize the upload dock
+    // Initialize the upload dock - its markup sits after this script tag
+    // in the HTML, so these lookups have to happen here (once the whole
+    // document has actually parsed) rather than at top level, where
+    // getElementById() would still find nothing and silently no-op.
     const uploadDock = document.getElementById("uploadDock");
     if (uploadDock) {
       console.log("Upload dock initialized");
+
+      document.getElementById("minimizeUploadDock")?.addEventListener("click", () => {
+        uploadDock.classList.remove("active");
+      });
+
+      // Per-photo rows (.upload-dock-content) are collapsed by default -
+      // this just toggles them open/shut, independent of
+      // minimizeUploadDock above (which hides the whole dock, aggregate
+      // bar included).
+      document.getElementById("toggleUploadDockDetails")?.addEventListener("click", function() {
+        const expanded = uploadDock.classList.toggle("expanded");
+        this.textContent = expanded ? "▼" : "▲";
+        this.title = expanded ? "Hide per-photo progress" : "Show per-photo progress";
+        this.setAttribute("aria-expanded", expanded ? "true" : "false");
+      });
     } else {
       console.error("Could not find upload dock element");
     }
@@ -4784,8 +4894,16 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
 
 <div id="uploadDock" class="upload-dock">
   <div class="upload-dock-header">
-    <span>Upload Progress</span>
-    <button id="minimizeUploadDock" class="minimize-dock-btn">▼</button>
+    <div class="upload-dock-summary">
+      <span class="upload-dock-title">Uploading <span id="uploadDockCount">0/0</span></span>
+      <div class="upload-dock-global-progress">
+        <div class="upload-dock-global-progress-fill" id="uploadDockGlobalProgress" style="width: 0%"></div>
+      </div>
+    </div>
+    <div class="upload-dock-header-actions">
+      <button id="toggleUploadDockDetails" type="button" class="minimize-dock-btn" title="Show per-photo progress" aria-expanded="false">▲</button>
+      <button id="minimizeUploadDock" type="button" class="minimize-dock-btn" title="Hide">✕</button>
+    </div>
   </div>
   <div class="upload-dock-content">
     <!-- Upload items will be added here dynamically -->

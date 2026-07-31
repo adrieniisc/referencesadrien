@@ -147,6 +147,30 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     calls land in the same millisecond. If another "stuck progress" report shows up, check whether
     it's this same shape (multiple batches/uploads kicked off synchronously close together) before
     assuming it's a new bug.
+  - **Upload dock rebuilt as a wide bottom bar (2026-07-31)** — was a 420px card anchored to the
+    bottom-right corner ("angle based" - the owner's own term for corner-anchored positioning);
+    now `left: var(--sidebar-width); right: 0` with `margin: 0 auto; max-width: min(1100px,
+    calc(100% - 40px))`, so it spans most of the content area's width instead, flush against the
+    bottom edge (`bottom: 0`, rounded top corners only). The header is now a single aggregate
+    progress bar + a "done/total" count (`updateGlobalUploadProgress()`, called from every place
+    that already touched an item's own progress/success/error state) — the per-file rows
+    (`.upload-dock-item`, unchanged internally) are collapsed by default (`.upload-dock-content`
+    at `max-height: 0`) and only expand via a new toggle button
+    (`#toggleUploadDockDetails`/`.upload-dock.expanded`), separate from the pre-existing minimize
+    button (`#minimizeUploadDock`, still hides the whole dock outright, unchanged behavior).
+    **Found and fixed the same day, while wiring the new toggle button:** neither button's click
+    handler had ever actually attached, before or after this change - `#uploadDock`'s HTML sits
+    *after* this file's single big inline `<script>` tag closes, so the old top-level
+    `document.getElementById("minimizeUploadDock")?.addEventListener(...)` ran against a DOM that
+    didn't have that element yet, found `null`, and the `?.` silently swallowed it. Confirmed via
+    a headless-browser check (instrumented `EventTarget.prototype.addEventListener` to log every
+    call and its target) that this listener never registered at all - the "▼ minimize" button in
+    every prior deployed version of this dock has been dead. Fixed by moving both buttons' lookup
+    *and* `addEventListener` calls inside the existing `DOMContentLoaded` handler, which fires
+    after the whole document (including the later-declared dock markup) has parsed, instead of
+    running at top-level script-parse time. If another floating element's button doesn't respond
+    to clicks, check whether its markup is declared after this script tag before assuming the
+    handler logic itself is wrong.
   - **Search now treats the folder/category name as an invisible tag too (2026-07-30)** —
     `performSearch()` matches the search term against `data-category` in addition to filename and
     `data-keywords`, so searching "metal" also surfaces every image filed under a Metal folder (or
@@ -154,9 +178,14 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     the top search bar; the sidebar's folder-click filtering (`filterImages()`) is unchanged.
     **Superseded 2026-07-30, later the same day:** `filterImages()` is no longer purely
     folder-driven either - see the color filter bullet below.
-  - **Floating color filter panel (2026-07-30)** — a second floating pill panel, stacked directly
-    above the existing size selector (same visual treatment: `.floating-color-panel`/`.color-dot`,
-    modeled on `.floating-size-panel`/`.size-icon`), with one small round swatch per color name the
+  - **Floating color filter panel (2026-07-30, repositioned 2026-07-31)** — a second floating pill
+    panel (same visual treatment: `.floating-color-panel`/`.color-dot`, modeled on
+    `.floating-size-panel`/`.size-icon`), originally stacked directly above the existing size
+    selector in its own block; moved into a shared `.floating-controls-row` flex row instead, on
+    the size panel's left (both `position: static`, the row itself is the one `position: fixed`
+    element, `bottom: 18px; right: 18px`) - two blocks stacked in one corner read as too much
+    vertical clutter. If either panel needs repositioning again, adjust the row, not the individual
+    panels' own (now static) positioning. One small round swatch per color name the
     dominant-color auto-tagger can produce (black/white/gray/brown/beige/red/orange/yellow/green/
     cyan/blue/purple/pink). Clicking a dot filters the gallery to images whose keywords include
     that color word; clicking the already-selected dot again clears it back to no color filter
@@ -286,6 +315,35 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     `null` rather than blocking the Add. Both call sites are try/caught to never fail the publish
     itself - a failed color detection just means no color tag gets added, same as if nothing had
     been typed into Keywords.
+    **Reworked again 2026-07-31 - the 2026-07-30 rework above was still wrong on real photos,**
+    confirmed against four real uploads this time (not synthetic): a red vending machine, a patch
+    of green grass, a weathered wood pole, and a yellow metal rail all came back "black" (or, for
+    the rail, never "yellow" at all). Root cause: the exclude/fallback split from the previous
+    rework - vote only on pixels above a chroma cutoff, unless almost everything is below it, in
+    which case vote on every pixel instead - kept tripping its own "almost everything is
+    low-chroma" fallback on ordinary real photos (shadow, asphalt, tile, glare routinely put over
+    95% of sampled pixels under the cutoff), which then let a numerically-larger but merely-dull
+    background/shadow outvote an obviously-colored subject by raw pixel count - structurally the
+    same failure the *first* rework was meant to fix, just one level up. Replaced with a continuous
+    weighted vote instead of that two-tier exclude/fallback split: every pixel always votes for its
+    own name (`nameColorFromRgb()`, unchanged), but the vote is worth `Math.min(Math.max(chroma,
+    0.05), 0.25)` - floored so a genuinely neutral pixel still counts a little (a true black/white/
+    gray material still wins its own vote cleanly), capped so a small-but-vivid sliver of
+    background (a patch of blue sky through foliage, a bright sign) can't out-saturate its way past
+    a much larger but only moderately-colored subject - confirmed necessary via a synthetic wood-pole
+    case where an uncapped version let a smaller sky region win outright on chroma alone. No
+    percentage cliff left to mis-tune: a smaller saturated area only has to out-*number* a larger
+    dull one now, not clear a separate "is this image neutral overall" gate first. Also tightened
+    `nameColorFromRgb()`'s beige carve-out saturation gate from `s < 0.55` to `s < 0.35` - a
+    moderately-desaturated-but-still-clearly-yellow pixel (s ~0.5, common on real paint under glare
+    or indirect light) was being swallowed into "beige" before it ever reached the yellow check,
+    which was the specific cause of the yellow rail never tagging yellow. Verified against the same
+    ~10 synthetic cases as the previous rework plus four new ones shaped like these exact real
+    failures, all in Node, before landing this - **still no live Cloudinary access in a sandboxed
+    session, so still no automated end-to-end check against a real upload**; if a published image
+    still gets an obviously wrong tag, add another synthetic case shaped like it and check there
+    first, same advice as last time, which turned out to matter: synthetic-only verification is
+    exactly what let the 2026-07-30 version ship still broken.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
