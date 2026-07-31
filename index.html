@@ -89,7 +89,12 @@
 .about-btn {
   position: absolute;
   top: 15px;
-  right: 24px;
+  /* Kept in sync with .submit-reference-btn's `right` and
+     .top-search-bar's `padding-right` (2026-07-31) - all three gaps
+     (viewport edge -> About, About -> Submit, Submit -> search bar) are
+     the same 10px, so tightening one without the others would leave this
+     one looking uneven next to the other two. */
+  right: 10px;
   background-color: rgba(15, 15, 17, 0.82);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
@@ -120,18 +125,23 @@
 
 /* Submit Reference Button CSS - sits on the same row as About, just to its
    left, with matching visual weight so it doesn't read as an accidental
-   floating fragment. Same box model as .about-btn, different `right`. */
+   floating fragment. Same box model as .about-btn, different `right`.
+   Solid white (2026-07-31, was the same dark pill as About) so it reads
+   as the more prominent of the two - it's the one action here that
+   writes something back (a submission), About is just informational. */
 .submit-reference-btn {
   position: absolute;
   top: 15px;
-  right: 168px;
-  background-color: rgba(15, 15, 17, 0.82);
-  color: var(--text-muted);
-  border: 1px solid var(--border-color);
+  /* About's right (10px) + About's width (120px) + the 10px gap between
+     the two buttons - see the comment on .about-btn's `right`. */
+  right: 140px;
+  background-color: #ffffff;
+  color: #17120c;
+  border: none;
   padding: 10px 16px;
   border-radius: 12px;
   font-size: 0.95rem;
-  font-weight: 400;
+  font-weight: 600;
   cursor: pointer;
   width: 120px;
   text-align: center;
@@ -144,13 +154,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
 }
 
 .submit-reference-btn:hover {
-  background-color: rgba(38, 38, 43, 0.9);
-  border-color: var(--border-strong);
-  color: var(--text);
+  background-color: rgba(255, 255, 255, 0.85);
 }
 
 /* Updated About Modal with blur effect */
@@ -238,8 +246,8 @@
     /* --------------------------------------------------
        Sidebar (Folders, Search & Filter)
     -------------------------------------------------- */
-/* Brand text now lives in .top-search-bar, next to the search input,
-   instead of the sidebar - see .top-bar-brand below. */
+/* Brand heading (.sidebar-brand, styled further down this block) is the
+   first child of .sidebar-scroll, above the folder list. */
 
 .sidebar {
   width: var(--sidebar-width);
@@ -293,60 +301,31 @@
   padding: 0.8rem;
   overflow-y: auto;
 }
-    .search-bar-container {
-      display: flex;
-      justify-content: flex-start; /* the sidebar's own search input was replaced by the floating top search bar */
-      margin-bottom: 0.4rem;
-    }
-    .filter-icon-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      margin-left: 0;
-    }
-    .filter-button {
-      width: 28px;
-      height: 28px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      border-radius: var(--radius-sm);
-      transition: background-color 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-muted);
-    }
-    .filter-button:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
-    .filter-button svg {
-      width: 18px;
-      height: 18px;
-      fill: var(--text);
-    }
-    /* Filter menu in sidebar colors */
-    .filter-menu {
-      position: fixed;
-      top: 50px;
-      left: 240px;
-      background-color: var(--bg-elevated);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      padding: 0.2rem 0;
-      display: none;
-      z-index: 1000;
-      min-width: 120px;
-      font-size: 0.9rem;
+    /* Brand heading (2026-07-31: moved back into the sidebar from the top
+       search bar, see .top-search-bar below) - a block-level first child of
+       .sidebar-scroll rather than a fixed pixel width, so it automatically
+       tracks --sidebar-width at every responsive tier instead of needing
+       its own breakpoint overrides. .sidebar-scroll's own 0.8rem padding
+       is the "small margins" on either side; this only adds the divider
+       beneath it. Replaces the old sort-options button that used to sit
+       here (removed the same day - Alphabetical/Recent Add/Random are
+       still reachable as the default random shuffle at load, just not as
+       a manual re-sort menu any more).
+    -------------------------------------------------- */
+    .sidebar-brand {
+      width: 100%;
+      box-sizing: border-box;
+      padding-bottom: 0.6rem;
+      margin-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
       color: var(--text);
-      box-shadow: var(--shadow-md);
-    }
-    .filter-menu .filter-option {
-      padding: 0.4rem 0.8rem;
       cursor: pointer;
-      transition: background-color 0.2s ease;
-      color: var(--text-muted);
+      transition: opacity 0.15s ease;
     }
-    .filter-menu .filter-option:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
+    .sidebar-brand:hover { opacity: 0.8; }
     .folder-list {
       list-style: none;
       flex: 1;
@@ -1282,9 +1261,16 @@
   width: auto;
   max-width: 80%;
   display: flex;
-  flex-direction: column;
+  /* Row instead of column (2026-07-31, superseding the note below) - see
+     .enlarged-tags/.enlarged-resolution for why this doesn't reintroduce
+     the offset/unaligned bug the column layout was originally written to
+     fix: centering the row *as a unit* (justify-content, not a per-child
+     margin-left) keeps both pills level and centered together regardless
+     of which one is wider or whether the tags pill is even shown. */
+  flex-direction: row;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 10px 0;
   opacity: 0.6;
   margin-top: auto; /* Push to bottom of container */
@@ -1295,32 +1281,47 @@
   opacity: 0.85;
 }
 
-/* Same pill treatment as .enlarged-tags (just smaller/muted) instead of a
-   bare inline text label - previously sat inline to the right of the tags
-   pill with its own margin-left, which read as offset/unaligned whenever
-   the pill's width or the presence of tags changed the pill's centered
-   position. Stacking it in the flex column above centers it under the
-   image the same way regardless of whether the tags pill is shown. */
+/* Same pill treatment as .enlarged-tags (just smaller/muted), sitting next
+   to it in the row above instead of stacked below - both pills share an
+   explicit height (rather than relying on matching padding+line-height,
+   which their different font-sizes would throw off by a couple px) so
+   they read as a matched pair regardless of font-size. flex-shrink: 0
+   keeps this one always shown at full size - it's short, fixed-format
+   text ("1920 × 1080"), so the tags pill (below) is the one that gives up
+   space and ellipsizes if the row doesn't fit within the container's
+   max-width. */
 .enlarged-resolution {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 34px;
+  box-sizing: border-box;
   background-color: rgba(26, 26, 30, 0.85);
   border: 1px solid var(--border-color);
   color: var(--text-faint);
   font-size: 0.75rem;
-  padding: 4px 14px;
+  padding: 0 14px;
   border-radius: 999px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
 }
 
 .enlarged-tags {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  box-sizing: border-box;
   background-color: rgba(26, 26, 30, 0.85);
   border: 1px solid var(--border-color);
   color: var(--text);
   font-size: 0.9rem;
-  padding: 6px 16px;
+  padding: 0 16px;
   border-radius: 999px;
   max-width: 100%;
+  /* Automatic minimum size: in a row flex container (unlike the previous
+     column layout), a nowrap text item won't shrink below its own
+     min-content width without this, which would let it overflow past
+     max-width instead of actually ellipsizing. */
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1337,14 +1338,15 @@
    the panel's width + gap before computing the image's own max width, so
    growing/shrinking the panel or this gap only requires updating
    ROW_GAP/panel width in one place (kept in sync with enlargeImage()'s
-   own ROW_GAP constant).
+   own ROW_GAP constant). Gap widened 32px -> 48px (2026-07-31, same day)
+   so the panel doesn't read as crowding the image.
 -------------------------------------------------- */
 .enlarge-main-row {
   display: flex;
   flex-direction: row;
   align-items: stretch; /* image column keeps full height for its own tags-pushed-to-bottom logic below */
   justify-content: center;
-  gap: 32px;
+  gap: 48px;
   width: 100%;
   min-height: 0;
 }
@@ -1363,7 +1365,7 @@
 -------------------------------------------------- */
 .enlarge-similar-panel {
   align-self: center;
-  width: 340px;
+  width: 400px;
   flex-shrink: 0;
   max-height: 82vh;
   overflow-y: auto;
@@ -1406,14 +1408,17 @@
   object-fit: cover;
   display: block;
 }
-/* Not enough width for a sensibly-sized image plus a 340px side panel
+/* Not enough width for a sensibly-sized image plus a 400px side panel
    without the two cramping each other badly - hidden below this rather
    than squeezed, so enlargeImage()'s width math never has to reserve
    space for a panel that isn't actually showing. Needs !important:
    renderSimilarImages() sets this element's display via inline style
    (matching how the rest of this modal's JS already works), which
-   otherwise wins over a plain media query rule regardless of specificity. */
-@media (max-width: 1300px) {
+   otherwise wins over a plain media query rule regardless of specificity.
+   Threshold raised 1300px -> 1400px (2026-07-31) alongside the panel's
+   340px -> 400px widen + the row's 32px -> 48px gap, so the image still
+   keeps the same worst-case minimum width right at the breakpoint edge. */
+@media (max-width: 1400px) {
   .enlarge-similar-panel { display: none !important; }
 }
 @media (max-width: 900px) {
@@ -1438,17 +1443,20 @@
   top: 0;
   /* Flush against the sidebar's right edge and the viewport's right edge -
      unlike the old floating pill, this is a full header strip (solid
-     background, see below) so the brand text sitting in it stays legible
-     over the gallery scrolling underneath, instead of just the search
-     input itself having a background. Horizontal insets are handled by
-     padding instead of `left`/`right` so the bar's edge-to-edge background
-     doesn't leave gaps. The About/Submit buttons are `position: absolute`
-     and layer on top (z-index 1200 > this bar's 1000), so `padding-right`
-     still reserves the same visual gap for them as before. */
+     background, see below) so the search input stays legible over the
+     gallery scrolling underneath, instead of just the input itself having
+     a background. Horizontal insets are handled by padding instead of
+     `left`/`right` so the bar's edge-to-edge background doesn't leave
+     gaps. The About/Submit buttons are `position: absolute` and layer on
+     top (z-index 1200 > this bar's 1000), so `padding-right` still
+     reserves the same visual gap for them as before - 270px = Submit's
+     `right` (140px) + its width (120px) + the same 10px gap the two
+     buttons keep between each other (2026-07-31: tightened from 312px
+     alongside that gap shrinking from 24px to 10px). */
   left: var(--sidebar-width);
   right: 0;
   padding: 14px 24px;
-  padding-right: 312px;
+  padding-right: 270px;
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -1459,18 +1467,6 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.top-bar-brand {
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--text);
-  white-space: nowrap;
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-.top-bar-brand:hover { opacity: 0.8; }
-
 .main-search-container {
   flex: 1;
   min-width: 0;
@@ -1478,9 +1474,34 @@
   border-radius: 12px;
 }
 
+/* Purely decorative magnifying-glass glyph sitting inside the search input
+   (2026-07-31) - absolutely positioned within .main-search-container
+   (already position: relative) rather than a background-image on the
+   input itself, so it's a real element that's trivial to restyle/replace
+   later. pointer-events: none so clicks/focus still land on the input
+   underneath it. #mainImageSearch's own left padding is widened to match,
+   so typed text never underlaps it. */
+.search-bar-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  /* text-muted (not the even-dimmer text-faint) plus a thicker stroke
+     (2.5, not the SVG's more common 2, in the 24-unit viewBox) - at this
+     icon's actual ~18px on-screen size a thinner/dimmer glyph anti-aliased
+     down to near-illegibility in testing. */
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.search-bar-icon circle, .search-bar-icon path {
+  stroke-width: 2.5;
+}
+
     #mainImageSearch {
   width: 100%;
-  padding: 10px 16px;
+  padding: 10px 16px 10px 44px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background-color: rgba(15, 15, 17, 0.82);
@@ -1764,20 +1785,21 @@
 
 /* --------------------------------------------------
    Header button pair (Submit + About) drops to its own row below the
-   header, instead of sharing its row with the brand + search input,
-   starting well above the main 640px breakpoint (2026-07-30: once the
-   brand moved into .top-search-bar alongside the search input, keeping
-   two buttons *also* inline stopped fitting far earlier than before -
-   brand + search + a reserved button gutter don't all fit in the
-   post-sidebar width below ~900px, so the buttons free up that space by
-   moving under the header instead of being shrunk further and further).
+   header instead of sharing it with the search input, starting well
+   above the main 640px breakpoint - a reserved button gutter alongside
+   the search input doesn't leave it a usable width in the post-sidebar
+   space below ~900px, so the buttons free up that space by moving under
+   the header instead of being shrunk further and further. (The brand
+   heading no longer lives in this row at all - see .sidebar-brand - so
+   it's not a factor here any more.)
 -------------------------------------------------- */
 @media (max-width: 900px) {
   :root { --sidebar-width: 230px; }
   .top-search-bar { padding-right: 24px; }
   .about-btn { top: 76px; right: 20px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .submit-reference-btn { top: 76px; right: 130px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
+  #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
+  .search-bar-icon { left: 12px; width: 16px; height: 16px; }
   .main-content { padding-top: 128px; }
 }
 
@@ -1789,14 +1811,12 @@
 @media (max-width: 640px) {
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
-  /* Brand shrinks and the brand/search gap tightens too, so the search
-     input keeps a usable minimum width even as the sidebar eats further
-     into this tier's already-narrower viewport. */
-  .top-bar-brand { font-size: 1rem; }
+  .sidebar-brand { font-size: 1.1rem; }
   .top-search-bar { padding: 8px 12px; gap: 0.6rem; }
   .about-btn { top: 64px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .submit-reference-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
-  #mainImageSearch { padding: 8px 12px; font-size: 0.85rem; }
+  #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
+  .search-bar-icon { left: 12px; width: 16px; height: 16px; }
   .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 112px; }
   .floating-controls-row { right: 12px; bottom: 12px; gap: 6px; }
   .size-icon-container { gap: 4px; }
@@ -1807,13 +1827,14 @@
   .material-chip { height: 26px; padding: 0 7px; font-size: 0.68rem; }
 }
 
-/* Extra-narrow phones: shrink the sidebar further and drop the brand text
-   entirely (rather than shrinking it again) - at this width the search
-   input finding room to actually be usable matters more than the
-   wordmark, which is decorative. */
+/* Extra-narrow phones: shrink the sidebar further. The brand heading
+   shrinks along with it (.sidebar-brand, above) rather than being hidden
+   outright - unlike when it lived in the top search bar, it's no longer
+   competing with the search input for space, so there's no reason to
+   drop it here any more. */
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
-  .top-bar-brand { display: none; }
+  .sidebar-brand { font-size: 1rem; }
   .top-search-bar { padding: 8px 10px; }
   .about-btn { top: 58px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
   .submit-reference-btn { top: 58px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
@@ -2001,8 +2022,11 @@
     <button id="submitReferenceBtn" class="submit-reference-btn">Submit</button>
 
   <div class="top-search-bar">
-    <div class="top-bar-brand">aReference</div>
     <div class="main-search-container">
+      <svg class="search-bar-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+        <path d="M20 20l-3.6-3.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
       <input type="search" id="mainImageSearch" placeholder="Search images...">
     </div>
   </div>
@@ -2085,15 +2109,7 @@
            flat tinted background. Populated by renderSidebarFrostArt(). -->
       <div class="sidebar-frost-art" id="sidebarFrostArt"></div>
       <div class="sidebar-scroll">
-        <div class="search-bar-container">
-          <div class="filter-icon-container">
-            <button class="filter-button" id="filterButton" title="Sort Options">
-              <svg viewBox="0 0 24 24">
-                <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              </svg>
-            </button>
-          </div>
-        </div>
+        <div class="sidebar-brand" id="sidebarBrand">aReference</div>
         <ul class="folder-list" id="folderList">
           <!-- Folder items will be generated dynamically -->
         </ul>
@@ -2127,17 +2143,6 @@
   </div>
         </div>
       </div>
-    </div>
-    <!-- Moved out of .sidebar (2026-07-31, frosted-glass redesign): .sidebar
-         now has backdrop-filter, which makes it the containing block for
-         any position:fixed descendant, so this dropdown's top/left would
-         resolve against the sidebar's own box instead of the viewport if
-         left nested inside it. Living as a sibling keeps its original
-         true-viewport-fixed behavior. -->
-    <div class="filter-menu" id="filterMenu">
-      <div class="filter-option" data-sort="alphabetical">Alphabetical</div>
-      <div class="filter-option" data-sort="recent">Recent Add</div>
-      <div class="filter-option" data-sort="random">Random</div>
     </div>
     <!-- Move Controls -->
     <div class="move-controls" id="moveControls">
@@ -2208,7 +2213,7 @@
     <div class="enlarge-image-column">
       <div class="enlarged-image-container">
         <div class="enlarge-spinner" id="enlargeSpinner"></div>
-        <img id="enlargeImage" src="" alt="">
+        <img id="enlargeImage" src="" alt="" fetchpriority="high">
         <!-- Tags moved outside the image container -->
       </div>
       <!-- Tags container now positioned at the bottom of the image column -->
@@ -2529,21 +2534,70 @@
     // Purely decorative: picks a few currently-loaded thumbnails to show as
     // a soft blurred wash behind the sidebar's frosted glass background, so
     // it has real color to diffuse instead of just tinted transparency over
-    // nothing. Not wired into every place gallery contents can change
-    // (unlike renderColorFilterDots()/renderMaterialFilterChips(), which
-    // are functionally load-bearing) - a stale sample here doesn't break
-    // anything, so a single call after initial load is enough.
+    // nothing. 2026-07-31: reworked from "3 random images from the whole
+    // gallery, picked once after initial load" to "whatever's actually
+    // hugging the gallery's left edge (i.e. physically next to the
+    // sidebar) within the current scroll position" - re-run on scroll
+    // (scheduleFrostArtRefresh, throttled) and from the end of
+    // layoutGallery() (covers every filter/search/add/delete/move that
+    // already re-runs layout, same hook renderColorFilterDots() piggybacks
+    // on elsewhere) so the wash actually tracks the sidebar's neighbors
+    // instead of a fixed sample from whenever the page loaded.
+    function getImagesNextToSidebar(maxCount) {
+      const galleryEl = document.getElementById("gallery");
+      const viewport = document.querySelector(".main-content");
+      if (!galleryEl || !viewport) return [];
+      const galleryRect = galleryEl.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      const candidates = [];
+      [...galleryEl.children].forEach(container => {
+        if (!container.dataset.url) return;
+        if (getComputedStyle(container).display === "none") return;
+        const rect = container.getBoundingClientRect();
+        // "Next to the sidebar" = the first column - hugging the gallery's
+        // own left edge (a few px of slack for gap/rounding).
+        if (rect.left - galleryRect.left > 4) return;
+        // Only rows currently scrolled into view, not the whole column.
+        if (rect.bottom < viewportRect.top || rect.top > viewportRect.bottom) return;
+        candidates.push({ container, top: rect.top });
+      });
+      candidates.sort((a, b) => a.top - b.top);
+      if (candidates.length <= maxCount) return candidates.map(c => c.container);
+      // Spread picks across the visible span (top/middle/bottom) instead of
+      // just the first N, so they roughly track the 3 fixed art-image slots
+      // in the CSS (top-left / mid-right / bottom-left).
+      const picks = [];
+      for (let i = 0; i < maxCount; i++) {
+        picks.push(candidates[Math.round((i * (candidates.length - 1)) / (maxCount - 1))]);
+      }
+      return picks.map(c => c.container);
+    }
+
+    let lastFrostArtKey = "";
     function renderSidebarFrostArt() {
       const art = document.getElementById("sidebarFrostArt");
       if (!art) return;
-      const pool = [...document.querySelectorAll(".image-container[data-url]")];
-      const picks = [];
-      for (let i = 0; i < 3 && pool.length > 0; i++) {
-        picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      let picks = getImagesNextToSidebar(3);
+      // Before the gallery has laid out yet (or nothing happens to be
+      // scrolled next to the sidebar), fall back to whatever's loaded
+      // rather than leaving the sidebar with no art at all.
+      if (picks.length === 0) {
+        picks = [...document.querySelectorAll(".image-container[data-url]")].slice(0, 3);
       }
+      // Skip the DOM/network churn of re-fetching the same 3 thumbnails on
+      // every scroll tick when the visible set hasn't actually changed.
+      const key = picks.map(c => c.dataset.docId || c.dataset.url).join("|");
+      if (key === lastFrostArtKey) return;
+      lastFrostArtKey = key;
       art.innerHTML = picks.map(c =>
         `<img src="${cloudinaryDisplayUrl(c.dataset.url, { width: 120 })}" alt="" aria-hidden="true">`
       ).join("");
+    }
+
+    let frostArtScrollTimer = null;
+    function scheduleFrostArtRefresh(delay = 200) {
+      clearTimeout(frostArtScrollTimer);
+      frostArtScrollTimer = setTimeout(renderSidebarFrostArt, delay);
     }
 
     // "Week" here isn't a calendar week - it resets on the 1st of every
@@ -2599,8 +2653,6 @@
     const renameFolderInput = document.getElementById("renameFolderInput");
     const confirmRenameFolderBtn = document.getElementById("confirmRenameFolderBtn");
 
-    const filterButton = document.getElementById("filterButton");
-    const filterMenu = document.getElementById("filterMenu");
     const deleteFolderBtn = document.getElementById("deleteFolderBtn");
     const findDuplicatesBtn = document.getElementById("findDuplicatesBtn");
     const duplicatesModal = document.getElementById("duplicatesModal");
@@ -2859,9 +2911,15 @@
         if (projectedWidth >= containerWidth) flushRow(false);
       });
       flushRow(true);
+      renderSidebarFrostArt();
     }
 
     window.addEventListener("resize", () => scheduleLayout());
+    // Scrolling the gallery doesn't change any image's own layout (so it
+    // doesn't need layoutGallery()), but it does change which images are
+    // currently next to the sidebar - throttled separately from
+    // scheduleLayout() since scroll fires far more often than resize/filter.
+    document.querySelector(".main-content")?.addEventListener("scroll", () => scheduleFrostArtRefresh());
 
     function performSearch() {
   const searchTerm = mainImageSearch.value.toLowerCase();
@@ -2905,7 +2963,7 @@
       if (allFolder) highlightSelected(allFolder);
       filterImages("all");
     }
-    document.querySelector(".top-bar-brand")?.addEventListener("click", goToHomeAll);
+    document.getElementById("sidebarBrand")?.addEventListener("click", goToHomeAll);
 
     /** ABOUT JavaScript **/
 
@@ -4558,6 +4616,7 @@ downloadLink.addEventListener("click", function(e) {
         thumbImg.src = cloudinaryDisplayUrl(otherContainer.dataset.url, { width: 200 });
         thumbImg.alt = sourceImg ? sourceImg.alt : "";
         thumbImg.loading = "lazy";
+        thumbImg.decoding = "async";
         thumb.appendChild(thumbImg);
         thumb.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -4575,13 +4634,23 @@ downloadLink.addEventListener("click", function(e) {
 
   function enlargeImage(url, filename, keywords = "", container = null) {
   currentEnlargedContainer = container;
-  renderSimilarImages(container);
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
   const enlargeSpinner = document.getElementById("enlargeSpinner");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
   const resolutionElement = document.getElementById("enlargedResolution");
+  const similarPanelEl = document.getElementById("enlargeSimilarPanel");
+
+  // Hide (rather than populate) the "Similar" panel synchronously, before
+  // anything else - populating it immediately would show the *previous*
+  // image's similar set for a moment, and the row's width would visibly
+  // shift once this image's own onload later resizes it around the
+  // panel's reserved space. renderSimilarImages() re-shows it (with this
+  // image's own matches) from inside the onload/onerror handlers below,
+  // so it appears at the same moment the big image does instead of
+  // popping in before it, or before it's even loaded.
+  if (similarPanelEl) similarPanelEl.style.display = "none";
 
   // Cap resolution to what the lightbox can actually show - the modal never
   // exceeds the viewport, so there's no point downloading a multi-thousand-
@@ -4604,52 +4673,56 @@ downloadLink.addEventListener("click", function(e) {
   enlargeModal.style.paddingBottom = "0";
   enlargeModal.style.display = "flex";
 
-  // Set image source and alt
-  enlargeImg.src = displayUrl;
-  enlargeImg.alt = filename;
-
-  // Create a new image to get natural dimensions and ensure proper sizing
-  const tempImg = new Image();
-  tempImg.onerror = function() {
+  // enlargeImg's own load/error events (read via naturalWidth/naturalHeight,
+  // which - unlike its width/height IDL attributes - report true intrinsic
+  // pixel size regardless of the CSS constraining its rendered box) drive
+  // the sizing math directly. This used to run through a second, off-DOM
+  // Image() just to read natural dimensions unaffected by enlargeImg's own
+  // CSS - which meant decoding every lightbox image twice. Handlers are
+  // attached before .src is set, same reasoning as always attaching
+  // listeners before triggering the thing they listen for, even though the
+  // load event itself can never fire before this synchronous block ends.
+  enlargeImg.onerror = function() {
     // Still reveal what we have (the browser's broken-image icon) rather
     // than leaving the spinner spinning forever
     enlargeSpinner.classList.remove("active");
     enlargeImg.classList.add("loaded");
+    renderSimilarImages(container);
   };
-  tempImg.onload = function() {
+  enlargeImg.onload = function() {
     enlargeSpinner.classList.remove("active");
     enlargeImg.classList.add("loaded");
-    const imgWidth = this.width;
-    const imgHeight = this.height;
-    
+    renderSimilarImages(container);
+    const imgWidth = this.naturalWidth;
+    const imgHeight = this.naturalHeight;
+
     // Calculate viewport dimensions
     // Reserve space for the "Similar" panel (see .enlarge-main-row) when
     // it's actually visible, so the image doesn't get sized as if it had
     // the full viewport width and then get squeezed/overlapped by the
     // panel sitting next to it. getComputedStyle (not the inline style
     // renderSimilarImages() sets on this element) so this also honors the
-    // panel's own "hide below 1300px" media query, which overrides that
+    // panel's own "hide below 1400px" media query, which overrides that
     // inline style via !important.
-    const similarPanelEl = document.getElementById("enlargeSimilarPanel");
     const similarPanelVisible = !!similarPanelEl && getComputedStyle(similarPanelEl).display !== "none";
-    const ROW_GAP = 32; // keep in sync with .enlarge-main-row's CSS gap
+    const ROW_GAP = 48; // keep in sync with .enlarge-main-row's CSS gap
     const reservedForSimilarPanel = similarPanelVisible ? (similarPanelEl.offsetWidth + ROW_GAP) : 0;
     const viewportWidth = (window.innerWidth - reservedForSimilarPanel) * 0.9;  // 90% of the width actually left for the image
     const viewportHeight = window.innerHeight; // Full viewport height
-    
+
     // Estimate tag container height
     const tagContainerHeight = keywords && keywords.trim() !== "" ? 50 : 0; // pixels
-    
+
     // Define padding at top and bottom (equal)
     const verticalPadding = 20; // pixels
-    
+
     // Calculate available height for the image
     const availableHeight = viewportHeight - tagContainerHeight - (verticalPadding * 2);
-    
+
     // Calculate ratios
     const widthRatio = imgWidth / viewportWidth;
     const heightRatio = imgHeight / availableHeight;
-    
+
     // Determine limiting dimension
     if (widthRatio > heightRatio && widthRatio > 1) {
       // Width is the limiting factor
@@ -4666,19 +4739,31 @@ downloadLink.addEventListener("click", function(e) {
       enlargeImg.style.width = "auto";
       enlargeImg.style.height = "auto";
     }
-    
+
+    // Match the "Similar" panel's height to the image's own just-set
+    // rendered height (read after the branch above, so this is the real
+    // laid-out size, not a pre-layout default) - .enlarge-similar-panel's
+    // own max-height: 82vh (CSS) still caps this for an unusually tall
+    // image, and its overflow-y: auto lets the grid scroll if 9 thumbnails
+    // don't fit in whatever height that leaves.
+    if (similarPanelVisible) {
+      similarPanelEl.style.height = `${enlargeImg.getBoundingClientRect().height}px`;
+    } else if (similarPanelEl) {
+      similarPanelEl.style.height = "";
+    }
+
     // Position the modal container to position elements from the top
     enlargeModal.style.justifyContent = "flex-start";
     enlargeModal.style.paddingTop = `${verticalPadding}px`;
     enlargeModal.style.paddingBottom = `${verticalPadding}px`;
-    
+
     // Display tags below the image. The resolution readout sits in the same
     // row and shows regardless of whether there are any tags, so the row
     // itself now shows whenever we have a loaded image - only the tags pill
     // inside it toggles on keyword presence.
     if (keywords && keywords.trim() !== "") {
       tagsElement.textContent = keywords;
-      tagsElement.style.display = "inline-block";
+      tagsElement.style.display = "inline-flex";
     } else {
       tagsElement.style.display = "none";
     }
@@ -4687,12 +4772,13 @@ downloadLink.addEventListener("click", function(e) {
     // practice is most uploads given compressImageIfNeeded()'s 1.5MB
     // target. Download still fetches the true original regardless.
     resolutionElement.textContent = `${imgWidth} × ${imgHeight}`;
-    tagsElement.parentElement.style.display = "block";
+    tagsElement.parentElement.style.display = "flex";
   };
 
-  // Start loading the image to calculate dimensions
-  tempImg.src = displayUrl;
-  
+  // Set image source and alt - this is what actually starts the load
+  enlargeImg.src = displayUrl;
+  enlargeImg.alt = filename;
+
   // Set download button attributes and show it
   downloadBtn.href = url;
   downloadBtn.download = filename;
@@ -5664,21 +5750,6 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     editTagsModal.addEventListener("click", (e) => { if (e.target === editTagsModal) { editTagsModal.classList.remove("active"); } });
     saveEditTagsBtn.addEventListener("click", saveEditedTags);
 
-    filterButton.addEventListener("click", (e) => {
-      e.stopPropagation();
-      filterMenu.style.display = (filterMenu.style.display === "block") ? "none" : "block";
-    });
-    document.addEventListener("click", (e) => {
-      if (!filterButton.contains(e.target) && !filterMenu.contains(e.target)) { filterMenu.style.display = "none"; }
-    });
-    const filterOptions = document.querySelectorAll(".filter-option");
-    filterOptions.forEach(opt => {
-      opt.addEventListener("click", () => {
-        const sortType = opt.getAttribute("data-sort");
-        sortGallery(sortType);
-        filterMenu.style.display = "none";
-      });
-    });
     sizeIcons.forEach(icon => {
       icon.addEventListener("click", () => {
         sizeIcons.forEach(i => i.classList.remove("selected"));

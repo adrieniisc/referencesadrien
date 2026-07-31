@@ -688,6 +688,131 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     monochrome SVG glyphs (not exact brand-logo reproductions) styled to match the site's existing
     muted icon-button language (`.filter-button`/`.close-modal-btn`) rather than full-color brand
     badges, for visual consistency with the rest of the dark UI.
+  - **Lightbox "Similar" panel: more breathing room + height-matched to the image (2026-07-31)** —
+    `.enlarge-main-row`'s gap (image ↔ panel) went 32px → 48px, `.enlarge-similar-panel`'s width
+    340px → 400px, and the "hide the panel below this viewport width" media query 1300px → 1400px
+    (raised to preserve the same worst-case minimum image width at the new breakpoint edge that the
+    old 1300px cutoff gave at 340px/32px - see the CSS comment for the arithmetic). `enlargeImage()`'s
+    `ROW_GAP` JS constant was bumped to match - it has to stay in sync with the CSS gap by hand, same
+    as before. New this pass: the panel's height is now set explicitly (`similarPanelEl.style.height`)
+    to match the image's own just-computed rendered height, read via `getBoundingClientRect()`
+    immediately after the image's width/height branch runs - `max-height: 82vh` (CSS) still caps this
+    for an unusually tall image, and the panel's existing `overflow-y: auto` lets the 3×3 grid scroll
+    if 9 thumbnails don't fit in whatever height that leaves.
+  - **Lightbox "Similar" panel now appears in sync with the image, not before it (2026-07-31)** —
+    `renderSimilarImages(container)` used to run at the very top of `enlargeImage()`, before the big
+    image had even started loading - on a fresh open this flashed the *previous* image's similar set,
+    and either way the row's total width (and thus the panel's centered position) visibly shifted a
+    second time once the image's own `onload` resized it around the panel's now-reserved width. Fixed
+    by hiding the panel synchronously at the top of `enlargeImage()` instead
+    (`similarPanelEl.style.display = "none"`) and moving the `renderSimilarImages()` call itself into
+    `enlargeImg`'s `onload`/`onerror` handlers, so it populates at the exact moment the big image
+    finishes (or fails) loading - both now driven by the same event instead of two independently-timed
+    ones.
+  - **`enlargeImage()`: dropped the redundant second image decode, added `fetchpriority="high"`
+    (2026-07-31)** — prompted by "images are still very slow to load when clicking on them". Root
+    cause of one real, fixable cost: sizing math needs the image's *true* natural pixel dimensions,
+    unaffected by the CSS constraining `#enlargeImage`'s rendered box (`max-width: 90vw`, etc.) - the
+    code got this by creating a second, off-DOM `new Image()` (`tempImg`) with the same `src`, whose
+    unconstrained `.width`/`.height` gave the real natural size. That works, but it means the browser
+    decodes every lightbox image *twice* (once per `Image`/`<img>` instance) even though the network
+    fetch itself is deduped. Removed `tempImg` entirely - `enlargeImg.onload`/`.onerror` are attached
+    directly (before `.src` is set) and read `this.naturalWidth`/`naturalHeight` instead, which report
+    true intrinsic size regardless of DOM attachment or CSS, same guarantee `tempImg` existed for, one
+    decode instead of two. Also added `fetchpriority="high"` to `#enlargeImage` so the browser
+    explicitly deprioritizes competing in-flight requests (background thumbnail lazy-loads, the
+    similar-images panel's own thumbnails once it populates) behind the one image actually on screen.
+    Combined with the timing fix above (similar-panel thumbnails now only start fetching *after* the
+    hero image has already loaded, not simultaneously with it), this should meaningfully cut
+    connection contention on the image that actually matters - but **there's no live Cloudinary access
+    in a sandboxed session**, so none of this has been benchmarked against real network latency; if
+    the lightbox is still slow after this, the next suspect is Cloudinary-side (e.g. an eager-transform
+    cache miss - `upload.js`'s `eager_async: true` means a very recently uploaded image's 1920px
+    derivative may not exist yet - or an old image whose original predates eager transforms
+    altogether), not something fixable from this file.
+  - **Resolution readout moved back inline with the tags pill, this time as a real row (2026-07-31)**
+    — superseding the earlier same-day "stack it in a column below the tags pill" redesign (see that
+    entry above), which itself existed to fix an *older* bug (`margin-left`-based inline positioning
+    reading as offset/unaligned). Turns out stacking read as *too* disconnected from the tags pill for
+    the two to look like a matched pair, and the resolution pill was noticeably shorter than the tags
+    pill (mismatched padding/font-size). Fixed properly this time rather than reverting: `.enlarged-
+    tags-container` is `flex-direction: row; justify-content: center; align-items: center;` (was
+    `column`) - centering the *row as a unit* is what avoids reintroducing the original margin-left
+    bug, since it keeps both pills level and centered together regardless of which one is wider or
+    whether the tags pill is even shown (same pattern `.enlarge-main-row` already uses to center the
+    image+panel composition as a unit). Both pills now share an explicit `height: 34px` +
+    `display: inline-flex; align-items: center` instead of relying on matching padding/line-height
+    (which their different font-sizes - 0.9rem vs 0.75rem - would throw off by a couple px). Two
+    JS-side gotchas from switching column → row, both fixed in the same pass: (1) `.enlarged-tags`
+    needed `min-width: 0` added - a nowrap flex item's automatic minimum size is its full un-wrapped
+    content width, and in a *row* container (unlike the previous column) that overrides `max-width`
+    and silently breaks the existing ellipsis-truncation, so a very long keyword list could now
+    overflow past the container instead of truncating; `.enlarged-resolution` got `flex-shrink: 0` so
+    it's always the tags pill (not the short, fixed-format resolution text) that gives up space. (2)
+    `enlargeImage()`'s own JS was still setting `tagsElement.style.display = "inline-block"` and
+    `tagsElement.parentElement.style.display = "block"` - harmless under the old CSS but an inline
+    style always wins over a stylesheet rule, so left as-is these would have silently overridden the
+    new `inline-flex`/`flex` CSS and broken the row layout the moment an image loaded. Updated to
+    `"inline-flex"`/`"flex"` to match.
+  - **Sidebar frost art made dynamic - tracks whatever's actually next to the sidebar (2026-07-31)**
+    — was 3 random images from the whole gallery, picked once after initial load and never touched
+    again (see its original entry above). `getImagesNextToSidebar()` (new) instead finds the images
+    currently hugging the gallery's own left edge (i.e. physically adjacent to the sidebar - a few px
+    of slack for gap/rounding) *and* within the currently-scrolled viewport, via `getBoundingClientRect()`
+    against `#gallery` and `.main-content`; when there are more matches than the 3 art slots, it spreads
+    picks across the visible span (first/middle/last by vertical position) rather than just taking the
+    first 3, roughly tracking the CSS's 3 fixed art-image positions (top-left/mid-right/bottom-left).
+    Re-run from two places: the end of `layoutGallery()` (already re-runs after every filter/search/
+    add/delete/move, so no new hook needed there - same piggyback `renderColorFilterDots()` uses
+    elsewhere) and a new throttled scroll listener on `.main-content` (`scheduleFrostArtRefresh()`,
+    200ms, since scroll doesn't otherwise trigger a relayout and fires far more often than resize/
+    filter). `renderSidebarFrostArt()` now also diffs against the last-rendered picks
+    (`lastFrostArtKey`) and skips the DOM/network churn of re-fetching the same 3 thumbnails when the
+    visible set hasn't actually changed between throttle ticks. Falls back to the old "whatever's
+    loaded" behavior if nothing currently qualifies (e.g. before the first layout pass has run).
+  - **Header/sidebar reorganized: brand back in the sidebar, sort-by menu removed, search bar full-
+    width, magnifying-glass icon added (2026-07-31)** — reverses part of the same-day "Header
+    redesign" entry above. "aReference" is `.sidebar-brand` again, now the first child of
+    `.sidebar-scroll` (above the folder list, in the literal DOM-order sense - `renderFolders()`
+    still puts "All" first within `#folderList`, so this reads as "above All"), replacing the sort-
+    options button (`#filterButton`/`#filterMenu`, the ≡ icon + Alphabetical/Recent Add/Random
+    dropdown) that used to occupy that slot - removed outright rather than relocated, at explicit
+    request; the default-random-on-load behavior (`sortGallery("random")` at init) is untouched, only
+    the manual re-sort UI is gone. Unlike the old fixed-pixel-width `.top-bar-brand`, `.sidebar-brand`
+    is a plain block element (`width: 100%`) inside `.sidebar-scroll`'s existing 0.8rem padding, so it
+    automatically tracks `--sidebar-width` at every responsive tier without its own breakpoint
+    overrides (previously it needed a `font-size` shrink at 640px and an outright `display: none` at
+    420px, both now gone - it just shrinks its own `font-size` at those tiers instead, since it's no
+    longer competing with the search input for the same row). With brand gone from `.top-search-bar`,
+    `.main-search-container` (`flex: 1`, the row's only remaining child) fills the entire row width
+    left of the About/Submit button gutter automatically, no layout changes needed beyond deleting the
+    brand element. Added a small magnifying-glass SVG (`.search-bar-icon`, absolutely positioned
+    inside `.main-search-container`, `pointer-events: none`) before the placeholder text, with
+    `#mainImageSearch`'s own left padding widened to clear it - sized at 18px/stroke-width 2.5 (not a
+    more typical 16px/2) because a thinner/smaller version anti-aliased down to barely-legible against
+    the dark input background in testing at actual render size (a common trap: it looks fine zoomed
+    in, but a 16x16 1.3px-stroke glyph is genuinely hard to see at 1x). About/Submit/search-bar spacing
+    also tightened as part of this pass: the viewport-edge→About, About→Submit, and Submit→search-bar
+    gaps were all a uniform 24px, now all a uniform 10px (`.about-btn`'s `right`, `.submit-reference-
+    btn`'s `right`, and `.top-search-bar`'s `padding-right` all derive from the same 10px value - see
+    the comments on each). This only touches the desktop/base tier; the ≤900px tier where About/Submit
+    drop to their own row below the header (freeing that space entirely) was left alone since the
+    "match spacing to the search bar" reasoning doesn't apply once they're no longer sharing a row
+    with it. `.submit-reference-btn` also changed from the same dark pill as About to solid white
+    (`#ffffff` bg, `#17120c` text, `font-weight: 600`) so it reads as the more prominent of the two -
+    it's the action that writes something back (a submission), About is purely informational.
+    **Verified this entire pass end-to-end with a real Playwright + Chromium harness** (synthetic
+    Firestore stub, 36 generated PNG data-URI images across 3 folders - real dimensions/aspect ratios,
+    no live Cloudinary needed since `cloudinaryDisplayUrl()` passes non-`/upload/` URLs through
+    unchanged) rather than the "verified in Node"/"CSS box-model reasoning only" caveats several
+    earlier entries in this file had to fall back on - 19 assertions covering all of the above
+    (DOM structure, computed styles/positions, the similar-panel timing fix specifically via a
+    hidden-immediately-after-navigation check, frost-art src changing after a scroll) plus a zero-
+    console-errors check, all passing, screenshots included. If this is revisited, that harness
+    (Playwright + a hand-rolled Firestore/Auth stub installed via `page.addInitScript()`, PNG data
+    URIs as fake image docs) is a reusable pattern for testing lightbox/gallery JS logic that doesn't
+    depend on live Cloudinary/Firebase - worth reaching for again instead of rebuilding it from
+    scratch or falling back to Node-only/no verification.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
