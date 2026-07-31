@@ -26,6 +26,7 @@
       --danger: #ff5a52;
       --danger-soft: rgba(255,90,82,0.16);
       --success: #4cd964;
+      --success-soft: rgba(76,217,100,0.16);
       --move-accent: #4d9bf5;
       --move-soft: rgba(77,155,245,0.16);
       --tag-accent: #a374e0;
@@ -36,7 +37,7 @@
       --radius-lg: 18px;
       --shadow-md: 0 10px 28px rgba(0,0,0,0.4);
       --gallery-gap: 6px;
-      --row-height: 180px; /* default gallery size = S */
+      --row-height: 240px; /* default gallery size = M */
       --sidebar-width: 270px;
 
       /* legacy aliases kept for any untouched rules */
@@ -414,6 +415,17 @@
       color: var(--move-accent);
       border-color: transparent;
     }
+    /* Review Submissions: green, and bolder than the other admin buttons -
+       it's the one that flags incoming work waiting on the admin (pending
+       public submissions), not a select-then-act gallery tool, so it's
+       kept visually distinct and moved to the top of the admin controls
+       instead of sitting alphabetically/arbitrarily among them. */
+    .sidebar-footer button.review-btn {
+      background-color: var(--success-soft);
+      color: var(--success);
+      border-color: transparent;
+      font-weight: 600;
+    }
     /* Thin separator */
     .separator {
       border: 0;
@@ -468,6 +480,19 @@
   border-radius: var(--radius-xs);
   background-color: var(--bg-sunken);
   cursor: pointer;
+  /* Fallback size, matching the 1.5 fallback aspect ratio addImageToGallery()
+     seeds data-aspect with. layoutGallery() overwrites this with an exact
+     inline width/height once it runs (throttled ~60ms), but before that -
+     on first paint, and again for every image whose "load" event hasn't
+     fired yet - a container has no other size of its own: its <img> is
+     width:100%/height:100%, which resolves against the *image's own*
+     intrinsic pixel size when the container itself is unconstrained. That
+     was the site's "flashes a huge image, then snaps to normal size" bug -
+     a multi-thousand-pixel phone photo rendering at its native size for a
+     frame or two on load. Don't remove this without another way to bound
+     the container's size before JS lays it out. */
+  width: calc(var(--row-height) * 1.5);
+  height: var(--row-height);
 }
     .image-container img {
       display: block;
@@ -1349,8 +1374,11 @@
 }
 
 .upload-dock-global-progress {
+  /* No max-width cap (was 480px) - the bar now fills essentially all the
+     space the title/stats/action buttons don't need, instead of stopping
+     well short of the dock's own (already wide) 1100px max-width. */
   flex: 1;
-  max-width: 480px;
+  min-width: 0;
   height: 8px;
   background-color: rgba(255,255,255,0.1);
   border-radius: 4px;
@@ -1362,6 +1390,22 @@
   background-color: var(--move-accent);
   width: 0%;
   transition: width 0.3s ease;
+}
+
+.upload-dock-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.upload-dock-eta {
+  min-width: 84px;
+  text-align: right;
 }
 
 .upload-dock-header-actions {
@@ -1784,6 +1828,14 @@
       </ul>
       <!-- SIDEBAR FOOTER: Admin Editing Controls -->
       <div class="sidebar-footer">
+        <!-- Review Submissions sits at the top, ahead of everything else,
+             and is colored distinctly from the other admin tools - it's
+             flagging incoming work (pending public submissions) rather
+             than being a gallery-editing tool like the ones below it. -->
+        <div class="admin-review-section">
+          <button id="reviewSubmissionsBtn" class="review-btn">Review Submissions</button>
+        </div>
+        <hr class="separator">
         <div class="admin-top-buttons">
           <button id="newFolderAdminBtn">Add Folder</button>
           <button id="addImageAdminBtn">Add Image</button>
@@ -1796,7 +1848,6 @@
           <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
           <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
           <button id="findDuplicatesBtn">Find Duplicates</button>
-          <button id="reviewSubmissionsBtn">Review Submissions</button>
           <button id="retagColorsBtn">Re-tag Colors</button>
         </div>
         <hr class="separator">
@@ -1843,8 +1894,8 @@
     <div class="floating-size-panel">
       <div class="size-icon-container">
         <div class="size-icon" data-size="120"><span>XS</span></div>
-        <div class="size-icon selected" data-size="180"><span>S</span></div>
-        <div class="size-icon" data-size="240"><span>M</span></div>
+        <div class="size-icon" data-size="180"><span>S</span></div>
+        <div class="size-icon selected" data-size="240"><span>M</span></div>
         <div class="size-icon" data-size="320"><span>L</span></div>
         <div class="size-icon" data-size="420"><span>XL</span></div>
       </div>
@@ -2813,8 +2864,41 @@ aboutModal.addEventListener("click", (e) => {
       // could still outvote a much larger but only moderately-saturated
       // subject. Capping means a moderately-colored subject only has to
       // out-NUMBER the vivid sliver, not out-saturate it too.
-      const CHROMA_FLOOR = 0.05;
-      const CHROMA_CAP = 0.25;
+      //
+      // 2026-07-31, third pass: FLOOR/CAP were 0.05/0.25. Real re-tagged
+      // photos (a fire hydrant, foliage) kept coming back "gray" even
+      // after the w_200/q_90 compression bump above, still with no
+      // console access to confirm why against the *actual* photos - but
+      // this time it was reproduced for real, not guessed at: a synthetic
+      // Playwright/Canvas harness (outside this sandbox's normal test
+      // setup, since the bug is in dominantColorNameFromCanvas's own
+      // canvas sampling, which plain Node pixel-array tests never
+      // exercised at all - see the note above this function) built a
+      // photo shaped like the reports - a saturated red subject covering
+      // ~15% of the frame against a much larger (~85%) *only mildly*
+      // desaturated background (chroma ~0.05-0.15 - overcast lighting,
+      // gravel, muted grass, not the near-zero-chroma "obviously neutral"
+      // case the floor/cap were tuned around) - and it reliably came back
+      // "gray" at 0.05/0.25, on both floor values tried and regardless of
+      // sample resolution. The reason: a background that dull is nowhere
+      // near the 0.25 cap, so it never gets capped down - it just
+      // accumulates its full (if modest) per-pixel chroma across a much
+      // larger area than the subject can, and the subject's own weight is
+      // held down at 0.25 regardless of how saturated it actually is.
+      // Raising CAP to 0.50 and lowering FLOOR to 0.03 fixes that (the
+      // subject's ceiling is now high enough to actually out-vote a large
+      // dull area) while still passing every previously-documented
+      // regression case re-run against the same harness: a large
+      // moderately-colored subject (a wood pole, chroma ~0.3) still beats
+      // a small vivid sliver (a sky patch, chroma ~0.6, ~8% of frame), a
+      // large dull subject still beats both a small vivid sliver (~3%)
+      // and an even smaller max-saturation one (~2%), and a fully neutral
+      // material still comes back neutral. If another image is still
+      // wrong after this, extend that harness with a case shaped like the
+      // new failure (or get a real [color detect] console line, if
+      // someone can) rather than re-tuning these two numbers blind again.
+      const CHROMA_FLOOR = 0.03;
+      const CHROMA_CAP = 0.50;
 
       const votes = new Map();
       for (let i = 0; i < data.length; i += 4) {
@@ -3117,7 +3201,7 @@ aboutModal.addEventListener("click", (e) => {
 
     async function saveImageToFirebase(url, folder, keywords, filename) {
       try {
-        await db.collection('images').add({
+        const docRef = await db.collection('images').add({
           url: url,
           folder: folder,
           keywords: keywords || '',
@@ -3126,8 +3210,10 @@ aboutModal.addEventListener("click", (e) => {
           addTime: Date.now()
         });
         console.log('Image saved to Firestore:', url);
+        return docRef.id;
       } catch (error) {
         console.error('Error saving image:', error);
+        return null;
       }
     }
 
@@ -3138,11 +3224,12 @@ aboutModal.addEventListener("click", (e) => {
         imagesSnapshot.forEach(doc => {
           const imageData = doc.data();
           addImageToGallery(
-            imageData.url, 
-            imageData.folder || 'all', 
+            imageData.url,
+            imageData.folder || 'all',
             imageData.keywords || '',
             imageData.filename || 'image',
-            imageData.addTime || Date.now()
+            imageData.addTime || Date.now(),
+            doc.id
           );
         });
         console.log('Images loaded from Firestore');
@@ -3151,6 +3238,19 @@ aboutModal.addEventListener("click", (e) => {
       }
     }
 
+    // Kept as a fallback for any container that somehow never got a
+    // data-doc-id (see addImageToGallery) - findByUrl() is ambiguous
+    // whenever two images share the same Cloudinary url (Find Duplicates
+    // exists because that really happens - e.g. Review Submissions' "Add"
+    // running twice on the same submission), silently resolving to
+    // whichever doc Firestore's .limit(1) happens to return first. That
+    // mismatch doesn't fail loudly: delete/move/tag-edit would appear to
+    // work (the clicked container disappears from the DOM immediately)
+    // while the Firestore doc actually touched belongs to a *different*
+    // image, which then vanishes from the gallery on the next reload with
+    // no error anywhere - "images disappearing randomly". getImageDocId()
+    // below is the real fix (act on the exact doc id a container was
+    // loaded/created with); this stays only as a last resort.
     async function findImageIdByUrl(url) {
       try {
         const querySnapshot = await db.collection('images').where('url', '==', url).limit(1).get();
@@ -3162,14 +3262,25 @@ aboutModal.addEventListener("click", (e) => {
       }
     }
 
+    // The Firestore doc id an image-container actually corresponds to.
+    // Every call site that mutates/deletes an image's doc (delete, move,
+    // edit tags, re-tag colors) should use this instead of re-deriving the
+    // id from the url each time - see findImageIdByUrl()'s comment above
+    // for why a url-based lookup can silently target the wrong document.
+    async function getImageDocId(container) {
+      if (container.dataset.docId) return container.dataset.docId;
+      return findImageIdByUrl(container.dataset.url);
+    }
+
     /********************************************************
      * UI Functions
      ********************************************************/
-    function addImageToGallery(url, folder, keywords, filename, addTime) {
+    function addImageToGallery(url, folder, keywords, filename, addTime, docId) {
       const container = document.createElement('div');
       container.classList.add('image-container');
       container.setAttribute('data-category', folder);
       container.setAttribute('data-keywords', keywords);
+      if (docId) container.dataset.docId = docId;
       container.setAttribute('data-add-time', addTime);
       // The <img> tag's src is rewritten to a resized Cloudinary display URL
       // (see cloudinaryDisplayUrl() below), which no longer matches the
@@ -3187,6 +3298,18 @@ aboutModal.addEventListener("click", (e) => {
         scheduleLayout();
       };
       img.addEventListener("load", updateAspect, { once: true });
+      // Native lazy-loading defers the network fetch for thumbnails well
+      // outside the viewport instead of firing all ~200 of them at once on
+      // page load - this is most of what was behind "lags on slower
+      // laptops when scrolling, and some images load slowly": every
+      // thumbnail was competing for bandwidth and main-thread decode time
+      // immediately, on every visit, even ones the visitor never scrolls
+      // to. decoding="async" additionally keeps a thumbnail's decode off
+      // the main thread so it can't block scroll/input handling, only
+      // relevant risk being a brief flash of a still-decoding image, which
+      // is preferable to janky scrolling.
+      img.loading = "lazy";
+      img.decoding = "async";
       // Capped well above the largest thumbnail size (950px) for retina screens,
       // but still far smaller than a multi-MB original - keeps the gallery snappy.
       img.src = cloudinaryDisplayUrl(url, { width: 1200 });
@@ -3594,13 +3717,28 @@ downloadLink.addEventListener("click", function(e) {
       selectedCount.textContent = `${selectedImages.length} selected`;
     }
 
+    // Large bulk deletes get an extra, more alarming warning *before* the
+    // normal confirm() below, instead of just a bigger single dialog - two
+    // separate prompts are harder to blow through on autopilot (e.g.
+    // habitually hitting "OK" twice) than one dialog with more text in it,
+    // and this is specifically to prevent an accidental mass-delete of the
+    // gallery (a fat-fingered "select all" style click, or forgetting
+    // Delete Images mode is still on from a previous session).
+    const BULK_DELETE_WARNING_THRESHOLD = 20;
+
     async function deleteSelectedImages() {
       if (selectedImages.length === 0) return;
+      if (selectedImages.length >= BULK_DELETE_WARNING_THRESHOLD) {
+        const proceed = confirm(
+          `⚠️ You're about to delete ${selectedImages.length} images at once.\n\n` +
+          `This is a large chunk of the gallery and cannot be undone. Are you SURE you want to continue?`
+        );
+        if (!proceed) return;
+      }
       if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) { return; }
       try {
         const deletePromises = selectedImages.map(async (container) => {
-          const imageUrl = container.dataset.url;
-          const imageId = await findImageIdByUrl(imageUrl);
+          const imageId = await getImageDocId(container);
           if (imageId) {
             await db.collection('images').doc(imageId).delete();
             container.remove();
@@ -3710,8 +3848,7 @@ downloadLink.addEventListener("click", function(e) {
       }
       try {
         const movePromises = selectedImagesForMove.map(async (container) => {
-          const imageUrl = container.dataset.url;
-          const imageId = await findImageIdByUrl(imageUrl);
+          const imageId = await getImageDocId(container);
           if (imageId) {
             await db.collection('images').doc(imageId).update({
               folder: destinationFolder
@@ -3923,8 +4060,7 @@ downloadLink.addEventListener("click", function(e) {
             newTags = mergeTagStrings(previousTags, typedValue);
           }
           if (newTags === previousTags) return true; // nothing changed, skip the write
-          const imageUrl = container.dataset.url;
-          const imageId = await findImageIdByUrl(imageUrl);
+          const imageId = await getImageDocId(container);
           if (imageId) {
             await db.collection('images').doc(imageId).update({ keywords: newTags });
             container.setAttribute('data-keywords', newTags);
@@ -4203,7 +4339,11 @@ function closeEnlargeModal() {
     renameFolderBtn.addEventListener("click", () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
       if (!selectedEl) { alert("Please select a folder to rename."); return; }
-      if (selectedEl.getAttribute("data-filter") === "all") { alert("Cannot rename 'All'."); return; }
+      const filterValue = selectedEl.getAttribute("data-filter");
+      if (filterValue === "all" || filterValue === NEW_THIS_WEEK_FILTER) {
+        alert("Cannot rename 'All' or 'New This Week' - they aren't real folders.");
+        return;
+      }
       renameFolderInput.value = selectedEl.querySelector(".folder-name").textContent;
       renameFolderModal.classList.add("active");
     });
@@ -4221,13 +4361,26 @@ function closeEnlargeModal() {
   
   // Get the folder name to delete
   const folderToDelete = selectedEl.getAttribute("data-filter");
-  if (folderToDelete === "all") { 
-    alert("Cannot delete 'All'."); 
-    return; 
+  // "All" and "New This Week" are both virtual/synthetic categories, not
+  // real folder docs - "All" was already blocked here, but
+  // NEW_THIS_WEEK_FILTER was not, which meant selecting "New This Week"
+  // and clicking Delete Folder fell through to the real deletion flow
+  // below (a harmless no-op against Firestore, since no folder doc or
+  // image actually has that literal value - see NEW_THIS_WEEK_FILTER's
+  // definition - but still surfaced a real confirm() dialog offering to
+  // "delete" it, which is confusing and not actually impossible like it
+  // should be).
+  if (folderToDelete === "all" || folderToDelete === NEW_THIS_WEEK_FILTER) {
+    alert("Cannot delete 'All' or 'New This Week' - they aren't real folders.");
+    return;
   }
-  
-  // Confirm deletion
-  if (!confirm(`Are you sure you want to delete folder "${folderToDelete}"?`)) {
+
+  // Confirm deletion - explicit about what actually happens (the folder
+  // goes away, its images don't: they keep existing, just reassigned to
+  // "All", per deleteFolderFromFirebase()'s batch .update({folder:'all'})
+  // below) since "delete folder" reads ambiguously otherwise and this was
+  // reported as a point of confusion.
+  if (!confirm(`Delete folder "${folderToDelete}"?\n\nThis only removes the folder itself. Its images are NOT deleted - they'll stay in the gallery, moved to "All".`)) {
     return;
   }
   
@@ -4406,7 +4559,7 @@ function closeEnlargeModal() {
             .filter(t => t && !colorWords.has(t.toLowerCase())).join(", ");
           const newTags = colorTag ? mergeTagStrings(withoutOldColor, colorTag) : withoutOldColor;
           if (newTags !== previousTags) {
-            const imageId = await findImageIdByUrl(url);
+            const imageId = await getImageDocId(container);
             if (imageId) {
               await db.collection('images').doc(imageId).update({ keywords: newTags });
               container.setAttribute('data-keywords', newTags);
@@ -4489,6 +4642,8 @@ function closeEnlargeModal() {
           item.className = "submission-image-item";
 
           const thumb = document.createElement("img");
+          thumb.loading = "lazy";
+          thumb.decoding = "async";
           thumb.src = cloudinaryDisplayUrl(url, { width: 300 });
           item.appendChild(thumb);
 
@@ -4512,8 +4667,8 @@ function closeEnlargeModal() {
               // sampled from the Cloudinary URL directly.
               const colorTag = await detectDominantColorTagFromUrl(url);
               const keywords = colorTag || "";
-              await saveImageToFirebase(url, folder, keywords, "submission-image");
-              addImageToGallery(url, folder, keywords, "submission-image", Date.now());
+              const docId = await saveImageToFirebase(url, folder, keywords, "submission-image");
+              addImageToGallery(url, folder, keywords, "submission-image", Date.now(), docId);
               updateFolderCounts();
               renderColorFilterDots();
               addBtn.textContent = "Added";
@@ -4784,23 +4939,58 @@ function closeEnlargeModal() {
     // Reads each row's own fill width back rather than tracking percents
     // in a separate structure, so it stays correct regardless of how many
     // batches (each with their own uploadBatchId) are running at once.
+    // Wall-clock time the current batch started - reset to null whenever
+    // the dock empties out (see below), so a later, unrelated batch gets
+    // its own fresh estimate instead of inheriting a stale start time.
+    let uploadBatchStartTime = null;
+
+    function formatDuration(ms) {
+      const totalSeconds = Math.max(0, Math.round(ms / 1000));
+      if (totalSeconds < 60) return `${totalSeconds}s`;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes}m ${seconds}s`;
+    }
+
     function updateGlobalUploadProgress() {
       const items = document.querySelectorAll(".upload-dock-item");
       const globalFill = document.getElementById("uploadDockGlobalProgress");
       const countLabel = document.getElementById("uploadDockCount");
+      const etaLabel = document.getElementById("uploadDockEta");
       if (!items.length) {
         if (globalFill) globalFill.style.width = "0%";
         if (countLabel) countLabel.textContent = "0/0";
+        if (etaLabel) etaLabel.textContent = "";
+        uploadBatchStartTime = null;
         return;
       }
+      if (uploadBatchStartTime === null) uploadBatchStartTime = Date.now();
       let percentSum = 0, done = 0;
       items.forEach(item => {
         const fill = item.querySelector(".upload-dock-progress-fill");
         percentSum += fill ? (parseFloat(fill.style.width) || 0) : 0;
         if (item.classList.contains("upload-success") || item.classList.contains("upload-error")) done++;
       });
-      if (globalFill) globalFill.style.width = `${percentSum / items.length}%`;
+      const overallPercent = percentSum / items.length;
+      if (globalFill) globalFill.style.width = `${overallPercent}%`;
       if (countLabel) countLabel.textContent = `${done}/${items.length}`;
+      if (etaLabel) {
+        // Estimated from elapsed time / overall percent so far (not just
+        // done/total), so it updates smoothly as a file mid-upload
+        // progresses instead of only jumping when a whole file finishes.
+        // Held back for the first ~1.5s / first few percent - too little
+        // progress makes for a wildly unstable estimate ("2 hours left"
+        // off of one 30%-progress tick).
+        const elapsedMs = Date.now() - uploadBatchStartTime;
+        if (done >= items.length) {
+          etaLabel.textContent = "Done";
+        } else if (elapsedMs < 1500 || overallPercent < 3) {
+          etaLabel.textContent = "Estimating…";
+        } else {
+          const estimatedTotalMs = elapsedMs / (overallPercent / 100);
+          etaLabel.textContent = `~${formatDuration(estimatedTotalMs - elapsedMs)} left`;
+        }
+      }
     }
 
     // Start upload (non-blocking)
@@ -4864,11 +5054,11 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
 async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName, uploadItemId) {
   try {
     // Save to Firebase
-    await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, fileName);
+    const docId = await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, fileName);
     console.log(`Image saved to Firebase`);
-    
+
     // Add to gallery
-    addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now());
+    addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now(), docId);
     updateFolderCounts();
     renderColorFilterDots();
     console.log(`Image added to gallery`);
@@ -5059,6 +5249,9 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       <span class="upload-dock-title">Uploading <span id="uploadDockCount">0/0</span></span>
       <div class="upload-dock-global-progress">
         <div class="upload-dock-global-progress-fill" id="uploadDockGlobalProgress" style="width: 0%"></div>
+      </div>
+      <div class="upload-dock-stats">
+        <span class="upload-dock-eta" id="uploadDockEta"></span>
       </div>
     </div>
     <div class="upload-dock-header-actions">

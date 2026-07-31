@@ -420,9 +420,133 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     can open the browser console during a Re-tag Colors run (or a fresh upload) to paste the
     `[color detect] ...` line for that image, and treat that as real ground truth instead of
     guessing at another pipeline-level theory blind, the same lesson as every round before this one.
+    **Fourth pass, 2026-07-31, same day** — reported broken again (leaves, fire hydrants still
+    gray), still with no real `[color detect]` console line to go on. Rather than tune blind again,
+    this pass built an actual reproduction: a Playwright + real Chromium `<canvas>` harness (not
+    plain Node pixel arrays — those never exercise `dominantColorNameFromCanvas()`'s own
+    `ctx.drawImage()` downsample step at all, which is exactly why every prior "verified in Node"
+    claim couldn't have caught a bug living in that step) that draws synthetic photos shaped like
+    the real failures and runs the *actual* function against them. This reproduced it: a saturated
+    subject covering ~15% of the frame against a much larger (~85%) background that's only mildly
+    desaturated (chroma ~0.05–0.15 — overcast light, gravel, muted grass; not the near-zero-chroma
+    "obviously neutral" case FLOOR/CAP were tuned around) reliably came back "gray" at the
+    then-current FLOOR/CAP of 0.05/0.25, regardless of sample resolution. Cause: a background that
+    dull never reaches the 0.25 cap, so it accumulates its full (if modest) per-pixel chroma across
+    a much larger area than the subject can, while the subject's own weight is held down at 0.25
+    regardless of how saturated it actually is — raw area wins. Fixed by raising CAP to 0.50 and
+    lowering FLOOR to 0.03 (`dominantColorNameFromCanvas()`), which fixed the reproduction while
+    still passing every previously-documented regression shape re-run against the same harness: a
+    large moderately-colored subject (a wood pole, chroma ~0.3) still beats a small vivid sliver (a
+    sky patch, chroma ~0.6, ~8% of frame) — the original 2026-07-31 "small vivid sliver" regression
+    this cap exists for — a large dull subject still beats both a small vivid sliver (~3% of frame)
+    and an even smaller max-saturation one (~2%), and a fully neutral material still comes back
+    neutral. **If another image is still wrong after this, extend that harness with a case shaped
+    like the new failure first** (or get a real `[color detect]` console line, if someone can) —
+    don't re-tune these two numbers blind again; that's the mistake every prior pass made.
+  - **Stability: delete/move/edit-tags/re-tag now target a Firestore doc id, not a url lookup
+    (2026-07-31)** — prompted by "make sure images won't disappear randomly." `findImageIdByUrl()`
+    (`where('url','==',url).limit(1)`) is ambiguous whenever two `images` docs share the same url,
+    which the **Find Duplicates** admin tool exists specifically because it really happens (e.g.
+    clicking Review Submissions' "Add" twice on the same submission). When that happens, `.limit(1)`
+    silently resolves to *whichever* doc Firestore returns first — delete/move/edit-tags/re-tag-colors
+    would all appear to work (the clicked container disappears from the DOM immediately) while the
+    Firestore doc actually touched could belong to a *different* image, which then just doesn't
+    reappear on the next reload, no error anywhere. `addImageToGallery()` now takes an optional
+    `docId` 6th argument and stashes it as `container.dataset.docId`; `saveImageToFirebase()` returns
+    the new doc's id so every creation path (`loadImagesFromFirebase()`, `completeUpload()`, Review
+    Submissions' "Add") can pass it through. `getImageDocId(container)` is the new single point every
+    mutating call site (delete, move, edit tags, re-tag colors) goes through — uses
+    `dataset.docId` when present, only falls back to the old ambiguous `findImageIdByUrl()` for any
+    container that somehow never got one. Doesn't fix *why* duplicate urls occur in the first place
+    (Find Duplicates is still the only cleanup tool for existing ones) — this just stops that
+    situation from silently corrupting an unrelated image's data when it does.
+  - **`netlify/functions/upload.js`'s `public_id` collision (2026-07-31)** — see that file's own
+    entry below; same stability audit.
+  - **Thumbnails get `loading="lazy"`/`decoding="async"` (2026-07-31)** — prompted by "lags on
+    slower laptops when scrolling, and some images load slowly." Every gallery thumbnail (plus
+    Review Submissions' thumbnails) used to fire its network fetch immediately on page load
+    regardless of scroll position — with ~200 images that's ~200 concurrent requests and decodes
+    competing for bandwidth and main-thread time on every visit, even for images the visitor never
+    scrolls to. Native lazy-loading defers the fetch until near-viewport instead. Interacts with the
+    justified-layout algorithm in one way worth knowing: an image's `data-aspect` only becomes real
+    (vs. the 1.5 fallback) once its `load` event fires, which for a lazy image is only once it's
+    about to scroll into view — `layoutGallery()` re-packs from the changed image's row *onward*
+    only (rows before it in DOM order are unaffected, since row-packing is sequential and
+    deterministic per prior images' own aspect data), so this shows up as a minor row reflow right at
+    the loading edge as the visitor scrolls, never a shift of content already above the fold. This is
+    normal/expected for any lazy-loaded justified or masonry gallery, not a bug to chase.
+  - **`.image-container`'s "flashes a huge image, then snaps to normal size" bug (2026-07-31)** —
+    root cause: `.image-container` had no width/height of its own at rest (only `flex: 0 0 auto`),
+    and its `<img>` is `width:100%; height:100%` — CSS resolves that against the *image's own*
+    intrinsic pixel size when the container itself is otherwise unconstrained, so a container
+    rendered at its photo's full native resolution (thousands of px) until `layoutGallery()` set an
+    explicit inline pixel width/height (throttled ~60ms, and again per-image on that image's own
+    `load` event). Fixed by giving `.image-container` a default `width: calc(var(--row-height) *
+    1.5); height: var(--row-height)` — matches the same 1.5 fallback aspect `addImageToGallery()`
+    already seeds `data-aspect` with, so the default and the JS-computed fallback agree. Verified via
+    a headless Chromium load with a stubbed Firestore (three fake images) — containers stayed at a
+    bounded, sane size (matching `--row-height`) both immediately after the containers were created
+    and after `layoutGallery()` settled; the real photo-swap-to-huge-then-shrink motion itself isn't
+    reproducible in this sandbox (no live Cloudinary/real photo bytes to load), so this is verified
+    by CSS box-model reasoning plus bounded-size confirmation, not a literal before/after screenshot
+    of the flash.
+  - **Default gallery size changed S → M (2026-07-31)** — `--row-height` 180px → 240px, and the
+    `.size-icon.selected` class moved from the S icon to the M icon in the floating size panel's
+    markup. Both need to change together (or a page load and the panel's own highlighted icon
+    disagree about what's actually selected).
+  - **Folder deletion hardened (2026-07-31)** — `deleteFolderBtn`'s handler already only ever
+    reassigns affected images' `folder` field to `'all'` (a Firestore batch `.update()`) and never
+    touches the `images` collection's docs themselves — deleting a folder was never actually deleting
+    photos, just the folder doc(s). What was missing: (1) the confirm dialog didn't say so, which
+    read as ambiguous and was reported as a point of confusion — it now spells out "Its images are
+    NOT deleted - they'll stay in the gallery, moved to 'All'" up front, before the admin confirms;
+    (2) `"All"` was already blocked from being deleted/renamed, but `NEW_THIS_WEEK_FILTER` (the
+    virtual "New This Week" category — never a real folder doc, see its own definition) was not —
+    selecting it and clicking Delete Folder or Rename Folder fell through to the real flow (a
+    harmless no-op against Firestore, since nothing actually has that literal folder value, but
+    still surfaced a real, confusing confirm/rename dialog). Both buttons now explicitly block both
+    virtual categories with one alert.
+  - **Bulk-delete warning for 20+ images (2026-07-31, `BULK_DELETE_WARNING_THRESHOLD`)** — selecting
+    20 or more images in Delete Images mode and clicking Delete Selected now shows an extra,
+    more alarming `confirm()` *before* the normal one ("You're about to delete N images... cannot be
+    undone. Are you SURE?") — meant to catch an accidental mass-delete (a fat-fingered
+    select-everything click, or forgetting Delete Images mode was still on from earlier) since two
+    separate prompts are harder to blow through on autopilot than one dialog with more text in it.
+    Dismissing either dialog aborts with nothing deleted; accepting both proceeds exactly as before.
+  - **Review Submissions button restyled + moved to the top of the admin controls (2026-07-31)** —
+    moved out of `.admin-bottom-buttons` into its own new first section of `.sidebar-footer` (above
+    even Add Folder/Add Image), and given its own `.review-btn` class (green, via a new
+    `--success-soft` token alongside the existing `--success`) instead of the unstyled default admin
+    button look. It's flagging incoming work waiting on the admin (pending public submissions), not
+    a select-then-act gallery-editing tool like Move/Delete/Edit Tags next to it, which is why it's
+    both visually distinct and first, not sorted in wherever alphabetically/historically.
+  - **Upload dock: wider progress bar + ETA (2026-07-31)** — `.upload-dock-global-progress` lost its
+    480px `max-width` cap (now just `flex: 1; min-width: 0`) so it actually fills the space next to
+    the title/stats instead of stopping well short of the dock's own already-wide (`min(1100px, ...)`)
+    container. Added an estimated-time-remaining label (`#uploadDockEta`,
+    `.upload-dock-stats`/`.upload-dock-eta`) next to it — `updateGlobalUploadProgress()` now tracks
+    `uploadBatchStartTime` (reset to `null` whenever the dock empties out, so a later unrelated batch
+    gets its own fresh estimate) and projects total time from elapsed-time ÷ overall-percent-so-far,
+    not just done/total file count, so it updates smoothly mid-file rather than only jumping when a
+    whole file finishes. Held back behind "Estimating…" for the first ~1.5s / first 3% of progress —
+    too little signal that early makes for a wildly unstable projection. The existing "done/total"
+    count (`#uploadDockCount`) was already there from the 2026-07-31 dock rebuild above and didn't
+    need to change.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
-  `cloudinaryDisplayUrl()` requests don't transform on first view.
+  `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
+  be derived from `Date.now()-filename` alone (2026-07-31: now `Date.now()-<random suffix>-filename`)
+  — a stability audit (prompted by "make sure images won't disappear randomly") flagged that two
+  uploads sharing the same filename landing in the same millisecond would collide on `public_id`,
+  and Cloudinary's default upload behavior *overwrites* an existing asset at a colliding
+  `public_id` rather than erroring — silently replacing a previously-uploaded image's actual content
+  with the new one. Each request here is its own Netlify function invocation (a separate process),
+  so there's no shared in-memory counter to reach for the way the frontend's `uploadBatchCounter`
+  fix (see Publish Queue below) closed the equivalent gap client-side — a random suffix is what
+  closes it here regardless of how many invocations are concurrently in flight. Untested against
+  live Cloudinary (same sandbox limitation as everything else touching it in this repo); the
+  `tests/upload.test.js` assertions (`public_id` contains the filename, isn't just the filename)
+  still hold.
 - **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
   filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
   Access is controlled by real Firestore security rules now — see "Admin access" below and
