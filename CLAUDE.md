@@ -196,7 +196,21 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     dominant-color auto-tagger can produce (black/white/gray/brown/beige/red/orange/yellow/green/
     cyan/blue/purple/pink). Clicking a dot filters the gallery to images whose keywords include
     that color word; clicking the already-selected dot again clears it back to no color filter
-    (single-select, like the size selector). This is the first *third* filter dimension the gallery
+    (single-select, like the size selector). **Dots are generated, not static, since 2026-07-31**
+    (`renderColorFilterDots()`/`getUsedColorFilters()`) - only a color that at least one
+    currently-loaded image is actually tagged with gets a dot, so clicking a button never comes back
+    empty; the whole panel hides itself if literally nothing is color-tagged yet. Re-run after
+    anything that can change which colors exist (initial load, a new upload, Review Submissions'
+    Add, Delete Images, Edit Tags, and the Re-tag Colors bulk action - see below) - if you add
+    another way for an image's keywords to change, call `renderColorFilterDots()` after it too, or
+    a dot can end up stale (pointing at a color nothing has anymore, or missing one that now
+    exists). The click handler is delegated on `.color-dot-container` itself now instead of bound
+    per-dot, since the dots' `innerHTML` gets rebuilt whenever this reruns - a per-dot binding
+    would silently stop working the first time the set of visible colors changed, the same
+    "listener attached to something before it existed / before it gets replaced" shape as the
+    upload dock bug above. If `currentColorFilter` is pointing at a color that just lost its last
+    dot, `renderColorFilterDots()` clears it back to null rather than leaving the gallery filtered
+    against a button that no longer exists. This is the first *third* filter dimension the gallery
     has had - folder (`currentFolderFilter`) and search text already existed, but neither function
     that applies them (`filterImages()`, `performSearch()`) called the other or shared any common
     combining logic, so adding color required touching both rather than composing with an existing
@@ -212,9 +226,39 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     search text - they show each category's total size regardless of any other active filter.
     **Images published before this feature (and before the dominant-color auto-tagger two commits
     earlier) have no color tag at all**, so they won't match any dot until re-tagged (via Edit
-    Tags) or re-published - this was flagged and explicitly accepted rather than backfilling
-    existing images with a detected color, since backfilling would mean loading all ~191 images
-    just to color-tag them, and there was no clear request to do that.
+    Tags) or re-published - originally flagged and explicitly accepted rather than backfilling,
+    since backfilling would mean loading all ~191 images just to color-tag them and there was no
+    clear request to do that yet. **Superseded 2026-07-31 - there was a clear request**: see
+    Re-tag Colors below, which does exactly this backfill, on demand rather than automatically.
+  - **Re-tag Colors (2026-07-31, `retagColorsBtn`/`reevaluateAllImageColors()`)** - an admin-only
+    sidebar button, next to Review Submissions, that re-runs dominant-color detection
+    (`detectDominantColorTagFromUrl()`, the same function Review Submissions' "Add" already used)
+    against **every** currently-loaded image and overwrites its color tag. Added alongside the
+    2026-07-31 detector rework (see that entry above) once real photos showed the *previous*
+    detector had been shipping wrong tags - filtering "black" was turning up an obviously red
+    vending machine, green grass, and other non-black photos, all tagged under an older, buggier
+    version of the algorithm. This is the fix for images that already went through that: a
+    one-time, explicit, admin-triggered bulk rewrite (confirm dialog first, button shows
+    "Re-tagging… i/N" while running, sequential `for`/`await` rather than `Promise.all` - same
+    "one network op at a time, don't hammer Cloudinary" reasoning as the upload dock's own
+    sequential `processUpload()`) - deliberately **not** something that runs automatically on page
+    load, since it's a network fetch plus a Firestore write per image across potentially the whole
+    gallery. Also fixes the *other* gap noted just above: images published before the auto-tagger
+    existed at all (no color tag whatsoever) get one from this too, not just images with a wrong
+    one, since both cases look the same to this function (whatever's left after stripping known
+    color words from existing keywords, which is nothing for an untagged image). Strips any of the
+    13 known color words (`COLOR_FILTER_SWATCHES`) out of an image's existing keywords before
+    merging the freshly-detected one back in via `mergeTagStrings()` - safe *for this app* because
+    the only way one of these exact words ever lands in an image's keywords is as the auto color
+    tag, so finding one there isn't a coincidental match against something an admin typed on
+    purpose; don't reuse this strip-and-replace approach somewhere keywords aren't drawn from such
+    a small closed vocabulary. Calls `renderColorFilterDots()` when done so the dot list reflects
+    whatever colors exist post-retag (a color with zero images left after this run loses its dot;
+    a newly-introduced one gains one). Same sandbox limitation as everything else touching
+    Cloudinary in this repo: **no live Cloudinary/Firestore access here, so this has only been
+    exercised against a stubbed Firestore + a stubbed `detectDominantColorTagFromUrl()` in a
+    headless browser, never a real gallery** - if re-tagging behaves unexpectedly against the real
+    data, that's the first thing to account for, not assume the logic itself is wrong.
   - **`.sidebar-brand` crop fix (2026-07-30)** — the "aReferences" header text could get silently
     cropped at the bottom (no scrollbar, no error) whenever the sidebar's total content grew taller
     than the viewport, e.g. right after admin sign-in reveals the extra footer buttons. Cause: it
