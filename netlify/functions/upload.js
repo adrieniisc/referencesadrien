@@ -48,8 +48,20 @@ const handler = (event, context, callback) => {
 
   // When Busboy is done parsing
   busboy.on('finish', () => {
-    // Generate a unique public_id to avoid overwriting existing images
-    const uniqueFileName = `${Date.now()}-${fileName}`;
+    // Generate a unique public_id to avoid overwriting existing images.
+    // Date.now() alone collides whenever two uploads sharing the same
+    // filename land in the same millisecond - each request here is its own
+    // Netlify function invocation (a separate process), so there's no
+    // shared in-memory counter to fall back on the way the frontend's
+    // uploadBatchCounter does for its own same-millisecond collision (see
+    // index.html). A random suffix closes that gap regardless of how many
+    // concurrent invocations are in flight. Cloudinary's default upload
+    // behavior overwrites an existing asset at the same public_id, so a
+    // collision here doesn't error - it silently replaces a previously
+    // uploaded image's content with the new one, which is exactly the kind
+    // of "an image quietly disappeared" bug this guards against.
+    const uniqueSuffix = Math.random().toString(36).slice(2, 10);
+    const uniqueFileName = `${Date.now()}-${uniqueSuffix}-${fileName}`;
 
     // Upload to Cloudinary
     const uploadStream = cloudinary.uploader.upload_stream(
