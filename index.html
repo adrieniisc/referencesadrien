@@ -23,6 +23,12 @@
       --text-faint: #6a6a72;
       --accent: #dd9556;
       --accent-soft: rgba(221,149,86,0.16);
+      /* Default/selected-state highlight for toggle-style buttons (folder
+         selection, size/color/material facet "selected" states) - kept
+         separate from --accent since those buttons' primary/CTA styling
+         (Add, Save, Download) is intentionally unchanged. */
+      --highlight: #ffffff;
+      --highlight-soft: rgba(255,255,255,0.18);
       --danger: #ff5a52;
       --danger-soft: rgba(255,90,82,0.16);
       --success: #4cd964;
@@ -188,6 +194,31 @@
 #aboutModal .modal-content:hover {
   background-color: rgba(28, 28, 32, 0.8);
 }
+
+.about-social-links {
+  display: flex;
+  gap: 10px;
+  margin-top: 0.4rem;
+}
+.about-social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background-color: rgba(255,255,255,0.04);
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.about-social-icon svg { width: 17px; height: 17px; }
+.about-social-icon:hover {
+  background-color: rgba(255,255,255,0.1);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
     /* --------------------------------------------------
        Styling for the sidebar admin button
     -------------------------------------------------- */
@@ -213,15 +244,53 @@
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  background-color: var(--bg-elevated);
+  /* Same frosted-glass material as the floating color/material/size panels
+     (rgba(26,26,30,0.85) + blur + border + shadow) instead of a flat
+     opaque fill - .sidebar-frost-art (below) gives it real blurred color
+     to diffuse rather than just tinted transparency over nothing. */
+  background-color: rgba(26,26,30,0.82);
   border-right: 1px solid var(--border-color);
-  padding: 0.8rem;
-  display: flex;
-  flex-direction: column;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-md);
   position: relative;
   color: var(--text);
   z-index: 1100;
   height: 100%;
+}
+@supports not (backdrop-filter: blur(20px)) {
+  .sidebar { background-color: var(--bg-elevated); }
+}
+
+.sidebar-frost-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sidebar-frost-art img {
+  position: absolute;
+  width: 65%;
+  height: 55%;
+  object-fit: cover;
+  filter: blur(50px) saturate(1.3);
+  opacity: 0.4;
+}
+.sidebar-frost-art img:nth-child(1) { top: -12%; left: -18%; }
+.sidebar-frost-art img:nth-child(2) { top: 38%; right: -22%; }
+.sidebar-frost-art img:nth-child(3) { bottom: -15%; left: 8%; }
+
+/* Actual sidebar content now lives in here instead of directly in
+   .sidebar - keeps the flex-column/scroll/padding behavior .sidebar used
+   to have itself, layered above .sidebar-frost-art via z-index. */
+.sidebar-scroll {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0.8rem;
   overflow-y: auto;
 }
     .search-bar-container {
@@ -307,8 +376,8 @@
     }
     .folder-list li:hover { background-color: rgba(255,255,255,0.06); color: var(--text); }
     .folder-list li.selected {
-      background-color: var(--accent-soft);
-      color: var(--accent);
+      background-color: var(--highlight-soft);
+      color: var(--highlight);
       font-weight: 500;
     }
     /* Folder name + image count, grouped so the arrow can sit on the far right */
@@ -331,7 +400,7 @@
       flex-shrink: 0;
     }
     .folder-list li.selected .folder-count {
-      color: var(--accent);
+      color: var(--highlight);
       opacity: 0.75;
     }
     ul.subfolder-list {
@@ -352,8 +421,8 @@
     }
     ul.subfolder-list li:hover { background-color: rgba(255,255,255,0.06); color: var(--text); }
     ul.subfolder-list li.selected {
-      background-color: var(--accent-soft);
-      color: var(--accent);
+      background-color: var(--highlight-soft);
+      color: var(--highlight);
       font-weight: 500;
     }
 
@@ -601,8 +670,8 @@
     .size-icon:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
 
     .size-icon.selected {
-      background-color: var(--accent-soft);
-      color: var(--accent);
+      background-color: var(--highlight-soft);
+      color: var(--highlight);
     }
 
     /* --------------------------------------------------
@@ -650,7 +719,7 @@
        one matching the panel's own background as a gap, then the accent
        color outside it - which reads clearly against any swatch color. */
     .color-dot.selected {
-      box-shadow: 0 0 0 2px rgba(26,26,30,0.95), 0 0 0 4px var(--accent);
+      box-shadow: 0 0 0 2px rgba(26,26,30,0.95), 0 0 0 4px var(--highlight);
     }
     /* The white and black swatches need their own edge, or each
        disappears into the panel's own dark background when not
@@ -707,8 +776,8 @@
     }
     .material-chip:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
     .material-chip.selected {
-      background-color: var(--accent-soft);
-      color: var(--accent);
+      background-color: var(--highlight-soft);
+      color: var(--highlight);
     }
 
     /* --------------------------------------------------
@@ -1212,7 +1281,10 @@
   position: relative;
   width: auto;
   max-width: 80%;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding: 10px 0;
   opacity: 0.6;
   margin-top: auto; /* Push to bottom of container */
@@ -1223,12 +1295,21 @@
   opacity: 0.85;
 }
 
+/* Same pill treatment as .enlarged-tags (just smaller/muted) instead of a
+   bare inline text label - previously sat inline to the right of the tags
+   pill with its own margin-left, which read as offset/unaligned whenever
+   the pill's width or the presence of tags changed the pill's centered
+   position. Stacking it in the flex column above centers it under the
+   image the same way regardless of whether the tags pill is shown. */
 .enlarged-resolution {
   display: inline-block;
-  margin-left: 8px;
-  vertical-align: middle;
-  font-size: 0.75rem;
+  background-color: rgba(26, 26, 30, 0.85);
+  border: 1px solid var(--border-color);
   color: var(--text-faint);
+  font-size: 0.75rem;
+  padding: 4px 14px;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
 }
 
 .enlarged-tags {
@@ -1247,21 +1328,49 @@
 }
 
 /* --------------------------------------------------
-   Lightbox "Similar images" panel (2026-07-31)
+   Lightbox layout row (2026-07-31, reworked same day) - the image column
+   and the "Similar" panel are now real flex siblings in one centered row
+   instead of the panel floating as an independent position:fixed overlay.
+   Centering the row itself (rather than the image alone) is what keeps
+   the whole composition's left/right margins equal once the panel makes
+   the image sit off-center - enlargeImage()'s width math (below) reserves
+   the panel's width + gap before computing the image's own max width, so
+   growing/shrinking the panel or this gap only requires updating
+   ROW_GAP/panel width in one place (kept in sync with enlargeImage()'s
+   own ROW_GAP constant).
+-------------------------------------------------- */
+.enlarge-main-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch; /* image column keeps full height for its own tags-pushed-to-bottom logic below */
+  justify-content: center;
+  gap: 32px;
+  width: 100%;
+  min-height: 0;
+}
+.enlarge-image-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0; /* let this shrink below its content's natural size so the row can actually narrow it */
+}
+
+/* --------------------------------------------------
+   Lightbox "Similar images" panel (2026-07-31, enlarged + moved into the
+   flex row 2026-07-31) - was a small 190px position:fixed overlay; now a
+   real (much bigger) flex column sibling of the image, vertically
+   self-centered against the image's full height via align-self.
 -------------------------------------------------- */
 .enlarge-similar-panel {
-  position: fixed;
-  top: 50%;
-  right: 24px;
-  transform: translateY(-50%);
-  z-index: 15001;
-  width: 190px;
-  max-height: 80vh;
+  align-self: center;
+  width: 340px;
+  flex-shrink: 0;
+  max-height: 82vh;
   overflow-y: auto;
   background-color: rgba(20,20,24,0.7);
   border: 1px solid rgba(255,255,255,0.12);
-  border-radius: var(--radius-md);
-  padding: 10px;
+  border-radius: var(--radius-lg);
+  padding: 16px;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   display: none; /* toggled by renderSimilarImages() */
@@ -1269,43 +1378,46 @@
   box-sizing: border-box;
 }
 .enlarge-similar-title {
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-faint);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   text-align: center;
 }
 .enlarge-similar-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 10px;
 }
 .enlarge-similar-thumb {
   aspect-ratio: 1;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: border-color 0.15s ease, opacity 0.15s ease;
+  transition: border-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
-.enlarge-similar-thumb:hover { border-color: var(--accent); opacity: 0.85; }
+.enlarge-similar-thumb:hover { border-color: var(--highlight); opacity: 0.9; transform: scale(1.03); }
 .enlarge-similar-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-/* Not enough width for a 90vw-ish image plus a 190px side panel without
-   the two overlapping badly - hidden below this rather than squeezed, so
-   the main image's own sizing math (in enlargeImage()) never has to know
-   this panel exists. Needs !important: renderSimilarImages() sets this
-   element's display via inline style (matching how the rest of this
-   modal's JS already works), which otherwise wins over a plain media
-   query rule regardless of specificity. */
-@media (max-width: 1100px) {
+/* Not enough width for a sensibly-sized image plus a 340px side panel
+   without the two cramping each other badly - hidden below this rather
+   than squeezed, so enlargeImage()'s width math never has to reserve
+   space for a panel that isn't actually showing. Needs !important:
+   renderSimilarImages() sets this element's display via inline style
+   (matching how the rest of this modal's JS already works), which
+   otherwise wins over a plain media query rule regardless of specificity. */
+@media (max-width: 1300px) {
   .enlarge-similar-panel { display: none !important; }
+}
+@media (max-width: 900px) {
+  .enlarge-main-row { gap: 16px; }
 }
 
 /* Add this to the enlarged image container to allow proper positioning */
@@ -1354,7 +1466,10 @@
   color: var(--text);
   white-space: nowrap;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
 }
+.top-bar-brand:hover { opacity: 0.8; }
 
 .main-search-container {
   flex: 1;
@@ -1904,6 +2019,34 @@
       <p>You can browse by folder, search by keywords, and easily download any images for your work, freely, without restrictions and absolutely no copyright or attributions needed. Feel free to contribute and share your own images/textures with the "SUBMIT" button :)</p>
       <p>Have fun :)</p>
       <p>Adrien</p>
+      <div class="about-social-links">
+        <a class="about-social-icon" href="https://www.artstation.com/adrienisakovic" target="_blank" rel="noopener noreferrer" title="ArtStation" aria-label="ArtStation">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 3 3 18h4.2l1.8-3h5.9l1.1 2c.3.6.9 1 1.6 1H21L12 3zm0 5.2 2.6 4.5H9.4L12 8.2z"/>
+            <path d="M3.8 19.5 2.6 21.5c-.2.3 0 .5.3.5h15.6c1 0 1.9-.5 2.4-1.4l.6-1.1H3.8z"/>
+          </svg>
+        </a>
+        <a class="about-social-icon" href="https://adrienisakovic.com/" target="_blank" rel="noopener noreferrer" title="Website" aria-label="Personal website">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M3 12h18M12 3c2.5 2.7 3.8 6 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-6-3.8-9s1.3-6.3 3.8-9z"/>
+          </svg>
+        </a>
+        <a class="about-social-icon" href="https://www.linkedin.com/in/adrienisakovic/" target="_blank" rel="noopener noreferrer" title="LinkedIn" aria-label="LinkedIn">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="2" y="2" width="20" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="7.5" cy="8" r="1.6"/>
+            <rect x="6.2" y="10.5" width="2.6" height="7.5"/>
+            <path d="M11.5 10.5h2.5v1.2c.6-.9 1.6-1.4 2.9-1.4 2.4 0 3.6 1.6 3.6 4.4v4.8h-2.6v-4.3c0-1.3-.5-2.2-1.7-2.2-1 0-1.6.7-1.9 1.3-.1.2-.1.6-.1 1v4.2h-2.6v-8.9z"/>
+          </svg>
+        </a>
+        <a class="about-social-icon" href="https://www.imdb.com/fr/name/nm18521831/" target="_blank" rel="noopener noreferrer" title="IMDb" aria-label="IMDb">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="1.5" y="6" width="21" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="12" y="14.3" text-anchor="middle" font-size="6.5" font-weight="700" fill="currentColor" font-family="Arial, sans-serif">IMDb</text>
+          </svg>
+        </a>
+      </div>
     </div>
   </div>
 </div>
@@ -1936,53 +2079,65 @@
   <div class="main-container">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <div class="search-bar-container">
-        <div class="filter-icon-container">
-          <button class="filter-button" id="filterButton" title="Sort Options">
-            <svg viewBox="0 0 24 24">
-              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>
-          </button>
+      <!-- Purely decorative soft-blurred wash of a few loaded gallery
+           thumbnails, sitting behind everything else in the sidebar - gives
+           the frosted glass panel real color to diffuse instead of just a
+           flat tinted background. Populated by renderSidebarFrostArt(). -->
+      <div class="sidebar-frost-art" id="sidebarFrostArt"></div>
+      <div class="sidebar-scroll">
+        <div class="search-bar-container">
+          <div class="filter-icon-container">
+            <button class="filter-button" id="filterButton" title="Sort Options">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <ul class="folder-list" id="folderList">
+          <!-- Folder items will be generated dynamically -->
+        </ul>
+        <!-- SIDEBAR FOOTER: Admin Editing Controls -->
+        <div class="sidebar-footer">
+          <!-- Review Submissions sits at the top, ahead of everything else,
+               and is colored distinctly from the other admin tools - it's
+               flagging incoming work (pending public submissions) rather
+               than being a gallery-editing tool like the ones below it. -->
+          <div class="admin-review-section">
+            <button id="reviewSubmissionsBtn" class="review-btn">Review Submissions</button>
+          </div>
+          <hr class="separator">
+          <div class="admin-top-buttons">
+            <button id="newFolderAdminBtn">Add Folder</button>
+            <button id="addImageAdminBtn">Add Image</button>
+          </div>
+          <hr class="separator">
+          <div class="admin-bottom-buttons">
+            <button id="moveImageBtn" class="move-btn">Move Images</button>
+            <button id="editTagsBtn" class="tag-btn">Edit Tags</button>
+            <button id="renameFolderBtn">Rename Folder</button>
+            <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
+            <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
+            <button id="findDuplicatesBtn">Find Duplicates</button>
+            <button id="retagColorsBtn">Re-tag Colors</button>
+          </div>
+          <hr class="separator">
+         <div class="sidebar-admin-section">
+    <button id="adminaccessbtn" class="admin-access-btn">Admin Log In</button>
+  </div>
         </div>
       </div>
-      <!-- Filter Menu -->
-      <div class="filter-menu" id="filterMenu">
-        <div class="filter-option" data-sort="alphabetical">Alphabetical</div>
-        <div class="filter-option" data-sort="recent">Recent Add</div>
-        <div class="filter-option" data-sort="random">Random</div>
-      </div>
-      <ul class="folder-list" id="folderList">
-        <!-- Folder items will be generated dynamically -->
-      </ul>
-      <!-- SIDEBAR FOOTER: Admin Editing Controls -->
-      <div class="sidebar-footer">
-        <!-- Review Submissions sits at the top, ahead of everything else,
-             and is colored distinctly from the other admin tools - it's
-             flagging incoming work (pending public submissions) rather
-             than being a gallery-editing tool like the ones below it. -->
-        <div class="admin-review-section">
-          <button id="reviewSubmissionsBtn" class="review-btn">Review Submissions</button>
-        </div>
-        <hr class="separator">
-        <div class="admin-top-buttons">
-          <button id="newFolderAdminBtn">Add Folder</button>
-          <button id="addImageAdminBtn">Add Image</button>
-        </div>
-        <hr class="separator">
-        <div class="admin-bottom-buttons">
-          <button id="moveImageBtn" class="move-btn">Move Images</button>
-          <button id="editTagsBtn" class="tag-btn">Edit Tags</button>
-          <button id="renameFolderBtn">Rename Folder</button>
-          <button id="deleteImageBtn" class="delete-btn">Delete Images</button>
-          <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
-          <button id="findDuplicatesBtn">Find Duplicates</button>
-          <button id="retagColorsBtn">Re-tag Colors</button>
-        </div>
-        <hr class="separator">
-       <div class="sidebar-admin-section">
-  <button id="adminaccessbtn" class="admin-access-btn">Admin Log In</button>
-</div>
-      </div>
+    </div>
+    <!-- Moved out of .sidebar (2026-07-31, frosted-glass redesign): .sidebar
+         now has backdrop-filter, which makes it the containing block for
+         any position:fixed descendant, so this dropdown's top/left would
+         resolve against the sidebar's own box instead of the viewport if
+         left nested inside it. Living as a sibling keeps its original
+         true-viewport-fixed behavior. -->
+    <div class="filter-menu" id="filterMenu">
+      <div class="filter-option" data-sort="alphabetical">Alphabetical</div>
+      <div class="filter-option" data-sort="recent">Recent Add</div>
+      <div class="filter-option" data-sort="random">Random</div>
     </div>
     <!-- Move Controls -->
     <div class="move-controls" id="moveControls">
@@ -2045,27 +2200,33 @@
  <div id="enlargeImageModal">
   <button id="enlargePrevBtn" class="enlarge-nav-btn enlarge-nav-prev" aria-label="Previous image" type="button">&#8249;</button>
   <button id="enlargeNextBtn" class="enlarge-nav-btn enlarge-nav-next" aria-label="Next image" type="button">&#8250;</button>
-  <div class="enlarged-image-container">
-    <div class="enlarge-spinner" id="enlargeSpinner"></div>
-    <img id="enlargeImage" src="" alt="">
-    <!-- Tags moved outside the image container -->
-  </div>
-  <!-- Tags container now positioned at the bottom of the modal -->
-  <div class="enlarged-tags-container">
-    <div class="enlarged-tags" id="enlargedTags"></div>
-    <span class="enlarged-resolution" id="enlargedResolution"></span>
+  <!-- Image (+ its tags) and the "Similar" panel are flex siblings in one
+       row, centered as a unit so the composition keeps equal left/right
+       margins even when the panel pushes the image off dead-center - see
+       the .enlarge-main-row comment in the <style> block above. -->
+  <div class="enlarge-main-row" id="enlargeMainRow">
+    <div class="enlarge-image-column">
+      <div class="enlarged-image-container">
+        <div class="enlarge-spinner" id="enlargeSpinner"></div>
+        <img id="enlargeImage" src="" alt="">
+        <!-- Tags moved outside the image container -->
+      </div>
+      <!-- Tags container now positioned at the bottom of the image column -->
+      <div class="enlarged-tags-container">
+        <div class="enlarged-tags" id="enlargedTags"></div>
+        <span class="enlarged-resolution" id="enlargedResolution"></span>
+      </div>
+    </div>
+    <!-- "Similar images" panel - populated by renderSimilarImages(); hidden
+         whenever nothing scores as similar or the viewport's too narrow
+         to have room for it (enlargeImage()'s width math checks its
+         actual rendered visibility before reserving space for it). -->
+    <div class="enlarge-similar-panel" id="enlargeSimilarPanel">
+      <div class="enlarge-similar-title">Similar</div>
+      <div class="enlarge-similar-grid" id="enlargeSimilarGrid"></div>
+    </div>
   </div>
   <a id="enlargedDownloadBtn" class="enlarged-download-btn" href="#" download>Download</a>
-  <!-- Floating "similar images" panel - position:fixed takes it out of the
-       modal's flex column entirely, so it overlays near the right edge
-       independent of the main image's own width/height sizing logic
-       (enlargeImage()) rather than reflowing that carefully-tuned math.
-       Populated by renderSimilarImages(); hidden whenever nothing scores
-       as similar or the viewport's too narrow to have room for it. -->
-  <div class="enlarge-similar-panel" id="enlargeSimilarPanel">
-    <div class="enlarge-similar-title">Similar</div>
-    <div class="enlarge-similar-grid" id="enlargeSimilarGrid"></div>
-  </div>
 </div>
 
   
@@ -2363,6 +2524,26 @@
         <div class="material-chip${m === currentMaterialFilter ? " selected" : ""}" data-material="${m}">${m}</div>
       `).join("");
       if (panel) panel.style.display = visibleMaterials.length ? "" : "none";
+    }
+
+    // Purely decorative: picks a few currently-loaded thumbnails to show as
+    // a soft blurred wash behind the sidebar's frosted glass background, so
+    // it has real color to diffuse instead of just tinted transparency over
+    // nothing. Not wired into every place gallery contents can change
+    // (unlike renderColorFilterDots()/renderMaterialFilterChips(), which
+    // are functionally load-bearing) - a stale sample here doesn't break
+    // anything, so a single call after initial load is enough.
+    function renderSidebarFrostArt() {
+      const art = document.getElementById("sidebarFrostArt");
+      if (!art) return;
+      const pool = [...document.querySelectorAll(".image-container[data-url]")];
+      const picks = [];
+      for (let i = 0; i < 3 && pool.length > 0; i++) {
+        picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      }
+      art.innerHTML = picks.map(c =>
+        `<img src="${cloudinaryDisplayUrl(c.dataset.url, { width: 120 })}" alt="" aria-hidden="true">`
+      ).join("");
     }
 
     // "Week" here isn't a calendar week - it resets on the 1st of every
@@ -2709,6 +2890,23 @@
 
     mainImageSearch.addEventListener("input", performSearch);
 
+    // Brand text acts as a "home" link - back to the All category with
+    // every active filter (search text, color, material) cleared, same as
+    // a fresh page load's default view.
+    function goToHomeAll() {
+      mainImageSearch.value = "";
+      currentColorFilter = null;
+      currentMaterialFilter = null;
+      hideAllSubfolders();
+      renderColorFilterDots();
+      renderMaterialFilterChips();
+      currentFolderFilter = "all";
+      const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
+      if (allFolder) highlightSelected(allFolder);
+      filterImages("all");
+    }
+    document.querySelector(".top-bar-brand")?.addEventListener("click", goToHomeAll);
+
     /** ABOUT JavaScript **/
 
 const aboutBtn = document.getElementById("aboutBtn");
@@ -2728,6 +2926,24 @@ aboutModal.addEventListener("click", (e) => {
     aboutModal.classList.remove("active");
   }
 });
+
+// First-ever visit on this browser/device: auto-open About once, then
+// never again on later visits/reloads. True per-IP tracking would need a
+// backend this static frontend doesn't have - localStorage is the
+// practical "once per user/pc" equivalent (persists per browser profile,
+// survives reloads and tab closes - unlike the admin auth's deliberately
+// session-only persistence, this is meant to stick).
+try {
+  const FIRST_VISIT_KEY = "hasVisitedReferencesAdrien";
+  if (!localStorage.getItem(FIRST_VISIT_KEY)) {
+    localStorage.setItem(FIRST_VISIT_KEY, "1");
+    aboutModal.classList.add("active");
+  }
+} catch (e) {
+  // localStorage can throw (private-browsing storage restrictions,
+  // sandboxed embeds) - skip the auto-open rather than breaking init.
+  console.warn("Could not check first-visit state:", e);
+}
 
     /********************************************************
      * Submit Reference (public - not admin-gated)
@@ -4407,7 +4623,18 @@ downloadLink.addEventListener("click", function(e) {
     const imgHeight = this.height;
     
     // Calculate viewport dimensions
-    const viewportWidth = window.innerWidth * 0.9;  // 90% of viewport width
+    // Reserve space for the "Similar" panel (see .enlarge-main-row) when
+    // it's actually visible, so the image doesn't get sized as if it had
+    // the full viewport width and then get squeezed/overlapped by the
+    // panel sitting next to it. getComputedStyle (not the inline style
+    // renderSimilarImages() sets on this element) so this also honors the
+    // panel's own "hide below 1300px" media query, which overrides that
+    // inline style via !important.
+    const similarPanelEl = document.getElementById("enlargeSimilarPanel");
+    const similarPanelVisible = !!similarPanelEl && getComputedStyle(similarPanelEl).display !== "none";
+    const ROW_GAP = 32; // keep in sync with .enlarge-main-row's CSS gap
+    const reservedForSimilarPanel = similarPanelVisible ? (similarPanelEl.offsetWidth + ROW_GAP) : 0;
+    const viewportWidth = (window.innerWidth - reservedForSimilarPanel) * 0.9;  // 90% of the width actually left for the image
     const viewportHeight = window.innerHeight; // Full viewport height
     
     // Estimate tag container height
@@ -4522,7 +4749,13 @@ function closeEnlargeModal() {
 
 
     document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
-  if (e.target.id === "enlargeImageModal") {
+  // .enlarge-main-row/.enlarge-image-column (2026-07-31, similar-panel
+  // rework) are background-less structural wrappers now sitting between
+  // the modal and the image - without checking them too, a click in their
+  // own empty space (e.g. the gap next to a short/narrow image) would hit
+  // one of them instead of #enlargeImageModal and silently stop closing
+  // the modal on an "outside the image" click.
+  if (e.target.id === "enlargeImageModal" || e.target.id === "enlargeMainRow" || e.target.classList.contains("enlarge-image-column")) {
     closeEnlargeModal();
   }
 });
@@ -5529,6 +5762,7 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     updateFolderCounts();
     renderColorFilterDots();
     renderMaterialFilterChips();
+    renderSidebarFrostArt();
 
 
     // Select 'All' folder
