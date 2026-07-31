@@ -532,6 +532,75 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     too little signal that early makes for a wildly unstable projection. The existing "done/total"
     count (`#uploadDockCount`) was already there from the 2026-07-31 dock rebuild above and didn't
     need to change.
+  - **Lightbox resolution readout (2026-07-31)** — `#enlargedResolution`, a small muted label next to
+    the tags pill in the lightbox, showing e.g. `1920 × 1080`. Reuses the `tempImg` that
+    `enlargeImage()` already loads to size the lightbox (`displayUrl`, capped to 1920px via
+    `cloudinaryDisplayUrl(url, {width:1920})`) instead of firing a second request against the
+    original - so this is exact for any image whose original is at or under that cap (most uploads,
+    given `compressImageIfNeeded()`'s 1.5MB target), and shows the capped/downscaled figure rather
+    than the true original only for images wider than 1920px. Download still fetches the real
+    original either way; this label is informational only, not a claim about what Download gets.
+    Required restructuring the show/hide logic in `.enlarged-tags-container`: it used to toggle the
+    whole container on keyword presence (hiding it entirely for an untagged image), which would have
+    taken the resolution label down with it - the container now always shows once an image has
+    loaded, and only the tags pill itself toggles on whether there are keywords.
+  - **Sort menu: Random (2026-07-31)** — added as a third `.filter-option` next to the existing
+    Alphabetical/Recent Add, and as a new branch in the pre-existing `sortGallery(type)` (Fisher-Yates
+    shuffle of `gallery.children`, then re-appended in that order - same reorder-in-place pattern the
+    other two types already used). `sortGallery("random")` is also called once during init right
+    after `loadImagesFromFirebase()`, so the gallery opens shuffled by default instead of in upload
+    order, freshly reshuffled on every page load (not shuffle-once-and-persist - there's no stored
+    "current sort" state, each call just reorders live). Picking Alphabetical/Recent Add from the
+    menu afterward overrides this for the rest of the session, same as it always did for those two.
+  - **Material-type facet filter (2026-07-31, `MATERIAL_FILTER_OPTIONS`)** — a second floating chip
+    panel next to the color-dot panel (`.floating-material-panel`/`.material-chip-container`,
+    inserted into the existing `.floating-controls-row`), filtering the gallery to images tagged with
+    a clicked material word (metal/wood/stone/concrete/brick/fabric/glass/ceramic/organic/ground).
+    Deliberately wired as an exact copy of the color filter's own pattern -
+    `getUsedMaterialFilters()`/`renderMaterialFilterChips()`/`imageMatchesMaterialFilter()`, ANDed
+    into both `filterImages()` and `performSearch()` alongside the existing color check, chip only
+    rendered once at least one loaded image actually has that word - per the extension point that
+    feature's own comments already called out ("wire it into `imageMatchesColorFilter()`'s pattern
+    rather than inventing a fourth independent mechanism"). The one real difference from color: there
+    is no auto-detector behind it. This app has no ML/AI (see the Cloud Vision/MobileNet removal
+    note - don't reintroduce that to "fix" this), so a material word only ever lands in an image's
+    keywords because an admin typed it into Add Image / Edit Tags, same bootstrapping path the color
+    words themselves used before they got a dedicated per-upload detector. `renderMaterialFilterChips()`
+    is called at every point `renderColorFilterDots()` already was (Delete, Edit Tags, Re-tag Colors,
+    Review Submissions' Add, upload completion, init) since material tags live in the same `keywords`
+    field and change through the same code paths. `MATERIAL_FILTER_OPTIONS` is just the candidate
+    vocabulary a chip can *possibly* appear for (chosen from this gallery's real folder names -
+    `wood`/`concrete`/`rock`(stone)/`brick-roof-tile` - plus a few plausible others); editing that
+    array doesn't retag anything, it only changes which words are eligible to get a chip once used.
+    `.floating-controls-row` gained `flex-wrap: wrap` (it has no `top` anchor, so wrapping grows the
+    box upward from its `bottom`/`right` corner rather than overflowing) since it now holds three
+    panels instead of two - narrow-viewport shrink rules for `.material-chip` were added to the
+    existing 640px breakpoint block alongside the color-dot ones.
+  - **Lightbox "Similar" images grid (2026-07-31, `findSimilarImages()`/`renderSimilarImages()`)** —
+    a floating panel (`.enlarge-similar-panel`, `position: fixed`, independent of the modal's own flex
+    column) showing up to 9 images "similar" to the one currently enlarged; clicking a thumb
+    re-enlarges that image (and the panel refreshes for it, same recursive pattern
+    `showAdjacentEnlargedImage()` already used for prev/next). "Similar" is a tag-overlap heuristic,
+    not real visual similarity - there's no ML in this app and no perceptual-hash/feature data stored
+    per image (see the material-facet entry just above for why that's a deliberate constraint, not an
+    oversight), so this scores every other loaded `.image-container` by shared `data-keywords` tokens
+    (which already includes the auto color tag) plus a same-folder tie-breaker that only counts on
+    top of at least one real keyword match. Entirely in-memory against DOM data already loaded for the
+    gallery grid itself - no network fetch or Cloudinary call per candidate, so it costs nothing extra
+    to compute. Deliberately built with `createElement`+closures per thumb rather than
+    `innerHTML` + a later lookup-by-id-or-url - re-querying afterward would be the exact ambiguous-
+    lookup shape `findImageIdByUrl()` is already documented as unsafe for (two thumbs could
+    coincidentally share a lookup key). Positioned as a `position: fixed` overlay near the right edge
+    specifically so it doesn't have to touch `enlargeImage()`'s existing width/height sizing math for
+    the main image (already fairly involved, see that function) - it just floats on top, and is
+    hidden outright below 1100px viewport width (`!important`, since `renderSimilarImages()` sets
+    this panel's `display` via inline style like the rest of this modal's JS already does, which
+    otherwise wins over a plain media query rule regardless of specificity). Untested against a real
+    gallery's actual tag data (same sandbox limitation as everything else here) - verified instead
+    with a Playwright + stubbed-Firestore harness (5 synthetic images with known keyword overlaps)
+    confirming the ranking, the click-to-navigate behavior, and the viewport cutoff all behave as
+    designed; if real-gallery results look off, that's about the *scoring weights* being wrong for
+    real tagging patterns (e.g. folder bonus too strong/weak), not the mechanism itself.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
