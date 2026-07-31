@@ -24,9 +24,9 @@
       --accent: #dd9556;
       --accent-soft: rgba(221,149,86,0.16);
       /* Default/selected-state highlight for toggle-style buttons (folder
-         selection, size/color/material facet "selected" states) - kept
-         separate from --accent since those buttons' primary/CTA styling
-         (Add, Save, Download) is intentionally unchanged. */
+         selection, size/color facet "selected" states) - kept separate
+         from --accent since those buttons' primary/CTA styling (Add, Save,
+         Download) is intentionally unchanged. */
       --highlight: #ffffff;
       --highlight-soft: rgba(255,255,255,0.18);
       --danger: #ff5a52;
@@ -252,7 +252,7 @@
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  /* Same frosted-glass material as the floating color/material/size panels
+  /* Same frosted-glass material as the floating color/size panels
      (rgba(26,26,30,0.85) + blur + border + shadow) instead of a flat
      opaque fill - .sidebar-frost-art (below) gives it real blurred color
      to diffuse rather than just tinted transparency over nothing. */
@@ -277,33 +277,41 @@
   overflow: hidden;
   pointer-events: none;
 }
-/* Realtime scroll-synced "mirror" (2026-07-31, replacing the old 3 discrete
-   swapped-image squares) - a single tall strip holding the gallery's whole
-   first column, built once per layout change
-   (buildSidebarFrostStrip()/JS) and then just translated vertically in
-   lockstep with .main-content's real scrollTop on every scroll/rAF tick
-   (syncSidebarFrostStripPosition()) - no re-picking/re-fetching images on
-   scroll, so there's nothing to visibly "swap" or debounce any more. The
-   blur/saturate/opacity treatment lives on this one wrapper (not per-image,
-   like the old version) so it reads as one continuous frosted surface
-   instead of separate blurred squares. transform is the only property this
-   ever animates via JS, so it stays GPU-composited and doesn't repaint the
-   (expensive) blur on every scroll frame. */
+/* Colored light-glow (2026-07-31, replacing an earlier version that mirrored
+   actual thumbnail <img> elements) - real <img>s meant a real network fetch
+   per thumbnail, which is exactly what caused the "images taking time to
+   load"/pop-in jumping this version exists to eliminate. Instead of
+   picturing the images, this glows with their color: each first-column
+   image's own already-known dominant-color keyword tag (the auto color-tag
+   from detectDominantColorTag(), already sitting in data-keywords with zero
+   extra work) maps to a plain CSS color, rendered as a soft blurred radial
+   blob biased toward the sidebar's gallery-facing edge - like colored light
+   spilling in from the images beside it, not a recognizable reflection of
+   them. Nothing here is ever fetched over the network, so nothing ever
+   "loads" - nothing to jump or pop in. A single tall strip is still built
+   once per layout change (buildSidebarFrostStrip()) and only ever moved via
+   `transform: translateY()` in realtime lockstep with .main-content's
+   scrollTop (syncSidebarFrostStripPosition(), every scroll event,
+   rAF-throttled) - same realtime-sync mechanism as before, now paired with
+   content that has zero load latency of its own. The blur/saturate/opacity
+   treatment lives on this one wrapper so overlapping blobs blend into one
+   continuous colored wash instead of reading as separate glowing circles. */
 .sidebar-frost-strip {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  filter: blur(46px) saturate(1.3);
-  opacity: 0.42;
+  filter: blur(60px) saturate(1.6);
+  opacity: 0.55;
   will-change: transform;
 }
-.sidebar-frost-strip img {
+.sidebar-frost-glow {
   position: absolute;
-  left: 8%;
-  width: 84%;
-  object-fit: cover;
-  border-radius: 12px;
+  left: 65%; /* biased toward the sidebar's right/gallery-facing edge */
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* Actual sidebar content now lives in here instead of directly in
@@ -629,9 +637,8 @@
       justify-content: flex-end;
       gap: 10px;
       /* No top anchor, so wrapping grows the row upward from the bottom-
-         right corner instead of overflowing off-screen - matters now that
-         a third panel (material) can push this onto two lines on narrow
-         viewports. */
+         right corner instead of overflowing off-screen if it ever needs
+         to wrap on a narrow viewport. */
       max-width: calc(100vw - 36px);
     }
 
@@ -736,54 +743,6 @@
     }
     .color-dot[data-color="black"] {
       border: 1px solid rgba(255,255,255,0.2);
-    }
-
-    /* --------------------------------------------------
-       Floating Material Filter Panel - same floating-pill treatment as the
-       color/size panels, text chips instead of dots since material has no
-       color of its own to swatch. Sized off .size-icon's own numbers (30px
-       tall, same 5px panel padding) for the same reason the color panel is -
-       so all three come out the same height with no explicit height set on
-       any of them.
-    -------------------------------------------------- */
-    .floating-material-panel {
-      position: static;
-      background-color: rgba(26,26,30,0.85);
-      border: 1px solid var(--border-color);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border-radius: var(--radius-md);
-      z-index: 1000;
-      padding: 5px;
-      box-shadow: var(--shadow-md);
-    }
-    .material-chip-container {
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 4px;
-    }
-    .material-chip {
-      height: 30px;
-      padding: 0 10px;
-      box-sizing: border-box;
-      border-radius: var(--radius-sm);
-      background-color: transparent;
-      border: 1px solid transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.72rem;
-      font-weight: 500;
-      color: var(--text-muted);
-      cursor: pointer;
-      text-transform: capitalize;
-      white-space: nowrap;
-      transition: background-color 0.2s, color 0.2s;
-    }
-    .material-chip:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
-    .material-chip.selected {
-      background-color: var(--highlight-soft);
-      color: var(--highlight);
     }
 
     /* --------------------------------------------------
@@ -1392,18 +1351,14 @@
 -------------------------------------------------- */
 .enlarge-similar-panel {
   align-self: center;
-  /* Square again (2026-07-31) - JS used to set an explicit height matching
-     the enlarged image's own rendered height, which turned this into a
-     tall, mostly-empty rectangle for any portrait image (the grid content
-     stayed pinned near the top). aspect-ratio: 1 + a fixed width is a
-     simpler guarantee of "always square" that doesn't depend on whatever
+  /* Square, aspect-ratio: 1 + a fixed width (doesn't depend on whatever
      image happens to be open - see enlargeImage()'s onload handler, which
-     no longer touches this element's height at all. max-width: 82vh
-     shrinks width *and* height together (via the aspect-ratio) on short
-     viewports, instead of only capping height and losing the square shape
-     the old max-height: 82vh would have. Widened 400px -> 460px ("make it
-     big") - also gives each of the 9 possible thumbnails more room. */
-  width: 460px;
+     never touches this element's height). max-width: 82vh shrinks width
+     *and* height together (via the aspect-ratio) on short viewports,
+     instead of only capping height and losing the square shape a plain
+     max-height would. Doubled 460px -> 920px (2026-07-31, explicit "twice
+     bigger" request). */
+  width: 920px;
   aspect-ratio: 1;
   max-width: 82vh;
   flex-shrink: 0;
@@ -1431,20 +1386,32 @@
 .enlarge-similar-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  /* Row height is computed the same way column width already is - as a
+     fixed 1/3 share of the grid's own *available* height - rather than
+     left to size itself from the thumbnails' own aspect-ratio (driven by
+     column width alone). That distinction matters once the title above
+     eats into the available height but not the available width: a grid of
+     literal 1:1 square cells sized purely from column width is
+     *guaranteed* to end up very slightly taller than the space actually
+     left for it whenever enough matches exist to need all 3 rows - and
+     once content overflows a flex item's assigned box, align-content:
+     center's spec-mandated "safe" fallback silently degrades to top-
+     pinned alignment, which is exactly what broke the equal top/bottom
+     margins around the thumbnails. Sizing rows this way instead makes 3
+     rows fit the available height *exactly*, by construction, so there's
+     always real leftover space (for align-content: center to split evenly
+     for <9 matches) and never negative leftover (overflow) for 9. Cells
+     end up a hair wider than tall rather than perfectly square (object-fit:
+     cover on .enlarge-similar-thumb img absorbs the difference) - a much
+     smaller visual cost than asymmetric margins or a cramped/overflowing
+     grid. 20px = 2 * this grid's own 10px row gap. */
+  grid-auto-rows: calc((100% - 20px) / 3);
   gap: 10px;
-  /* Fills whatever space is left under the title and centers its rows
-     within it ("justifying the images in it") instead of the grid's rows
-     packing to the top and leaving one big empty gap below whenever there
-     are fewer than 9 matches - matches the fixed-square panel above:
-     min-height: 0 lets this flex item actually shrink/scroll (via the
-     panel's own overflow-y: auto) instead of forcing the square taller
-     than its aspect-ratio when there are enough matches to need it. */
   flex: 1;
   min-height: 0;
   align-content: center;
 }
 .enlarge-similar-thumb {
-  aspect-ratio: 1;
   border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
@@ -1458,18 +1425,19 @@
   object-fit: cover;
   display: block;
 }
-/* Not enough width for a sensibly-sized image plus a 460px side panel
+/* Not enough width for a sensibly-sized image plus a 920px side panel
    without the two cramping each other badly - hidden below this rather
    than squeezed, so enlargeImage()'s width math never has to reserve
    space for a panel that isn't actually showing. Needs !important:
    renderSimilarImages() sets this element's display via inline style
    (matching how the rest of this modal's JS already works), which
    otherwise wins over a plain media query rule regardless of specificity.
-   Threshold raised 1400px -> 1500px (2026-07-31) alongside the panel's
-   400px -> 460px widen (made square + bigger, see .enlarge-similar-panel),
-   so the image still keeps a sane worst-case minimum width at the
-   breakpoint edge. */
-@media (max-width: 1500px) {
+   Threshold raised 1500px -> 1900px (2026-07-31) alongside the panel's
+   460px -> 920px doubling (see .enlarge-similar-panel), so the image still
+   keeps roughly the same worst-case minimum width at the breakpoint edge -
+   below this, only really large/ultrawide monitors show the panel at all,
+   which is expected for a panel this big. */
+@media (max-width: 1900px) {
   .enlarge-similar-panel { display: none !important; }
 }
 @media (max-width: 900px) {
@@ -1544,12 +1512,13 @@
   transform: translateY(-50%);
   width: 18px;
   height: 18px;
-  /* Matches #mainImageSearch::placeholder's color (text-faint) so the icon
-     and the "Search images..." text read as one consistent muted color,
-     with a thicker stroke (2.5, not the SVG's more common 2, in the
+  /* White (2026-07-31, superseding the previous text-faint match to the
+     placeholder text) - explicit request. Uses --highlight rather than a
+     literal #fff so it stays in sync with this codebase's one "true white"
+     token. Thicker stroke (2.5, not the SVG's more common 2, in the
      24-unit viewBox) - at this icon's actual ~18px on-screen size a
      thinner glyph anti-aliased down to near-illegibility in testing. */
-  color: var(--text-faint);
+  color: var(--highlight);
   pointer-events: none;
 }
 .search-bar-icon circle, .search-bar-icon path {
@@ -1880,8 +1849,6 @@
   .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
   .color-dot-container { gap: 3px; }
   .color-dot { width: 24px; height: 24px; }
-  .material-chip-container { gap: 3px; }
-  .material-chip { height: 26px; padding: 0 7px; font-size: 0.68rem; }
 }
 
 /* Extra-narrow phones: shrink the sidebar further. The brand heading
@@ -2160,10 +2127,12 @@
   <div class="main-container">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <!-- Purely decorative realtime "mirror" of the gallery's first column,
-           sitting behind everything else in the sidebar - gives the frosted
-           glass panel real, live-scrolling color to diffuse instead of just
-           a flat tinted background. Populated/positioned by
+      <!-- Purely decorative realtime colored light-glow, sitting behind
+           everything else in the sidebar - gives the frosted glass panel
+           real, live-scrolling color to diffuse instead of just a flat
+           tinted background. Glow colors come from the gallery's first
+           column's own dominant-color keyword tags, not from loading the
+           images themselves. Populated/positioned by
            buildSidebarFrostStrip()/syncSidebarFrostStripPosition(). -->
       <div class="sidebar-frost-art" id="sidebarFrostArt"></div>
       <div class="sidebar-scroll">
@@ -2234,16 +2203,6 @@
     <div class="floating-color-panel" id="colorFilterPanel" title="Filter by color">
       <div class="color-dot-container">
         <!-- Color dots are generated by renderColorFilterDots() -->
-      </div>
-    </div>
-    <!-- FLOATING MATERIAL FILTER PANEL - same pattern as the color panel,
-         except there's no auto-detector behind it (no AI/ML in this app):
-         a chip only appears once an admin has typed that exact word into
-         some image's Keywords (Add Image / Edit Tags), same bootstrapping
-         path the color words used before they got dedicated swatches. -->
-    <div class="floating-material-panel" id="materialFilterPanel" title="Filter by material">
-      <div class="material-chip-container">
-        <!-- Chips are generated by renderMaterialFilterChips() -->
       </div>
     </div>
     <!-- FLOATING SIZE PANEL -->
@@ -2546,68 +2505,49 @@
       if (panel) panel.style.display = visibleSwatches.length ? "" : "none";
     }
 
-    // Material facets - same idea as the color filter above (ANDed onto
-    // the show/hide decision, chip only shown once something's actually
-    // tagged with it), but with no auto-detector behind it: there's no
-    // AI/ML in this app (see the removal note), so a material word only
-    // ever lands in an image's keywords because an admin typed it into
-    // Add Image / Edit Tags. This list is just the candidate vocabulary a
-    // chip can appear for - editing it doesn't retag anything.
-    const MATERIAL_FILTER_OPTIONS = [
-      "metal", "wood", "stone", "concrete", "brick",
-      "fabric", "glass", "ceramic", "organic", "ground"
-    ];
-    let currentMaterialFilter = null;
-    function imageMatchesMaterialFilter(container) {
-      if (!currentMaterialFilter) return true;
-      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-      return keywords.split(",").map(k => k.trim()).includes(currentMaterialFilter);
-    }
-    function getUsedMaterialFilters() {
-      const validMaterials = new Set(MATERIAL_FILTER_OPTIONS);
-      const used = new Set();
-      document.querySelectorAll(".image-container").forEach(container => {
-        const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
-        keywords.split(",").map(k => k.trim()).forEach(k => {
-          if (validMaterials.has(k)) used.add(k);
-        });
-      });
-      return used;
-    }
-    function renderMaterialFilterChips() {
-      const used = getUsedMaterialFilters();
-      if (currentMaterialFilter && !used.has(currentMaterialFilter)) {
-        currentMaterialFilter = null;
-      }
-      const panel = document.getElementById("materialFilterPanel");
-      const container = document.querySelector(".material-chip-container");
-      if (!container) return;
-      const visibleMaterials = MATERIAL_FILTER_OPTIONS.filter(m => used.has(m));
-      container.innerHTML = visibleMaterials.map(m => `
-        <div class="material-chip${m === currentMaterialFilter ? " selected" : ""}" data-material="${m}">${m}</div>
-      `).join("");
-      if (panel) panel.style.display = visibleMaterials.length ? "" : "none";
-    }
 
-    // Purely decorative: mirrors the gallery's own first column as a soft
-    // blurred, continuously scroll-synced strip behind the sidebar's
-    // frosted glass background, so it has real color to diffuse instead of
-    // just tinted transparency over nothing. 2026-07-31: reworked a second
-    // time the same day - the previous version (3 images picked from
-    // whatever was visible next to the sidebar, re-picked via a
-    // 200ms-debounced scroll timer - see the removed
-    // getImagesNextToSidebar()/scheduleFrostArtRefresh() this replaced)
-    // still read as jerky and discrete: 3 independent squares popping in
-    // and out every 200ms rather than a real reflection. This version
-    // builds ONE tall strip covering the gallery's *entire* first column
-    // once, whenever the layout actually changes (buildSidebarFrostStrip(),
-    // same hook renderColorFilterDots() piggybacks on elsewhere), and from
-    // then on only ever moves it via `transform: translateY()` in lockstep
-    // with .main-content's real scrollTop (syncSidebarFrostStripPosition(),
-    // rAF-throttled but otherwise running on every scroll event - no
-    // content re-fetch/re-pick while scrolling, so it's exactly as smooth
-    // as the browser's own scroll).
-    const FROST_STRIP_MAX_IMAGES = 24;
+    // Purely decorative: a colored light-glow behind the sidebar's frosted
+    // glass background, so it has real color to diffuse instead of just
+    // tinted transparency over nothing. 2026-07-31: reworked a third time
+    // the same day - the previous two versions (3 images re-picked on a
+    // 200ms scroll debounce, then a full-column strip of real <img>
+    // thumbnails - see the removed getImagesNextToSidebar()/
+    // scheduleFrostArtRefresh() and the img-based version of
+    // buildSidebarFrostStrip() this replaced) both used actual thumbnail
+    // images, which meant a real network fetch per thumbnail - exactly what
+    // caused the reported "images taking time to load"/pop-in jumping. This
+    // version doesn't load anything: each first-column image's own
+    // already-known dominant-color keyword tag maps straight to a CSS
+    // color (getContainerGlowColor(), reusing COLOR_FILTER_SWATCHES' hex
+    // values so the glow always matches what the color filter dots
+    // themselves consider that color to be) and renders as a blurred
+    // radial-gradient blob - nothing to fetch, so nothing to wait on or
+    // jump when it finishes. A single tall strip of these blobs is still
+    // built once per layout change (buildSidebarFrostStrip(), same hook
+    // renderColorFilterDots() piggybacks on elsewhere) and only ever moved
+    // via `transform: translateY()` in realtime lockstep with
+    // .main-content's scrollTop (syncSidebarFrostStripPosition(),
+    // rAF-throttled but otherwise running on every scroll event) - same
+    // smooth-scroll-sync mechanism as before, just paired with content that
+    // has zero load latency of its own this time.
+
+    // Neutral fallback for any image with no recognized color tag at all
+    // (pre-dates the dominant-color auto-tagger, or was never re-tagged) -
+    // a dim neutral glow so those spots in the column don't just go dark,
+    // without claiming a color that isn't actually there.
+    const FROST_GLOW_FALLBACK_HEX = "#6a6a72";
+
+    let colorHexByName = null;
+    function getContainerGlowColor(container) {
+      if (!colorHexByName) {
+        colorHexByName = new Map(COLOR_FILTER_SWATCHES.map(s => [s.color, s.hex]));
+      }
+      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase().split(",").map(k => k.trim());
+      for (const k of keywords) {
+        if (colorHexByName.has(k)) return colorHexByName.get(k);
+      }
+      return FROST_GLOW_FALLBACK_HEX;
+    }
 
     function getFirstColumnContainers() {
       const galleryEl = document.getElementById("gallery");
@@ -2619,9 +2559,9 @@
         if (getComputedStyle(container).display === "none") return;
         const rect = container.getBoundingClientRect();
         // "First column" = hugging the gallery's own left edge (a few px
-        // of slack for gap/rounding) - unlike the old per-scroll version,
-        // this isn't limited to the currently-visible viewport, since the
-        // point now is to pre-build the *entire* column once.
+        // of slack for gap/rounding) - this isn't limited to the
+        // currently-visible viewport, since the point is to pre-build the
+        // *entire* column's worth of glow once.
         if (rect.left - galleryRect.left > 4) return;
         candidates.push(container);
       });
@@ -2635,26 +2575,11 @@
       const viewport = document.querySelector(".main-content");
       if (!art || !galleryEl || !viewport) return;
 
-      let all = getFirstColumnContainers();
-      // Before the gallery has laid out yet, fall back to whatever's
-      // loaded rather than leaving the sidebar with no art at all.
-      if (all.length === 0) {
-        all = [...document.querySelectorAll(".image-container[data-url]")].slice(0, FROST_STRIP_MAX_IMAGES);
-      }
-      // Cap + spread picks evenly across the column instead of including
-      // every single one - a long gallery's first column can run to dozens
-      // of images, and the strip only needs to look continuously "full",
-      // not literally contain every thumbnail.
-      let picks = all;
-      if (all.length > FROST_STRIP_MAX_IMAGES) {
-        picks = [];
-        for (let i = 0; i < FROST_STRIP_MAX_IMAGES; i++) {
-          picks.push(all[Math.round((i * (all.length - 1)) / (FROST_STRIP_MAX_IMAGES - 1))]);
-        }
-      }
+      const picks = getFirstColumnContainers();
 
-      // Skip the DOM/network churn of rebuilding when the actual set of
-      // first-column images hasn't changed since the last build.
+      // Skip the DOM churn of rebuilding when the actual set of
+      // first-column images hasn't changed since the last build. (No
+      // network cost either way any more, but still pointless work.)
       const key = picks.map(c => c.dataset.docId || c.dataset.url).join("|");
       if (key !== lastFrostArtKey) {
         lastFrostArtKey = key;
@@ -2666,18 +2591,20 @@
         }
         const galleryRect = galleryEl.getBoundingClientRect();
         const scrollTop = viewport.scrollTop;
-        // Position each thumbnail at its own real offset within the
-        // gallery's full scrollable content (not just the
-        // currently-visible viewport), so the strip is a true 1:1 map of
-        // the column - rect.top is relative to the current scroll
-        // position, so adding scrollTop back gives a position that stays
-        // correct regardless of where the page happens to be scrolled to
-        // right now.
+        // Center each glow blob on its image's own real vertical center
+        // within the gallery's full scrollable content (not just the
+        // currently-visible viewport) - rect.top is relative to the
+        // current scroll position, so adding scrollTop back gives a
+        // position that stays correct regardless of where the page
+        // happens to be scrolled to right now. Neighboring blobs overlap
+        // (see .sidebar-frost-glow's fixed size vs typical row spacing)
+        // and blend together under the strip's own blur into one
+        // continuous wash rather than reading as separate spots.
         strip.innerHTML = picks.map(container => {
           const rect = container.getBoundingClientRect();
-          const top = Math.round(rect.top - galleryRect.top + scrollTop);
-          const height = Math.round(rect.height);
-          return `<img src="${cloudinaryDisplayUrl(container.dataset.url, { width: 120 })}" alt="" aria-hidden="true" style="top:${top}px;height:${height}px;">`;
+          const centerY = Math.round(rect.top - galleryRect.top + scrollTop + rect.height / 2);
+          const color = getContainerGlowColor(container);
+          return `<div class="sidebar-frost-glow" aria-hidden="true" style="top:${centerY}px;background:radial-gradient(circle, ${color} 0%, transparent 70%);"></div>`;
         }).join("");
         strip.style.height = `${Math.round(galleryEl.getBoundingClientRect().height + scrollTop)}px`;
       }
@@ -3046,7 +2973,7 @@
     const category = (imgContainer.getAttribute("data-category") || "").toLowerCase();
 
     const matchesSearch = imgName.includes(searchTerm) || keywords.includes(searchTerm) || category.includes(searchTerm);
-    imgContainer.classList.toggle("hidden", !(matchesSearch && imageMatchesColorFilter(imgContainer) && imageMatchesMaterialFilter(imgContainer)));
+    imgContainer.classList.toggle("hidden", !(matchesSearch && imageMatchesColorFilter(imgContainer)));
   });
   scheduleLayout();
 }
@@ -3054,15 +2981,13 @@
     mainImageSearch.addEventListener("input", performSearch);
 
     // Brand text acts as a "home" link - back to the All category with
-    // every active filter (search text, color, material) cleared, same as
-    // a fresh page load's default view.
+    // every active filter (search text, color) cleared, same as a fresh
+    // page load's default view.
     function goToHomeAll() {
       mainImageSearch.value = "";
       currentColorFilter = null;
-      currentMaterialFilter = null;
       hideAllSubfolders();
       renderColorFilterDots();
-      renderMaterialFilterChips();
       currentFolderFilter = "all";
       const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
       if (allFolder) highlightSelected(allFolder);
@@ -4197,7 +4122,7 @@ downloadLink.addEventListener("click", function(e) {
       shouldShow = category === filterValue;
     }
 
-    container.classList.toggle("hidden", !(shouldShow && imageMatchesColorFilter(container) && imageMatchesMaterialFilter(container)));
+    container.classList.toggle("hidden", !(shouldShow && imageMatchesColorFilter(container)));
   });
   scheduleLayout();
 }
@@ -4328,7 +4253,6 @@ downloadLink.addEventListener("click", function(e) {
         await Promise.all(deletePromises);
         updateFolderCounts();
         renderColorFilterDots();
-        renderMaterialFilterChips();
         performSearch();
         toggleDeleteMode();
         scheduleLayout();
@@ -4650,7 +4574,6 @@ downloadLink.addEventListener("click", function(e) {
         });
         await Promise.all(savePromises);
         renderColorFilterDots();
-        renderMaterialFilterChips();
         performSearch();
         editTagsModal.classList.remove("active");
         toggleTagEditMode();
@@ -4890,45 +4813,62 @@ downloadLink.addEventListener("click", function(e) {
   enlargeImg.src = displayUrl;
   enlargeImg.alt = filename;
 
-  // Set download button attributes and show it
+  // Set download button attributes and show it - the click handler itself
+  // is bound exactly once, below, and reads these attributes fresh at
+  // click time rather than closing over this call's url/filename (see that
+  // handler's own comment for why).
   downloadBtn.href = url;
   downloadBtn.download = filename;
   downloadBtn.style.display = "block";
-  
-  // Add force download functionality
-  downloadBtn.addEventListener("click", function(e) {
-    e.preventDefault(); // Prevent default navigation
-    e.stopPropagation(); // Prevent modal from closing
-    
-    // Use fetch to get the image as a blob
-    fetch(url)
-      .then(response => response.blob())
-      .then(blob => {
-        // Create an object URL from the blob
-        const blobUrl = URL.createObjectURL(blob);
-        
-        // Create a temporary link and trigger download
-        const tempLink = document.createElement('a');
-        tempLink.href = blobUrl;
-        tempLink.download = filename;
-        tempLink.style.display = 'none';
-        document.body.appendChild(tempLink);
-        tempLink.click();
-        
-        // Clean up
-        setTimeout(() => {
-          document.body.removeChild(tempLink);
-          URL.revokeObjectURL(blobUrl);
-        }, 100);
-      })
-      .catch(error => {
-        console.error('Download failed:', error);
-        // Fallback to opening in new tab if fetch fails
-        window.open(url, '_blank');
-      });
-  });
 }
-    
+
+// Bound once at script load (not from inside enlargeImage(), which runs on
+// every open *and* every prev/next navigation) - the previous version
+// called downloadBtn.addEventListener(...) from inside enlargeImage()
+// itself, which added one more listener each time without ever removing
+// the old ones. Clicking Download after browsing a few images then fired
+// every accumulated listener at once - each closed over whatever url/
+// filename was current *when that listener was added*, so one click
+// downloaded a whole batch of old images, most of them not the one
+// on screen. Reading downloadBtn.href/.download here instead of closing
+// over enlargeImage()'s parameters means this single listener always acts
+// on whichever image is actually showing, however many times
+// enlargeImage() has run since the page loaded.
+document.getElementById("enlargedDownloadBtn")?.addEventListener("click", function(e) {
+  e.preventDefault(); // Prevent default navigation
+  e.stopPropagation(); // Prevent modal from closing
+
+  const url = this.href;
+  const filename = this.download;
+
+  // Use fetch to get the image as a blob
+  fetch(url)
+    .then(response => response.blob())
+    .then(blob => {
+      // Create an object URL from the blob
+      const blobUrl = URL.createObjectURL(blob);
+
+      // Create a temporary link and trigger download
+      const tempLink = document.createElement('a');
+      tempLink.href = blobUrl;
+      tempLink.download = filename;
+      tempLink.style.display = 'none';
+      document.body.appendChild(tempLink);
+      tempLink.click();
+
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(tempLink);
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+    })
+    .catch(error => {
+      console.error('Download failed:', error);
+      // Fallback to opening in new tab if fetch fails
+      window.open(url, '_blank');
+    });
+});
+
 function closeEnlargeModal() {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
@@ -5293,7 +5233,6 @@ function closeEnlargeModal() {
       retagColorsBtn.disabled = false;
       retagColorsBtn.textContent = originalLabel;
       renderColorFilterDots();
-      renderMaterialFilterChips();
       performSearch();
       alert(`Re-tagged colors for ${containers.length} image(s): ${changed} changed${failed ? `, ${failed} failed` : ""}.`);
     }
@@ -5390,7 +5329,6 @@ function closeEnlargeModal() {
               addImageToGallery(url, folder, keywords, "submission-image", Date.now(), docId);
               updateFolderCounts();
               renderColorFilterDots();
-              renderMaterialFilterChips();
               addBtn.textContent = "Added";
               folderSelectEl.disabled = true;
             } catch (error) {
@@ -5781,7 +5719,6 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now(), docId);
     updateFolderCounts();
     renderColorFilterDots();
-    renderMaterialFilterChips();
     console.log(`Image added to gallery`);
     
     // Update UI to show success
@@ -5889,19 +5826,6 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       performSearch();
     });
 
-    // Same delegated-on-the-stable-container pattern as the color dots
-    // above, for the same reason (renderMaterialFilterChips() rebuilds
-    // this container's innerHTML whenever which materials are in use
-    // changes).
-    document.querySelector(".material-chip-container")?.addEventListener("click", (e) => {
-      const chip = e.target.closest(".material-chip");
-      if (!chip) return;
-      const material = chip.getAttribute("data-material");
-      currentMaterialFilter = (currentMaterialFilter === material) ? null : material;
-      renderMaterialFilterChips();
-      performSearch();
-    });
-
    document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("DOM loaded, initializing application...");
@@ -5943,7 +5867,6 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     scheduleLayout();
     updateFolderCounts();
     renderColorFilterDots();
-    renderMaterialFilterChips();
     buildSidebarFrostStrip();
 
 
