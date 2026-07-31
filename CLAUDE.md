@@ -552,10 +552,13 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     order, freshly reshuffled on every page load (not shuffle-once-and-persist - there's no stored
     "current sort" state, each call just reorders live). Picking Alphabetical/Recent Add from the
     menu afterward overrides this for the rest of the session, same as it always did for those two.
-  - **Material-type facet filter (2026-07-31, `MATERIAL_FILTER_OPTIONS`)** — a second floating chip
-    panel next to the color-dot panel (`.floating-material-panel`/`.material-chip-container`,
-    inserted into the existing `.floating-controls-row`), filtering the gallery to images tagged with
-    a clicked material word (metal/wood/stone/concrete/brick/fabric/glass/ceramic/organic/ground).
+  - **Material-type facet filter (2026-07-31, `MATERIAL_FILTER_OPTIONS`) — removed outright later the
+    same day, see the "Second round of visual-QA fixes" entry further down this file.** Kept here for
+    history/context only - none of the classes, functions, or markup this paragraph describes still
+    exist in `index.html`. A second floating chip panel next to the color-dot panel
+    (`.floating-material-panel`/`.material-chip-container`, inserted into the existing
+    `.floating-controls-row`), filtering the gallery to images tagged with a clicked material word
+    (metal/wood/stone/concrete/brick/fabric/glass/ceramic/organic/ground).
     Deliberately wired as an exact copy of the color filter's own pattern -
     `getUsedMaterialFilters()`/`renderMaterialFilterChips()`/`imageMatchesMaterialFilter()`, ANDed
     into both `filterImages()` and `performSearch()` alongside the existing color check, chip only
@@ -879,6 +882,69 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     frost strip's `transform` updates from `translateY(0px)` to `translateY(-400px)` after a
     `scroll` event fires with `scrollTop = 400` - screenshots taken, zero console errors from app
     code (only expected CDN-blocked-in-sandbox network errors).
+  - **Second round of visual-QA fixes (2026-07-31, same day)** — five more items from a fresh
+    screenshot pass. (1) **Lightbox download button was firing multiple downloads of the wrong
+    images** - `enlargeImage()` called `downloadBtn.addEventListener("click", ...)` on *every* call
+    (every open, and every prev/next arrow press), each with a closure over that call's own
+    `url`/`filename`, and never removed the previous listener - browsing a few images then clicking
+    Download fired every accumulated listener at once, downloading a batch of old images instead of
+    just the current one. Fixed by binding the click handler exactly once at script load (outside
+    `enlargeImage()`), reading `this.href`/`this.download` at click time instead of closing over
+    parameters - `enlargeImage()` now only sets `downloadBtn.href`/`.download`, nothing else. (2)
+    **`.enlarge-similar-panel` doubled 460px → 920px** (explicit "twice bigger" request), which
+    exposed a real latent bug in the process: a fixed-square panel with 3 equal-width columns of
+    `aspect-ratio: 1` thumbnails is *structurally* guaranteed to need very slightly more height than
+    the panel actually has left over once the "Similar" title's own height is subtracted (padding is
+    symmetric, but the title only eats into the *height* budget, never the width budget) - once
+    there are enough matches to need all 3 rows, that overflow silently triggers `align-content:
+    center`'s spec-mandated "safe" fallback to top-pinned alignment, which is exactly what made the
+    gap above the first row and below the last row unequal. Fixed by giving `.enlarge-similar-grid`
+    `grid-auto-rows: calc((100% - 20px) / 3)` (rows sized as a fixed 1/3 share of the grid's own
+    available height, the same way columns are already sized as 1/3 of available width) instead of
+    letting row height be an emergent side-effect of `aspect-ratio: 1` thumbnails - guarantees 3 rows
+    exactly fill the available height with zero overflow, by construction, so `align-content: center`
+    always has real (never negative) leftover space to split evenly for <9 matches. Thumbnails lost
+    their own `aspect-ratio: 1` (now just fill whatever the grid's row-height math gives them,
+    `object-fit: cover` absorbing the now-slightly-non-square cells) - a barely perceptible trade-off
+    against a real, structural fix rather than nudging pixel values that would just as reliably drift
+    out of sync again the next time the panel is resized. Verified via direct `getBoundingClientRect()`
+    measurements against the grid's own box (not the outer panel, which still legitimately has the
+    title's height as an *asymmetric* neighbor - that's expected and not what "margins" meant here):
+    0px/0px for an exact 3-row fit, 290px/290px for a 1-row case - both symmetric. (3) Search icon
+    changed from `--text-faint` (matched to the placeholder text, previous round) to `--highlight`
+    (white) - explicit request. (4) **Sidebar frost art reworked a third time** - the second round's
+    version (a strip of real `<img>` thumbnails covering the whole first column, scroll-synced via
+    `transform`) still required a real network fetch per thumbnail, which is exactly what caused the
+    reported "images taking time to load"/pop-in jumping. Replaced with `getContainerGlowColor()`
+    mapping each image's already-known dominant-color keyword tag straight to a CSS color (reusing
+    `COLOR_FILTER_SWATCHES`' hex values, so the glow always agrees with what the color filter dots
+    call that color) and rendering it as a blurred `radial-gradient` circle (`.sidebar-frost-glow`)
+    instead of an `<img>` - nothing is ever fetched, so nothing ever "loads" or jumps. Same realtime
+    `transform: translateY()` scroll-sync mechanism as before (untouched) - `buildSidebarFrostStrip()`
+    now builds colored divs instead of img tags, and since there's no network cost any more the
+    per-build cap on how many first-column images get included was dropped entirely (every real
+    first-column image gets its own glow blob now, not just a sampled 24). Images with no recognized
+    color tag at all (pre-date the auto-tagger) fall back to a dim neutral gray rather than leaving a
+    gap in the wash. (5) **Material-type facet filter removed outright** - explicit request,
+    reversing the 2026-07-31 feature documented earlier in this file. Removed everything: the
+    `.floating-material-panel`/`.material-chip*` CSS, the `#materialFilterPanel` markup,
+    `MATERIAL_FILTER_OPTIONS`/`currentMaterialFilter`/`imageMatchesMaterialFilter()`/
+    `getUsedMaterialFilters()`/`renderMaterialFilterChips()` and every call site (both `filterImages()`
+    and `performSearch()`'s `imageMatchesMaterialFilter()` ANDs, every `renderMaterialFilterChips()`
+    call alongside `renderColorFilterDots()`, and the delegated click handler). The color filter
+    (`imageMatchesColorFilter()`, dots, `renderColorFilterDots()`) is untouched and still the only
+    facet filter left besides folder/search. If a material-style facet is ever wanted again, don't
+    resurrect this via source history without a fresh explicit ask - same rule this file already
+    applies to the removed AI tagging. **All five verified via the same Playwright + hand-rolled
+    Firestore/Auth stub pattern** (this time also stubbing `document.createElement`/`fetch` to catch
+    exactly how many downloads/network calls a Download click actually triggers) - confirmed a single
+    click after navigating through several images triggers exactly one `<a download>` click and one
+    `fetch()` call (both against the currently-open image, not a stale one), the similar panel renders
+    920×920 with the grid-margin symmetry described above, the search icon's computed color is
+    `rgb(255,255,255)`, the frost strip contains zero `<img>` elements and N `.sidebar-frost-glow` divs
+    with correctly-mapped `radial-gradient` colors that still `transform`-sync on scroll, and
+    `.floating-material-panel`/`.material-chip-container` are absent from the DOM with
+    `renderMaterialFilterChips` undefined on `window`.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
