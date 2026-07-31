@@ -813,6 +813,90 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     URIs as fake image docs) is a reusable pattern for testing lightbox/gallery JS logic that doesn't
     depend on live Cloudinary/Firebase - worth reaching for again instead of rebuilding it from
     scratch or falling back to Node-only/no verification.
+  - **Five UI polish fixes from owner feedback on a live screenshot (2026-07-31)**:
+    - **"Similar" panel is square again + bigger + actually justified.** The panel's `width`/`height`
+      (`.enlarge-similar-panel`) are now both `min(42vw, 75vh, 680px)` - the *same* formula on both
+      axes, so it's a square by construction, computed purely from the viewport and independent of
+      whatever image happens to be open. This replaces the previous design where width was a fixed
+      400px but height was JS-set (in `enlargeImage()`) to match the enlarged image's own rendered
+      height - fine for a landscape image, but a tall portrait image stretched the panel into a tall
+      rectangle, which is what "square again" was reported against. Making the size depend only on
+      the viewport (not the image) also removes a circular-dependency risk: `enlargeImage()`'s own
+      image-sizing math reserves `similarPanelEl.offsetWidth` *before* the image loads, so if the
+      panel's width instead depended on the image's height, that reservation would be reading a
+      stale (previous-image) value on every open. The 3x3 CSS-grid of forced `aspect-ratio: 1`
+      crops is gone too - `.enlarge-similar-grid` is now a plain `flex-wrap` row sized by a new
+      shared `packJustifiedRows(elements, containerWidth, targetRowHeight, gap)`, factored out of
+      `layoutGallery()`'s own row-packing algorithm (which now just calls it) rather than keeping a
+      second copy of the same math to drift out of sync - both `layoutGallery()` and
+      `renderSimilarImages()` read each element's real aspect off `data-aspect` (the similar thumbs
+      copy it straight from the source `.image-container`, no extra decode needed) and pack rows
+      that stretch to fill the panel's width like the main gallery, no crop. Target row height for
+      the panel is `gridWidth / 3`, aiming for roughly the old grid's density at the new, bigger
+      size. The old post-load "sync panel height to image height" step in `enlargeImage()` is
+      deleted outright, not just disabled - it has nothing left to do once sizing is CSS-only.
+    - **Search icon color now matches the placeholder text it sits next to** - `.search-bar-icon`
+      was `var(--text-muted)` while `#mainImageSearch::placeholder` is `var(--text-faint)`, a
+      deliberate mismatch from when the icon was added (`--text-muted` was chosen there specifically
+      *for* legibility at the icon's small ~18px size - see that entry above). Changed to
+      `--text-faint` on explicit request; kept the icon's thicker 2.5 stroke-width as a partial
+      offset for the legibility concern that earlier choice existed for.
+    - **Search bar now left-aligns with the gallery grid below it.** `.top-search-bar`'s horizontal
+      padding was a flat `24px` while `.main-content`'s (the gallery's own wrapper) is `0.8rem`
+      (`html`'s `font-size: 110%` makes that ≈14px, not 24px) - close enough to look "roughly there"
+      but visibly off once you compare edges directly, which is what the report was against. Added
+      an explicit `padding-left: 0.8rem` override on `.top-search-bar` to match, and did the same at
+      the two breakpoints that touch either side's padding (`640px`: both now `0.6rem`; `420px`:
+      `.main-content` doesn't re-override its own padding-left there, so `.top-search-bar` doesn't
+      either, staying at the `640px` tier's `0.6rem`) rather than just fixing the base case and
+      leaving it to drift again on narrow viewports.
+    - **Folder names now line up in one column regardless of the count's digit width.**
+      `.folder-count` (the number) comes *before* `.folder-name` in the DOM inside `.folder-label`
+      (an `inline-flex` row), with no reserved width - so "9" vs "144" vs "829" pushed the name that
+      followed to a different x on every row, and the "All" row's count additionally renders at a
+      different absolute size than every other row's (`.folder-list > li.all` is `1.1rem` font vs
+      `0.85rem` elsewhere, and `.folder-count`'s `font-size: 0.78em` is relative to *that*, so it
+      isn't just digit-count that varies row to row). Fixed with `min-width: 1.8rem` on
+      `.folder-count` - deliberately `rem` (root-relative) rather than `em`, so the reserved width is
+      the same absolute pixels regardless of the local row's own font-size, sized to fit the widest
+      count this gallery has today (3 digits, at the "All" row's larger font). The numbers themselves
+      don't move at all (they're still flush-left in their box, unchanged) - only the box's minimum
+      width changed, which is what pushes the name after it to a consistent start position. Per the
+      report, this intentionally leaves the numbers' own rendering untouched.
+    - **Sidebar "frost art" reflection rebuilt as one continuous, real-time-scroll-synced strip**,
+      replacing the 2026-07-31-earlier-today design of 3 independently-positioned blurred tiles
+      re-picked on a 200ms scroll debounce - reported as looking like separate squares that only
+      updated after scrolling had already stopped, which is exactly what that design did. New
+      structure: `#sidebarFrostArt` (clips + a top/bottom `mask-image` fade) contains
+      `#frostArtScroll` (an absolutely-positioned wrapper that gets a `translateY` written to it on
+      every scroll tick) containing `#frostArtStrip` (a `flex-direction: column` stack of the
+      gallery's first-column images, in order, at their real rendered heights, with a static
+      `transform: scaleX(-1)` mirror flip + `blur(22px) saturate(1.3)` - the literal "mirror"
+      look). The key change is decoupling *position* from *content*: `syncFrostArtScrollPosition()`
+      diffs live `getBoundingClientRect()` geometry between `#gallery` and `#sidebarFrostArt` (so it
+      doesn't have to duplicate `.main-content`'s own responsive `padding-top` across breakpoints)
+      and writes a single `translateY` - a composited, layout-free transform - every scroll tick,
+      batched through `requestAnimationFrame` (`requestFrostArtSync()`) rather than a debounce, so
+      it now tracks the real gallery in the same frame instead of visibly lagging. *Which* images
+      are in the strip (`getFirstColumnImages()`, windowed to a generous 1.5x-sidebar-height buffer
+      above/below rather than every first-column row in the whole gallery) still only needs to
+      change occasionally, so that part keeps a 200ms debounce
+      (`scheduleFrostArtContentRefresh()`, renamed from `scheduleFrostArtRefresh()`) - a content
+      swap deep in the buffer zone (further hidden by the mask fade) is far less noticeable than any
+      lag in the strip's actual position would be, so this asymmetry is deliberate, not a leftover
+      half-fix. `getImagesNextToSidebar()` (the old picker, which only ever looked at the
+      *currently-visible* window and returned up to 3 spread-out picks) is gone, replaced outright
+      by `getFirstColumnImages()`.
+    - **Verified with the same Playwright + stubbed-Firestore harness pattern** established above
+      (this time: SVG data-URIs as fake images - no canvas/PNG generation needed, `naturalWidth`/
+      `naturalHeight` come straight from the SVG's own `width`/`height` attributes - across 6 folders
+      sized to realistic 1/2/3-digit counts). 13 assertions covering all five fixes above (square +
+      justified similar panel with per-thumb aspect checked against `data-aspect`, icon/placeholder
+      color equality, search-bar/gallery edge alignment, folder-name x-position equality across
+      different digit counts and the "All" row's different font-size, frost-art strip image count +
+      mirror transform + position update within 2 animation frames of a scroll), all passing,
+      screenshots included. Same sandbox caveat as everything else here: no live Cloudinary/Firebase,
+      so this is a synthetic-data harness, not a check against the real gallery's actual ~800+ images.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to

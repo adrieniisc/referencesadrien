@@ -270,24 +270,52 @@
   .sidebar { background-color: var(--bg-elevated); }
 }
 
+/* Rebuilt 2026-07-31 from 3 independently-floating blurred tiles (picked on
+   a 200ms scroll debounce, so they visibly popped between positions) into
+   one continuous mirrored strip that tracks scroll in real time - see
+   syncFrostArtScrollPosition()/renderSidebarFrostArt(). The three-way split
+   (.sidebar-frost-art clip+mask / .frost-art-scroll transform / .frost-art-
+   strip mirror+blur) keeps the every-scroll-tick write down to a single
+   transform on .frost-art-scroll, untangled from the strip's own static
+   mirror/blur styling and the outer element's clipping/fade. */
 .sidebar-frost-art {
   position: absolute;
   inset: 0;
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  /* Soft fade at the top/bottom edges instead of an abrupt clip - reads as
+     light fading at a reflection's edge, and conveniently also hides the
+     content-rebuild boundary (see renderSidebarFrostArt()'s windowing)
+     since that boundary normally sits deep in the faded-out region. */
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
 }
-.sidebar-frost-art img {
+.frost-art-scroll {
   position: absolute;
-  width: 65%;
-  height: 55%;
-  object-fit: cover;
-  filter: blur(50px) saturate(1.3);
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+}
+.frost-art-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gallery-gap);
+  /* Horizontal flip is what makes this read as a "mirror" rather than just
+     a blurred copy; the blur+opacity is the same frosted-glass treatment
+     the old tiles used, tuned down from 50px since that amount flattened a
+     full-width continuous strip into a near-solid color wash rather than a
+     recognizable (if soft) reflection. */
+  transform: scaleX(-1);
+  filter: blur(22px) saturate(1.3);
   opacity: 0.4;
 }
-.sidebar-frost-art img:nth-child(1) { top: -12%; left: -18%; }
-.sidebar-frost-art img:nth-child(2) { top: 38%; right: -22%; }
-.sidebar-frost-art img:nth-child(3) { bottom: -15%; left: 8%; }
+.frost-art-strip img {
+  width: 100%;
+  object-fit: cover;
+  display: block;
+}
 
 /* Actual sidebar content now lives in here instead of directly in
    .sidebar - keeps the flex-column/scroll/padding behavior .sidebar used
@@ -377,6 +405,17 @@
       font-size: 0.78em;
       font-variant-numeric: tabular-nums;
       flex-shrink: 0;
+      /* Fixed in rem (root-relative), not em, so this reserved width is the
+         same absolute pixels regardless of the local li's own font-size -
+         .folder-list > li.all is 1.1rem while every other row is 0.85rem,
+         so an em-based width would itself vary row to row. Numbers stay
+         exactly where they already render (left-aligned, unchanged) since
+         this only pads the box after the digits; it's .folder-name (the
+         next flex sibling) that now starts at a consistent x regardless of
+         how many digits the count before it has. Sized for the widest
+         count this gallery currently has (3 digits, e.g. "829") at the
+         "All"/"New This Week" rows' larger font. */
+      min-width: 1.8rem;
     }
     .folder-list li.selected .folder-count {
       color: var(--highlight);
@@ -1359,15 +1398,21 @@
 
 /* --------------------------------------------------
    Lightbox "Similar images" panel (2026-07-31, enlarged + moved into the
-   flex row 2026-07-31) - was a small 190px position:fixed overlay; now a
-   real (much bigger) flex column sibling of the image, vertically
-   self-centered against the image's full height via align-self.
+   flex row; made square again + enlarged further + justified same day) -
+   was a small 190px position:fixed overlay, then a 400px-wide column whose
+   height was synced to the enlarged image's own rendered height - which,
+   for a portrait image, stretched it into a tall rectangle rather than a
+   square. Width/height now use the *same* viewport-relative formula
+   (independent of whatever image happens to be open), which both
+   guarantees a square and removes that dependency entirely - the old
+   post-load "match the image's height" JS step in enlargeImage() is gone,
+   so this is sized purely by CSS before the image ever loads.
 -------------------------------------------------- */
 .enlarge-similar-panel {
   align-self: center;
-  width: 400px;
+  width: min(42vw, 75vh, 680px);
+  height: min(42vw, 75vh, 680px);
   flex-shrink: 0;
-  max-height: 82vh;
   overflow-y: auto;
   background-color: rgba(20,20,24,0.7);
   border: 1px solid rgba(255,255,255,0.12);
@@ -1387,14 +1432,20 @@
   color: var(--text-faint);
   margin-bottom: 12px;
   text-align: center;
+  flex-shrink: 0;
 }
+/* Justified, not a rigid grid (2026-07-31) - a plain flex-wrap row that
+   packJustifiedRows() (shared with the main gallery's own layoutGallery())
+   sizes explicitly, same "every image keeps its real aspect ratio, rows
+   stretch to fill the width, no crop" treatment as the gallery itself,
+   instead of forcing every thumb into a cropped 1:1 square. */
 .enlarge-similar-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  width: 100%;
 }
 .enlarge-similar-thumb {
-  aspect-ratio: 1;
   border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
@@ -1408,16 +1459,17 @@
   object-fit: cover;
   display: block;
 }
-/* Not enough width for a sensibly-sized image plus a 400px side panel
-   without the two cramping each other badly - hidden below this rather
-   than squeezed, so enlargeImage()'s width math never has to reserve
-   space for a panel that isn't actually showing. Needs !important:
-   renderSimilarImages() sets this element's display via inline style
-   (matching how the rest of this modal's JS already works), which
-   otherwise wins over a plain media query rule regardless of specificity.
-   Threshold raised 1300px -> 1400px (2026-07-31) alongside the panel's
-   340px -> 400px widen + the row's 32px -> 48px gap, so the image still
-   keeps the same worst-case minimum width right at the breakpoint edge. */
+/* Not enough width for a sensibly-sized image plus the side panel without
+   the two cramping each other badly - hidden below this rather than
+   squeezed, so enlargeImage()'s width math never has to reserve space for
+   a panel that isn't actually showing. Needs !important: renderSimilarImages()
+   sets this element's display via inline style (matching how the rest of
+   this modal's JS already works), which otherwise wins over a plain media
+   query rule regardless of specificity. Still 1400px (2026-07-31, panel
+   resized to a viewport-relative square the same day) - at this width the
+   panel's own min(42vw, 75vh, 680px) formula comes out well under half the
+   viewport, leaving the image a comparable minimum width to what the old
+   fixed 400px panel left it at this same threshold. */
 @media (max-width: 1400px) {
   .enlarge-similar-panel { display: none !important; }
 }
@@ -1456,6 +1508,10 @@
   left: var(--sidebar-width);
   right: 0;
   padding: 14px 24px;
+  /* Left inset matched to .main-content's own left padding (0.8rem, 2026-07-31)
+     so the search input/icon start at the same x as the gallery thumbnails
+     below them instead of sitting ~10px further right. */
+  padding-left: 0.8rem;
   padding-right: 270px;
   z-index: 1000;
   display: flex;
@@ -1488,11 +1544,13 @@
   transform: translateY(-50%);
   width: 18px;
   height: 18px;
-  /* text-muted (not the even-dimmer text-faint) plus a thicker stroke
-     (2.5, not the SVG's more common 2, in the 24-unit viewBox) - at this
-     icon's actual ~18px on-screen size a thinner/dimmer glyph anti-aliased
-     down to near-illegibility in testing. */
-  color: var(--text-muted);
+  /* Matches #mainImageSearch::placeholder's own color (--text-faint) by
+     explicit request, so the icon and the "Search images..." text read as
+     one consistent muted color - supersedes the original --text-muted
+     choice (kept the thicker 2.5 stroke below as a partial offset for the
+     legibility concern that choice was for, at this icon's small ~18px
+     on-screen size). */
+  color: var(--text-faint);
   pointer-events: none;
 }
 .search-bar-icon circle, .search-bar-icon path {
@@ -1812,7 +1870,9 @@
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
   .sidebar-brand { font-size: 1.1rem; }
-  .top-search-bar { padding: 8px 12px; gap: 0.6rem; }
+  /* padding-left kept matched to .main-content's own 0.6rem at this tier
+     (set just below), same left-alignment reasoning as the base rule above. */
+  .top-search-bar { padding: 8px 12px; padding-left: 0.6rem; gap: 0.6rem; }
   .about-btn { top: 64px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .submit-reference-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
@@ -1835,7 +1895,9 @@
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
   .sidebar-brand { font-size: 1rem; }
-  .top-search-bar { padding: 8px 10px; }
+  /* padding-left stays at the 640px tier's 0.6rem (.main-content doesn't
+     re-override its own padding-left at this breakpoint either). */
+  .top-search-bar { padding: 8px 10px; padding-left: 0.6rem; }
   .about-btn { top: 58px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
   .submit-reference-btn { top: 58px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
   .main-content { padding-top: 104px; }
@@ -2103,11 +2165,16 @@
   <div class="main-container">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <!-- Purely decorative soft-blurred wash of a few loaded gallery
-           thumbnails, sitting behind everything else in the sidebar - gives
-           the frosted glass panel real color to diffuse instead of just a
-           flat tinted background. Populated by renderSidebarFrostArt(). -->
-      <div class="sidebar-frost-art" id="sidebarFrostArt"></div>
+      <!-- Purely decorative frosted mirror reflection of the gallery's first
+           column, sitting behind everything else in the sidebar - gives the
+           frosted glass panel real color to diffuse instead of just a flat
+           tinted background. Populated by renderSidebarFrostArt(); position-
+           synced to scroll in real time by syncFrostArtScrollPosition(). -->
+      <div class="sidebar-frost-art" id="sidebarFrostArt">
+        <div class="frost-art-scroll" id="frostArtScroll">
+          <div class="frost-art-strip" id="frostArtStrip"></div>
+        </div>
+      </div>
       <div class="sidebar-scroll">
         <div class="sidebar-brand" id="sidebarBrand">aReference</div>
         <ul class="folder-list" id="folderList">
@@ -2531,73 +2598,104 @@
       if (panel) panel.style.display = visibleMaterials.length ? "" : "none";
     }
 
-    // Purely decorative: picks a few currently-loaded thumbnails to show as
-    // a soft blurred wash behind the sidebar's frosted glass background, so
-    // it has real color to diffuse instead of just tinted transparency over
-    // nothing. 2026-07-31: reworked from "3 random images from the whole
-    // gallery, picked once after initial load" to "whatever's actually
-    // hugging the gallery's left edge (i.e. physically next to the
-    // sidebar) within the current scroll position" - re-run on scroll
-    // (scheduleFrostArtRefresh, throttled) and from the end of
-    // layoutGallery() (covers every filter/search/add/delete/move that
-    // already re-runs layout, same hook renderColorFilterDots() piggybacks
-    // on elsewhere) so the wash actually tracks the sidebar's neighbors
-    // instead of a fixed sample from whenever the page loaded.
-    function getImagesNextToSidebar(maxCount) {
+    // Purely decorative: mirrors the gallery's first column (one image per
+    // row, same order and heights) into the sidebar as a continuous
+    // frosted strip, so the frosted-glass sidebar has real color to
+    // diffuse instead of just tinted transparency over nothing. 2026-07-31:
+    // reworked again from "3 independently-positioned tiles, re-picked on
+    // a 200ms scroll debounce" - which looked and moved like separate
+    // squares popping into new positions only after scrolling had already
+    // stopped - into one continuous strip whose *position* is synced to
+    // scroll every frame (syncFrostArtScrollPosition(), batched through
+    // requestAnimationFrame by the scroll listener below) so it now tracks
+    // the real gallery in real time instead of visibly lagging behind it.
+    // Only *which images* are in the strip (getFirstColumnImages(),
+    // renderSidebarFrostArt()) still needs an occasional rebuild when the
+    // visible set changes - that part can stay a little lazy, since a
+    // content swap deep in the strip's buffer zone is far less noticeable
+    // than any lag in the strip's actual position would be.
+    function getFirstColumnImages() {
       const galleryEl = document.getElementById("gallery");
-      const viewport = document.querySelector(".main-content");
-      if (!galleryEl || !viewport) return [];
+      const sidebarEl = document.querySelector(".sidebar");
+      if (!galleryEl || !sidebarEl) return [];
       const galleryRect = galleryEl.getBoundingClientRect();
-      const viewportRect = viewport.getBoundingClientRect();
-      const candidates = [];
-      [...galleryEl.children].forEach(container => {
-        if (!container.dataset.url) return;
-        if (getComputedStyle(container).display === "none") return;
+      const sidebarHeight = sidebarEl.getBoundingClientRect().height;
+      // Generous buffer (1.5x the sidebar's own height, above and below)
+      // instead of just the exactly-visible window - keeps the built strip
+      // wide enough that ordinary scrolling rarely outruns it before the
+      // next content rebuild catches up, without loading every
+      // first-column row of a gallery that might have hundreds of them.
+      const buffer = sidebarHeight * 1.5;
+      const top = -buffer;
+      const bottom = sidebarHeight + buffer;
+      return [...galleryEl.children].filter(container => {
+        if (!container.dataset.url) return false;
+        if (getComputedStyle(container).display === "none") return false;
         const rect = container.getBoundingClientRect();
-        // "Next to the sidebar" = the first column - hugging the gallery's
-        // own left edge (a few px of slack for gap/rounding).
-        if (rect.left - galleryRect.left > 4) return;
-        // Only rows currently scrolled into view, not the whole column.
-        if (rect.bottom < viewportRect.top || rect.top > viewportRect.bottom) return;
-        candidates.push({ container, top: rect.top });
+        // "First column" - hugging the gallery's own left edge (a few px
+        // of slack for gap/rounding).
+        if (rect.left - galleryRect.left > 4) return false;
+        return rect.bottom >= top && rect.top <= bottom;
       });
-      candidates.sort((a, b) => a.top - b.top);
-      if (candidates.length <= maxCount) return candidates.map(c => c.container);
-      // Spread picks across the visible span (top/middle/bottom) instead of
-      // just the first N, so they roughly track the 3 fixed art-image slots
-      // in the CSS (top-left / mid-right / bottom-left).
-      const picks = [];
-      for (let i = 0; i < maxCount; i++) {
-        picks.push(candidates[Math.round((i * (candidates.length - 1)) / (maxCount - 1))]);
-      }
-      return picks.map(c => c.container);
     }
 
     let lastFrostArtKey = "";
     function renderSidebarFrostArt() {
-      const art = document.getElementById("sidebarFrostArt");
-      if (!art) return;
-      let picks = getImagesNextToSidebar(3);
-      // Before the gallery has laid out yet (or nothing happens to be
-      // scrolled next to the sidebar), fall back to whatever's loaded
-      // rather than leaving the sidebar with no art at all.
+      const strip = document.getElementById("frostArtStrip");
+      if (!strip) return;
+      let picks = getFirstColumnImages();
+      // Before the gallery has laid out yet (or nothing happens to qualify
+      // near the sidebar), fall back to whatever's loaded rather than
+      // leaving the sidebar with no art at all.
       if (picks.length === 0) {
-        picks = [...document.querySelectorAll(".image-container[data-url]")].slice(0, 3);
+        picks = [...document.querySelectorAll(".image-container[data-url]")].slice(0, 6);
       }
-      // Skip the DOM/network churn of re-fetching the same 3 thumbnails on
-      // every scroll tick when the visible set hasn't actually changed.
-      const key = picks.map(c => c.dataset.docId || c.dataset.url).join("|");
-      if (key === lastFrostArtKey) return;
+      // Skip the DOM/network churn of rebuilding the strip when the
+      // windowed set hasn't actually changed - heights are part of the key
+      // since the same image can re-enter the window at a different row
+      // height after a resize/filter change.
+      const key = picks.map(c => `${c.dataset.docId || c.dataset.url}:${Math.round(c.getBoundingClientRect().height)}`).join("|");
+      if (key === lastFrostArtKey) { syncFrostArtScrollPosition(); return; }
       lastFrostArtKey = key;
-      art.innerHTML = picks.map(c =>
-        `<img src="${cloudinaryDisplayUrl(c.dataset.url, { width: 120 })}" alt="" aria-hidden="true">`
-      ).join("");
+      strip.innerHTML = picks.map(c => {
+        const height = Math.max(1, Math.round(c.getBoundingClientRect().height));
+        return `<img src="${cloudinaryDisplayUrl(c.dataset.url, { width: 160 })}" style="height:${height}px" alt="" aria-hidden="true">`;
+      }).join("");
+      syncFrostArtScrollPosition();
     }
 
-    let frostArtScrollTimer = null;
-    function scheduleFrostArtRefresh(delay = 200) {
-      clearTimeout(frostArtScrollTimer);
-      frostArtScrollTimer = setTimeout(renderSidebarFrostArt, delay);
+    // The one part of this that has to be instant: lines the mirrored
+    // strip's first image up with the real gallery's first row by diffing
+    // live geometry (rather than duplicating .main-content's own
+    // responsive padding-top across breakpoints) and writing that as a
+    // single translateY - a composited, layout-free transform, so this
+    // stays smooth under fast scrolling instead of visibly stepping.
+    function syncFrostArtScrollPosition() {
+      const scrollEl = document.getElementById("frostArtScroll");
+      const art = document.getElementById("sidebarFrostArt");
+      const galleryEl = document.getElementById("gallery");
+      if (!scrollEl || !art || !galleryEl) return;
+      const offset = galleryEl.getBoundingClientRect().top - art.getBoundingClientRect().top;
+      scrollEl.style.transform = `translateY(${offset}px)`;
+    }
+
+    // requestAnimationFrame-batched rather than writing the transform
+    // directly from the scroll handler, so a burst of scroll events between
+    // two paints costs one style write instead of one per event.
+    let frostArtSyncScheduled = false;
+    function requestFrostArtSync() {
+      if (frostArtSyncScheduled) return;
+      frostArtSyncScheduled = true;
+      requestAnimationFrame(() => {
+        frostArtSyncScheduled = false;
+        syncFrostArtScrollPosition();
+      });
+    }
+
+    let frostArtContentTimer = null;
+    function scheduleFrostArtContentRefresh(delay = 200) {
+      clearTimeout(frostArtContentTimer);
+      frostArtContentTimer = setTimeout(renderSidebarFrostArt, delay);
     }
 
     // "Week" here isn't a calendar week - it resets on the 1st of every
@@ -2815,12 +2913,16 @@
     });
 
     /********************************************************
-     * Justified Gallery Layout
-     * Packs the currently visible images into rows that exactly
-     * fill the gallery's width, scaling each row to a shared
-     * height while preserving every image's own aspect ratio.
-     * No image is cropped and no row is padded/letterboxed to
-     * force it into a uniform frame.
+     * Justified Layout (shared)
+     * Packs a list of elements into rows that exactly fill a given
+     * width, scaling each row to a shared height while preserving
+     * every element's own data-aspect. No image is cropped and no
+     * row is padded/letterboxed to force it into a uniform frame.
+     * Used by both the main gallery (layoutGallery(), below) and the
+     * lightbox's "Similar" panel (renderSimilarImages()) - extracted
+     * 2026-07-31 when the latter switched from a fixed 3-column crop
+     * grid to this same justified treatment, rather than keeping two
+     * copies of the same row-packing math to drift out of sync.
      ********************************************************/
     const GALLERY_GAP = 6;
     let layoutTimer = null;
@@ -2828,6 +2930,63 @@
     function scheduleLayout(delay = 60) {
       clearTimeout(layoutTimer);
       layoutTimer = setTimeout(layoutGallery, delay);
+    }
+
+    // Every full row is stretched to fill the full container width.
+    // Rounding each image's width individually can leave the row a pixel
+    // or two short of the container, so the remainder is folded into the
+    // last image's width to avoid a stray gap at the row's edge. A 1px
+    // safety margin keeps the row a hair under the container's true
+    // (sub-pixel) width so this rounding never pushes the row's total
+    // width just over the edge and wraps an image.
+    //
+    // The trailing row is the exception: if it's short of a full row (e.g.
+    // only 3 images left after a search, or a small "Similar" result set),
+    // stretching it to the container's full width would blow those few
+    // images up way past the target size. A short trailing row instead
+    // renders at the plain target height, left-aligned, same as if the
+    // missing images were just off-screen rather than absent.
+    function packJustifiedRows(elements, containerWidth, targetRowHeight, gap) {
+      let row = [];
+      let aspectSum = 0;
+
+      const flushRow = (isTrailingRow) => {
+        if (row.length === 0) return;
+        const gaps = gap * (row.length - 1);
+        const naturalWidth = aspectSum * targetRowHeight + gaps;
+        if (isTrailingRow && naturalWidth < containerWidth) {
+          row.forEach(item => {
+            item.el.style.height = `${Math.round(targetRowHeight)}px`;
+            item.el.style.width = `${Math.round(targetRowHeight * item.aspect)}px`;
+          });
+          row = [];
+          aspectSum = 0;
+          return;
+        }
+        const availableWidth = containerWidth - gaps - 1;
+        const rowHeight = availableWidth / aspectSum;
+        let widthSum = 0;
+        row.forEach(item => {
+          item.width = Math.round(rowHeight * item.aspect);
+          widthSum += item.width;
+        });
+        row[row.length - 1].width += availableWidth - widthSum;
+        row.forEach(item => {
+          item.el.style.height = `${Math.round(rowHeight)}px`;
+          item.el.style.width = `${item.width}px`;
+        });
+        row = [];
+        aspectSum = 0;
+      };
+
+      elements.forEach(el => {
+        const aspect = parseFloat(el.dataset.aspect) || 1.5;
+        row.push({ el, aspect });
+        aspectSum += aspect;
+        const projectedWidth = aspectSum * targetRowHeight + gap * (row.length - 1);
+        if (projectedWidth >= containerWidth) flushRow(false);
+      });
+      flushRow(true);
     }
 
     function layoutGallery() {
@@ -2857,69 +3016,21 @@
         getComputedStyle(document.documentElement).getPropertyValue("--row-height")
       ) || 180;
 
-      let row = [];
-      let aspectSum = 0;
-
-      // Every full row is stretched to fill the full container width.
-      // Rounding each image's width individually can leave the row a pixel
-      // or two short of the container, so the remainder is folded into the
-      // last image's width to avoid a stray gap at the row's edge. A 1px
-      // safety margin keeps the row a hair under the container's true
-      // (sub-pixel) width so this rounding never pushes the row's total
-      // width just over the edge and wraps an image.
-      //
-      // The trailing row is the exception: if it's short of a full row
-      // (e.g. only 3 images left after a search), stretching it to the
-      // container's full width would blow those few images up way past the
-      // target size. A short trailing row instead renders at the plain
-      // target height, left-aligned, same as if the missing images were
-      // just off-screen rather than absent.
-      const flushRow = (isTrailingRow) => {
-        if (row.length === 0) return;
-        const gaps = GALLERY_GAP * (row.length - 1);
-        const naturalWidth = aspectSum * targetRowHeight + gaps;
-        if (isTrailingRow && naturalWidth < containerWidth) {
-          row.forEach(item => {
-            item.el.style.height = `${Math.round(targetRowHeight)}px`;
-            item.el.style.width = `${Math.round(targetRowHeight * item.aspect)}px`;
-          });
-          row = [];
-          aspectSum = 0;
-          return;
-        }
-        const availableWidth = containerWidth - gaps - 1;
-        const rowHeight = availableWidth / aspectSum;
-        let widthSum = 0;
-        row.forEach(item => {
-          item.width = Math.round(rowHeight * item.aspect);
-          widthSum += item.width;
-        });
-        row[row.length - 1].width += availableWidth - widthSum;
-        row.forEach(item => {
-          item.el.style.height = `${Math.round(rowHeight)}px`;
-          item.el.style.width = `${item.width}px`;
-        });
-        row = [];
-        aspectSum = 0;
-      };
-
-      containers.forEach(el => {
-        const aspect = parseFloat(el.dataset.aspect) || 1.5;
-        row.push({ el, aspect });
-        aspectSum += aspect;
-        const projectedWidth = aspectSum * targetRowHeight + GALLERY_GAP * (row.length - 1);
-        if (projectedWidth >= containerWidth) flushRow(false);
-      });
-      flushRow(true);
+      packJustifiedRows(containers, containerWidth, targetRowHeight, GALLERY_GAP);
       renderSidebarFrostArt();
     }
 
     window.addEventListener("resize", () => scheduleLayout());
     // Scrolling the gallery doesn't change any image's own layout (so it
-    // doesn't need layoutGallery()), but it does change which images are
-    // currently next to the sidebar - throttled separately from
-    // scheduleLayout() since scroll fires far more often than resize/filter.
-    document.querySelector(".main-content")?.addEventListener("scroll", () => scheduleFrostArtRefresh());
+    // doesn't need layoutGallery()), but the frost art strip does need to
+    // track it: requestFrostArtSync() (rAF-batched, every scroll tick) keeps
+    // the mirror's *position* instant, while scheduleFrostArtContentRefresh()
+    // (200ms, same as before) only decides when to rebuild *which* images
+    // are in the strip - see the comment on getFirstColumnImages() above.
+    document.querySelector(".main-content")?.addEventListener("scroll", () => {
+      requestFrostArtSync();
+      scheduleFrostArtContentRefresh();
+    }, { passive: true });
 
     function performSearch() {
   const searchTerm = mainImageSearch.value.toLowerCase();
@@ -4591,6 +4702,10 @@ downloadLink.addEventListener("click", function(e) {
       return scored.slice(0, limit).map(s => s.container);
     }
 
+    // Kept in sync with .enlarge-similar-grid's own CSS `gap` (same pattern
+    // as GALLERY_GAP/ROW_GAP elsewhere in this file).
+    const SIMILAR_GRID_GAP = 10;
+
     function renderSimilarImages(container) {
       const panel = document.getElementById("enlargeSimilarPanel");
       const grid = document.getElementById("enlargeSimilarGrid");
@@ -4608,10 +4723,14 @@ downloadLink.addEventListener("click", function(e) {
       // documented as being unsafe for whenever two images can share a
       // value (here, two thumbs could share a docId if one somehow never
       // got one).
-      similar.forEach(otherContainer => {
+      const thumbs = similar.map(otherContainer => {
         const sourceImg = otherContainer.querySelector("img");
         const thumb = document.createElement("div");
         thumb.className = "enlarge-similar-thumb";
+        // Justified layout below reads this the same way layoutGallery()
+        // reads it off the real gallery's own .image-container elements -
+        // no extra decode/network round trip needed just to know the shape.
+        thumb.dataset.aspect = otherContainer.dataset.aspect || "1.5";
         const thumbImg = document.createElement("img");
         thumbImg.src = cloudinaryDisplayUrl(otherContainer.dataset.url, { width: 200 });
         thumbImg.alt = sourceImg ? sourceImg.alt : "";
@@ -4628,8 +4747,17 @@ downloadLink.addEventListener("click", function(e) {
           );
         });
         grid.appendChild(thumb);
+        return thumb;
       });
       panel.style.display = "flex";
+      // The panel (and thus the grid) is sized purely by CSS now - see
+      // .enlarge-similar-panel - so its real width is already final here,
+      // no circular dependency on the image this panel is next to.
+      const gridWidth = grid.getBoundingClientRect().width;
+      // Same "roughly N per row" target-height heuristic layoutGallery()
+      // uses, aimed at the old grid's 3-column feel at this panel's size.
+      const targetRowHeight = gridWidth / 3;
+      packJustifiedRows(thumbs, gridWidth, targetRowHeight, SIMILAR_GRID_GAP);
     }
 
   function enlargeImage(url, filename, keywords = "", container = null) {
@@ -4738,18 +4866,6 @@ downloadLink.addEventListener("click", function(e) {
       // Image is smaller than viewport, use natural size
       enlargeImg.style.width = "auto";
       enlargeImg.style.height = "auto";
-    }
-
-    // Match the "Similar" panel's height to the image's own just-set
-    // rendered height (read after the branch above, so this is the real
-    // laid-out size, not a pre-layout default) - .enlarge-similar-panel's
-    // own max-height: 82vh (CSS) still caps this for an unusually tall
-    // image, and its overflow-y: auto lets the grid scroll if 9 thumbnails
-    // don't fit in whatever height that leaves.
-    if (similarPanelVisible) {
-      similarPanelEl.style.height = `${enlargeImg.getBoundingClientRect().height}px`;
-    } else if (similarPanelEl) {
-      similarPanelEl.style.height = "";
     }
 
     // Position the modal container to position elements from the top
