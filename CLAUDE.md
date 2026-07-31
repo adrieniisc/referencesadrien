@@ -601,6 +601,93 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     confirming the ranking, the click-to-navigate behavior, and the viewport cutoff all behave as
     designed; if real-gallery results look off, that's about the *scoring weights* being wrong for
     real tagging patterns (e.g. folder bonus too strong/weak), not the mechanism itself.
+  - **Lightbox "Similar" panel enlarged + given a real layout slot (2026-07-31)** — was a
+    `position:fixed` 190px overlay (see the entry above); now 340px and a real flex sibling of the
+    image, via a new `.enlarge-main-row` (`.enlarge-image-column` + `.enlarge-similar-panel`) that
+    replaces the modal's old flat flex-column content. A fixed overlay can't give "equal spacing on
+    both sides of the whole composition" - only centering the row *as a unit* (`justify-content:
+    center`) guarantees that once the bigger panel pushes the image off dead-center.
+    `enlargeImage()`'s width math now subtracts the panel's rendered width + a `ROW_GAP` constant
+    (32px, kept in sync with the CSS `gap`) before taking 90% of what's left, checked via
+    `getComputedStyle(...).display` (not the inline style `renderSimilarImages()` sets) so it also
+    respects the panel's own hide-below-1300px breakpoint (raised from 1100px to give the bigger
+    panel + a reasonably-sized image enough combined room). Nav arrows deliberately kept anchored
+    to the viewport edges (`left`/`right: 20px`, unchanged) rather than hugging the resized
+    composition - verified via Playwright screenshots at 1920/1400/1150px that the right arrow
+    never overlaps the panel at those widths; if some viewport size does overlap it, adjust the
+    arrow's own position, don't put the panel back into a fixed overlay to dodge it.
+    **Wrapping the image in two new elements had one knock-on effect, fixed in the same pass:** the
+    modal's "click outside the image to close" handler only checked `e.target.id ===
+    "enlargeImageModal"` - clicking in the new wrappers' own empty space (e.g. the gap between the
+    image and the panel) hit `.enlarge-main-row`/`.enlarge-image-column` instead and silently
+    stopped closing the modal. Fixed by widening that check to also match `#enlargeMainRow` and
+    `.enlarge-image-column`.
+  - **Lightbox resolution readout redesigned to match the tags pill (2026-07-31)** —
+    `#enlargedResolution` used to be bare inline text (`margin-left:8px`) sitting to the right of
+    the `.enlarged-tags` pill, which read as offset/misaligned since the pair's shared centering
+    shifted with the tags pill's own width (and vanished entirely, taking its `margin-left` offset
+    with it with nothing to balance it, whenever an image had no tags). `.enlarged-tags-container`
+    is now a flex column (`align-items:center`) instead of `text-align:center` inline content, with
+    the resolution label restyled as its own smaller pill (same `rgba(26,26,30,0.85)` + border +
+    shadow as `.enlarged-tags`) stacked directly below the tags pill - centers cleanly under the
+    image regardless of whether the tags pill is even shown.
+  - **Sidebar redesigned as frosted glass, matching the floating filter panels (2026-07-31)** —
+    `.sidebar` now uses the same material as `.floating-material-panel`/`.floating-color-panel`
+    (translucent `rgba(26,26,30,0.82)` + `backdrop-filter: blur(20px)` + border + shadow) instead
+    of a flat opaque `--bg-elevated` fill. Since the sidebar doesn't overlap the gallery in this
+    layout (flex siblings side by side, not stacked), there's nothing colorful behind it for the
+    blur to actually diffuse on its own - a new `.sidebar-frost-art` (an absolutely-positioned,
+    `z-index:0` layer of a few real gallery thumbnails, heavily blurred + low-opacity, populated
+    once by `renderSidebarFrostArt()` after initial load) gives it real color to pick up, which is
+    what makes it read as "frosted" rather than just tinted-transparency-over-nothing. Purely
+    decorative - unlike `renderColorFilterDots()`/`renderMaterialFilterChips()`, it isn't re-run
+    after every gallery mutation (delete/move/retag/etc.), since a stale sample here costs nothing.
+    Sidebar content (search bar, folder list, footer) moved into a new `.sidebar-scroll` wrapper
+    (`z-index:1`, now owns the padding/flex-column/`overflow-y:auto` that `.sidebar` itself used to
+    have) so it layers above the decorative art.
+    **`backdrop-filter` gotcha, worth knowing before touching this again:** giving `.sidebar` a
+    `backdrop-filter` makes it the *containing block* for any `position:fixed` descendant (same
+    family of properties as `transform`/`filter`/`perspective`) - `#filterMenu` (the
+    Alphabetical/Recent Add/Random dropdown) used to be a plain child of `.sidebar` and a true
+    `position:fixed` element; left in place, its hardcoded `top:50px;left:240px` would have started
+    resolving against `.sidebar`'s own box instead of the viewport. Moved it out to be a sibling of
+    `.sidebar` instead (functions identically either way - the JS looks it up by id regardless of
+    DOM position) rather than working out whether the box math still happened to land in the same
+    place. If another `position:fixed` element is ever nested inside `.sidebar`, it needs the same
+    treatment. Verified via Playwright screenshots that the dropdown still opens in the same place
+    as before, and that the frost art renders behind the folder list without breaking scrolling or
+    click targets.
+  - **Dedicated white "highlight" color for selected/default-active buttons (2026-07-31)** — added
+    `--highlight`/`--highlight-soft` tokens (white / `rgba(255,255,255,0.18)`) and pointed the
+    *selection-indicator* rules at them instead of `--accent`: `.folder-list li.selected` (+ its
+    `.folder-count`), `ul.subfolder-list li.selected`, `.size-icon.selected`, `.color-dot.selected`'s
+    ring, `.material-chip.selected`. Deliberately scoped to just those "you are here" states, not
+    every `--accent`-colored element - primary CTA buttons (Add/Save/Download, via
+    `.modal-content button`/`.enlarged-download-btn`), the publish-queue tint, tag chips, and the
+    submission link color all still use `--accent` (orange) unchanged. If "highlight" was actually
+    meant to mean the whole brand accent, that's a bigger, different change - revisit `--accent`
+    itself rather than widening `--highlight`'s scope ad hoc.
+  - **"aReference" brand text is now a home/reset link (2026-07-31)** — clicking it
+    (`.top-bar-brand` click → `goToHomeAll()`) clears the search box, the color filter, and the
+    material filter, then selects "All", mirroring the sidebar's own "All" click handler
+    (`currentFolderFilter = "all"; filterImages("all")`) plus resetting the other two filter
+    dimensions that handler doesn't otherwise touch.
+  - **About modal auto-opens on a visitor's first-ever visit (2026-07-31)** — a `localStorage` flag
+    (`hasVisitedReferencesAdrien`) checked once at script-parse time (right after the existing
+    `aboutModal`/`aboutBtn` wiring); unset → opens the modal and sets the flag so it never
+    auto-opens again on that browser/device. This is a `localStorage`-per-origin mechanism, not
+    real per-IP/per-user tracking - a static frontend with no backend of its own has no way to do
+    the latter, and `localStorage` is the practical equivalent for "once per person's computer"
+    (survives reloads/tab closes, resets only if the visitor clears site data or switches
+    browser/device). Wrapped in `try/catch` since `localStorage` can throw in some contexts
+    (private-browsing storage restrictions, sandboxed embeds) - failure just skips the auto-open
+    rather than breaking page init.
+  - **Social links added to the About modal (2026-07-31)** — four small circular icon links under
+    "Adrien" (`.about-social-links`/`.about-social-icon`) to ArtStation, adrienisakovic.com,
+    LinkedIn, and IMDb, all `target="_blank" rel="noopener noreferrer"`. Icons are simple hand-drawn
+    monochrome SVG glyphs (not exact brand-logo reproductions) styled to match the site's existing
+    muted icon-button language (`.filter-button`/`.close-modal-btn`) rather than full-color brand
+    badges, for visual consistency with the rest of the dark UI.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
