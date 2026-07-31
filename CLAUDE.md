@@ -813,6 +813,72 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     URIs as fake image docs) is a reusable pattern for testing lightbox/gallery JS logic that doesn't
     depend on live Cloudinary/Firebase - worth reaching for again instead of rebuilding it from
     scratch or falling back to Node-only/no verification.
+  - **Six small layout/reflection fixes from a round of visual QA screenshots (2026-07-31).**
+    (1) **Lightbox "Similar" panel is a fixed square again** - `enlargeImage()`'s onload handler
+    used to set `similarPanelEl.style.height` to match the enlarged image's own rendered height,
+    which turned the panel into a tall, mostly-empty rectangle for any portrait image (the 3x3
+    grid stayed pinned near the top with a huge gap below). Replaced with `width: 460px;
+    aspect-ratio: 1;` (was `400px` + JS-driven height) on `.enlarge-similar-panel` - square
+    regardless of whatever image is open, and bigger than before. `.enlarge-similar-grid` also
+    gained `flex: 1; min-height: 0; align-content: center;` so its rows center within whatever
+    space is left under the title instead of packing to the top ("justifying the images in it") -
+    the JS height-matching block was deleted outright, not just disabled. The "hide the panel
+    below this viewport width" breakpoint moved 1400px → 1500px to compensate for the panel's
+    400px → 460px widen, same reasoning as the 1300px → 1400px bump the previous widen already
+    used (see that entry above) - keep both numbers moving together if either changes again.
+    (2) `.search-bar-icon`'s color changed from `--text-muted` to `--text-faint`, matching
+    `#mainImageSearch::placeholder`'s color exactly, so the magnifying-glass glyph and the
+    "Search images..." text read as one consistent muted color instead of the icon standing out
+    slightly brighter. (3) **`.top-search-bar`'s left inset now matches `.main-content`'s own
+    left padding** (`0.8rem` at the base tier, `0.6rem` at the ≤640px/≤420px breakpoints) instead
+    of the `24px`/`12px`/`10px` it had independently drifted to - the search input's left edge
+    was sitting visibly right of the gallery images' left edge; now both derive from the same
+    value at each tier so they stay in sync if either changes again. (4) **`.folder-count` got a
+    fixed `min-width: 2.4em`** (was auto-width, shrink-to-fit) - folder names were starting at
+    different x-offsets from each other because the count's own box width varied with its digit
+    count (1 vs 2 vs 3 digits), and the name sits right after it in the same `.folder-label` flex
+    row. The counts themselves are unmoved (still left-aligned at the same position) - only the
+    box's width is now constant, which is what makes the names line up. (5) **Sidebar frost art
+    rebuilt as a single realtime scroll-synced strip, replacing the old 3-image/200ms-debounced
+    swap version** - reported as "weird, they act like separate squares and update only after
+    scroll." The old `getImagesNextToSidebar()`/`renderSidebarFrostArt()`/
+    `scheduleFrostArtRefresh()` picked 3 thumbnails visible next to the sidebar and re-picked them
+    on a 200ms scroll-debounce timer, which read as discrete pop-in/pop-out swaps rather than a
+    reflection. Replaced with `getFirstColumnContainers()`/`buildSidebarFrostStrip()`/
+    `syncSidebarFrostStripPosition()`: a single tall `.sidebar-frost-strip` div is built *once*
+    per actual layout change (same hook `renderColorFilterDots()` already piggybacks on, plus
+    init), containing up to `FROST_STRIP_MAX_IMAGES` (24) thumbnails from the gallery's entire
+    first column - not just whatever's currently visible - each positioned at its own real offset
+    within the gallery's full scrollable height (`rect.top - galleryRect.top + scrollTop`, which
+    stays correct regardless of scroll position at build time). From then on, scrolling only ever
+    moves this pre-built strip via `transform: translateY(-scrollTop)`, on every `scroll` event
+    (rAF-throttled via `scheduleFrostArtSync()`, not debounced) - nothing is re-picked, re-fetched,
+    or re-rendered while scrolling, so there's nothing to visibly "swap." The blur/saturate/opacity
+    treatment moved from being set per-image to being set once on the `.sidebar-frost-strip`
+    wrapper, so it reads as one continuous frosted surface instead of 3 separately-blurred squares.
+    `will-change: transform` and the fact that `transform` is the *only* property this ever
+    animates via JS keeps it GPU-composited - the (expensive) blur itself is only ever recomputed
+    on a full rebuild, never on a scroll frame. (6) **Lightbox tags/resolution pill hidden while a
+    new image is loading** - `enlargeImage()` already hid the "Similar" panel synchronously before
+    starting a new image's load (to avoid flashing the *previous* image's similar set), but left
+    `.enlarged-tags-container` showing the *previous* image's stale tags text underneath the
+    spinner the whole time (most visible via the prev/next arrows, which call `enlargeImage()`
+    again without a full modal close/reopen). Fixed by hiding it synchronously at the same point
+    the Similar panel is hidden, and restoring it in **both** `onload` (already did this) and
+    `onerror` (didn't - a failed image load used to leave the tags pill hidden indefinitely; now
+    it shows the tags with an empty resolution, same as before this fix existed for the success
+    path). While loading, only the spinner and prev/next arrows are visible now, matching the
+    request. **Verified with the same Playwright + hand-rolled Firestore/Auth stub pattern
+    documented in the header-redesign entry above** (40 synthetic SVG data-URI images across 3
+    folders, varied aspect ratios) - confirmed the similar panel renders at 460×460 regardless of
+    a portrait image being open, the tags container's inline `display` is `"none"` synchronously
+    right after `enlargeImage()` is called and `"flex"` again once `onload` fires, the search
+    icon's computed color exactly matches `--text-faint`, the search input's left edge and the
+    first gallery thumbnail's left edge resolve to the identical `getBoundingClientRect().left`,
+    folder names across items with 1/2/3-digit counts all resolve to the same `left`, and the
+    frost strip's `transform` updates from `translateY(0px)` to `translateY(-400px)` after a
+    `scroll` event fires with `scrollTop = 400` - screenshots taken, zero console errors from app
+    code (only expected CDN-blocked-in-sandbox network errors).
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
