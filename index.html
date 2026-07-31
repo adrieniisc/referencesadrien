@@ -46,6 +46,19 @@
       --row-height: 240px; /* default gallery size = M */
       --sidebar-width: 270px;
 
+      /* Lightbox horizontal rhythm (2026-07-31) - one source of truth for
+         the three numbers that decide how the enlarged image, the "Similar"
+         panel and the prev/next arrows are spaced. enlargeImage()'s sizing
+         math reads these back via getComputedStyle() instead of carrying
+         its own hardcoded copies (the previous ROW_GAP constant had to be
+         kept in sync with the CSS by hand, and the responsive tiers below
+         change all three). --lightbox-row-gap is the gap between the image
+         and the panel *and* the clearance kept between the composition and
+         each nav arrow, so both read as the same space. */
+      --lightbox-row-gap: 80px;
+      --lightbox-nav-inset: 20px;  /* arrow's own distance from the viewport edge */
+      --lightbox-nav-size: 48px;
+
       /* legacy aliases kept for any untouched rules */
       --main-bg: var(--bg);
       --main-text: var(--text);
@@ -277,42 +290,62 @@
   overflow: hidden;
   pointer-events: none;
 }
-/* Colored light-glow (2026-07-31, replacing an earlier version that mirrored
-   actual thumbnail <img> elements) - real <img>s meant a real network fetch
-   per thumbnail, which is exactly what caused the "images taking time to
-   load"/pop-in jumping this version exists to eliminate. Instead of
-   picturing the images, this glows with their color: each first-column
-   image's own already-known dominant-color keyword tag (the auto color-tag
-   from detectDominantColorTag(), already sitting in data-keywords with zero
-   extra work) maps to a plain CSS color, rendered as a soft blurred radial
-   blob biased toward the sidebar's gallery-facing edge - like colored light
-   spilling in from the images beside it, not a recognizable reflection of
-   them. Nothing here is ever fetched over the network, so nothing ever
-   "loads" - nothing to jump or pop in. A single tall strip is still built
-   once per layout change (buildSidebarFrostStrip()) and only ever moved via
-   `transform: translateY()` in realtime lockstep with .main-content's
-   scrollTop (syncSidebarFrostStripPosition(), every scroll event,
-   rAF-throttled) - same realtime-sync mechanism as before, now paired with
-   content that has zero load latency of its own. The blur/saturate/opacity
-   treatment lives on this one wrapper so overlapping blobs blend into one
-   continuous colored wash instead of reading as separate glowing circles. */
+/* A blurred *reflection* of the gallery images physically next to the
+   sidebar (2026-07-31, fourth pass): one tile per first-column image,
+   stacked at that image's own real vertical offset within the gallery's
+   full scrollable height, so the strip is a continuous mirror of the
+   column rather than a set of separate spots. The whole strip only ever
+   moves via `transform: translateY()` in realtime lockstep with
+   .main-content's scrollTop (syncSidebarFrostStripPosition(), every scroll
+   event, rAF-throttled) - nothing is re-picked or re-rendered while
+   scrolling, so the reflection slides rather than swapping.
+
+   The previous version replaced these images with flat colored radial-
+   gradient blobs to avoid a network fetch per tile ("images taking time to
+   load"/pop-in), but that reads as light spilling in, not as a reflection.
+   Two things make real images cheap enough here instead: the source is a
+   ~200px Cloudinary transform (single-digit KB per tile - it's blurred to
+   mush anyway, so resolution is irrelevant) fetched at fetchpriority="low"
+   so it never competes with the real gallery thumbnails, and each tile
+   still paints its image's own dominant-colour tag as an immediate
+   background underneath (getContainerGlowColor()), so a tile is already
+   showing the right colour before its picture arrives and fades in on top
+   - there is no empty/dark state to pop out of.
+
+   The blur/saturate/opacity treatment lives on this one wrapper so
+   neighbouring tiles blend into one continuous frosted surface instead of
+   reading as separately-blurred squares. The strip is deliberately wider
+   than the sidebar (and clipped by .sidebar-frost-art's overflow: hidden)
+   so the blur's own soft edges fall outside the visible area rather than
+   fading to nothing against the left/right borders. */
 .sidebar-frost-strip {
   position: absolute;
   top: 0;
-  left: 0;
-  width: 100%;
-  filter: blur(60px) saturate(1.6);
-  opacity: 0.55;
+  left: -30%;
+  width: 160%;
+  /* Blurred enough to read as frosted glass rather than a second gallery,
+     but not so far that it turns back into the shapeless colour wash the
+     previous version was. Opacity/saturation are held down so the folder
+     list on top of it stays legible. */
+  filter: blur(24px) saturate(1.2);
+  opacity: 0.45;
   will-change: transform;
 }
-.sidebar-frost-glow {
+.sidebar-frost-tile {
   position: absolute;
-  left: 65%; /* biased toward the sidebar's right/gallery-facing edge */
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
+  left: 0;
+  width: 100%;
+  overflow: hidden;
 }
+.sidebar-frost-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.sidebar-frost-tile img.loaded { opacity: 1; }
 
 /* Actual sidebar content now lives in here instead of directly in
    .sidebar - keeps the flex-column/scroll/padding behavior .sidebar used
@@ -1207,8 +1240,8 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 48px;
-  height: 48px;
+  width: var(--lightbox-nav-size);
+  height: var(--lightbox-nav-size);
   border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.18);
   background-color: rgba(20,20,24,0.55);
@@ -1228,13 +1261,22 @@
   background-color: rgba(40,40,46,0.8);
   border-color: rgba(255,255,255,0.35);
 }
-.enlarge-nav-prev { left: 20px; }
-.enlarge-nav-next { right: 20px; }
+/* Arrows stay anchored to the viewport edges rather than hugging the
+   composition, so they don't jump horizontally as you navigate between
+   images of different shapes. What guarantees the "same space" the layout
+   is supposed to read with is enlargeImage()'s own width math instead: it
+   reserves --lightbox-nav-inset + --lightbox-nav-size + --lightbox-row-gap
+   on each side before sizing the image, so a width-limited image lands
+   exactly --lightbox-row-gap away from each arrow - the same gap that sits
+   between it and the "Similar" panel. (A taller-than-wide image is height-
+   limited and so ends up narrower than that budget, which only ever moves
+   the arrows further away, never closer.) */
+.enlarge-nav-prev { left: var(--lightbox-nav-inset); }
+.enlarge-nav-next { right: var(--lightbox-nav-inset); }
 
 @media (max-width: 640px) {
-  .enlarge-nav-btn { width: 38px; height: 38px; font-size: 1.4rem; }
-  .enlarge-nav-prev { left: 8px; }
-  .enlarge-nav-next { right: 8px; }
+  :root { --lightbox-nav-inset: 8px; --lightbox-nav-size: 38px; }
+  .enlarge-nav-btn { font-size: 1.4rem; }
 }
 
 
@@ -1323,16 +1365,17 @@
    the image sit off-center - enlargeImage()'s width math (below) reserves
    the panel's width + gap before computing the image's own max width, so
    growing/shrinking the panel or this gap only requires updating
-   ROW_GAP/panel width in one place (kept in sync with enlargeImage()'s
-   own ROW_GAP constant). Gap widened 32px -> 48px (2026-07-31, same day)
-   so the panel doesn't read as crowding the image.
+   the panel width or --lightbox-row-gap in one place (enlargeImage() reads
+   that token back rather than keeping its own copy of the number). Gap
+   widened 32px -> 48px -> 80px (2026-07-31) so the panel doesn't read as
+   crowding the image.
 -------------------------------------------------- */
 .enlarge-main-row {
   display: flex;
   flex-direction: row;
   align-items: stretch; /* image column keeps full height for its own tags-pushed-to-bottom logic below */
   justify-content: center;
-  gap: 48px;
+  gap: var(--lightbox-row-gap);
   width: 100%;
   min-height: 0;
 }
@@ -1441,7 +1484,7 @@
   .enlarge-similar-panel { display: none !important; }
 }
 @media (max-width: 900px) {
-  .enlarge-main-row { gap: 16px; }
+  :root { --lightbox-row-gap: 16px; }
 }
 
 /* Add this to the enlarged image container to allow proper positioning */
@@ -2069,9 +2112,13 @@
       <p>Adrien</p>
       <div class="about-social-links">
         <a class="about-social-icon" href="https://www.artstation.com/adrienisakovic" target="_blank" rel="noopener noreferrer" title="ArtStation" aria-label="ArtStation">
+          <!-- ArtStation's actual mark: the triangle, the separate bar
+               beneath it, and the diagonal right leg - all three shapes
+               sharing the same 30°-from-vertical edge angle. The previous
+               glyph here was a freehand approximation (a rounded triangle
+               plus a bar, no right leg) and didn't read as the logo. -->
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 3 3 18h4.2l1.8-3h5.9l1.1 2c.3.6.9 1 1.6 1H21L12 3zm0 5.2 2.6 4.5H9.4L12 8.2z"/>
-            <path d="M3.8 19.5 2.6 21.5c-.2.3 0 .5.3.5h15.6c1 0 1.9-.5 2.4-1.4l.6-1.1H3.8z"/>
+            <path d="M0 17.723l2.027 3.505h.001a2.424 2.424 0 0 0 2.164 1.333h13.457l-2.792-4.838H0zm24 .025c0-.484-.143-.935-.388-1.314L15.728 2.728a2.424 2.424 0 0 0-2.142-1.289H9.419L21.598 22.54l1.92-3.325c.378-.637.482-.919.482-1.467zM14.795 13.685H2.766L8.783 3.24l6.012 10.445z"/>
           </svg>
         </a>
         <a class="about-social-icon" href="https://adrienisakovic.com/" target="_blank" rel="noopener noreferrer" title="Website" aria-label="Personal website">
@@ -2127,12 +2174,12 @@
   <div class="main-container">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <!-- Purely decorative realtime colored light-glow, sitting behind
-           everything else in the sidebar - gives the frosted glass panel
-           real, live-scrolling color to diffuse instead of just a flat
-           tinted background. Glow colors come from the gallery's first
-           column's own dominant-color keyword tags, not from loading the
-           images themselves. Populated/positioned by
+      <!-- Purely decorative realtime blurred reflection of the gallery
+           images next to the sidebar, sitting behind everything else in it
+           - gives the frosted glass panel real, live-scrolling content to
+           diffuse instead of just a flat tinted background. Mirrors the
+           gallery's first column and scrolls in lockstep with it.
+           Populated/positioned by
            buildSidebarFrostStrip()/syncSidebarFrostStripPosition(). -->
       <div class="sidebar-frost-art" id="sidebarFrostArt"></div>
       <div class="sidebar-scroll">
@@ -2506,35 +2553,34 @@
     }
 
 
-    // Purely decorative: a colored light-glow behind the sidebar's frosted
-    // glass background, so it has real color to diffuse instead of just
-    // tinted transparency over nothing. 2026-07-31: reworked a third time
-    // the same day - the previous two versions (3 images re-picked on a
-    // 200ms scroll debounce, then a full-column strip of real <img>
-    // thumbnails - see the removed getImagesNextToSidebar()/
-    // scheduleFrostArtRefresh() and the img-based version of
-    // buildSidebarFrostStrip() this replaced) both used actual thumbnail
-    // images, which meant a real network fetch per thumbnail - exactly what
-    // caused the reported "images taking time to load"/pop-in jumping. This
-    // version doesn't load anything: each first-column image's own
-    // already-known dominant-color keyword tag maps straight to a CSS
-    // color (getContainerGlowColor(), reusing COLOR_FILTER_SWATCHES' hex
-    // values so the glow always matches what the color filter dots
-    // themselves consider that color to be) and renders as a blurred
-    // radial-gradient blob - nothing to fetch, so nothing to wait on or
-    // jump when it finishes. A single tall strip of these blobs is still
-    // built once per layout change (buildSidebarFrostStrip(), same hook
-    // renderColorFilterDots() piggybacks on elsewhere) and only ever moved
-    // via `transform: translateY()` in realtime lockstep with
-    // .main-content's scrollTop (syncSidebarFrostStripPosition(),
-    // rAF-throttled but otherwise running on every scroll event) - same
-    // smooth-scroll-sync mechanism as before, just paired with content that
-    // has zero load latency of its own this time.
+    // Purely decorative: a blurred reflection of the gallery images sitting
+    // directly next to the sidebar, behind its frosted glass, so the glass
+    // has real content to diffuse instead of just tinted transparency over
+    // nothing. See .sidebar-frost-strip's CSS comment for the full story -
+    // in short, this is a real mirror of the gallery's first column again
+    // (one tile per image, at that image's own scroll offset, the whole
+    // strip moved as one via transform in realtime lockstep with the
+    // gallery's scrollTop), not the flat colored blobs the previous pass
+    // used. Those avoided a per-tile network fetch, but "light spilling in
+    // from the images" isn't the same thing as seeing the images. The
+    // fetch is made cheap instead (see FROST_TILE_WIDTH below) and each
+    // tile shows its image's known dominant color immediately underneath,
+    // so nothing ever sits blank waiting on the network.
+
+    // Source width for a tile's Cloudinary transform. Deliberately tiny:
+    // every tile is blurred by 24px before it's ever seen, so anything
+    // bigger is bytes spent on detail that is literally filtered out.
+    const FROST_TILE_WIDTH = 200;
+    const FROST_TILE_QUALITY = 50;
+    // Tiles are grown slightly past their image's real box, top and bottom,
+    // so the gallery's own row gap doesn't show through as a seam in what
+    // is meant to read as one continuous surface.
+    const FROST_TILE_BLEED = 8;
 
     // Neutral fallback for any image with no recognized color tag at all
     // (pre-dates the dominant-color auto-tagger, or was never re-tagged) -
-    // a dim neutral glow so those spots in the column don't just go dark,
-    // without claiming a color that isn't actually there.
+    // a dim neutral base so those tiles don't sit black before their
+    // picture loads, without claiming a color that isn't actually there.
     const FROST_GLOW_FALLBACK_HEX = "#6a6a72";
 
     let colorHexByName = null;
@@ -2561,7 +2607,7 @@
         // "First column" = hugging the gallery's own left edge (a few px
         // of slack for gap/rounding) - this isn't limited to the
         // currently-visible viewport, since the point is to pre-build the
-        // *entire* column's worth of glow once.
+        // *entire* column's worth of reflection once.
         if (rect.left - galleryRect.left > 4) return;
         candidates.push(container);
       });
@@ -2577,9 +2623,10 @@
 
       const picks = getFirstColumnContainers();
 
-      // Skip the DOM churn of rebuilding when the actual set of
-      // first-column images hasn't changed since the last build. (No
-      // network cost either way any more, but still pointless work.)
+      // Skip the DOM churn (and the re-fetch/re-decode of every tile) of
+      // rebuilding when the actual set of first-column images hasn't
+      // changed since the last build - a plain scroll never gets here at
+      // all, but layoutGallery() does, on every filter/search/add/delete.
       const key = picks.map(c => c.dataset.docId || c.dataset.url).join("|");
       if (key !== lastFrostArtKey) {
         lastFrostArtKey = key;
@@ -2591,21 +2638,39 @@
         }
         const galleryRect = galleryEl.getBoundingClientRect();
         const scrollTop = viewport.scrollTop;
-        // Center each glow blob on its image's own real vertical center
-        // within the gallery's full scrollable content (not just the
-        // currently-visible viewport) - rect.top is relative to the
-        // current scroll position, so adding scrollTop back gives a
-        // position that stays correct regardless of where the page
-        // happens to be scrolled to right now. Neighboring blobs overlap
-        // (see .sidebar-frost-glow's fixed size vs typical row spacing)
-        // and blend together under the strip's own blur into one
-        // continuous wash rather than reading as separate spots.
-        strip.innerHTML = picks.map(container => {
+        // Place each tile over its image's own real box within the
+        // gallery's full scrollable content (not just the currently-visible
+        // viewport) - rect.top is relative to the current scroll position,
+        // so adding scrollTop back gives a position that stays correct
+        // regardless of where the page happens to be scrolled to right now.
+        strip.innerHTML = "";
+        const fragment = document.createDocumentFragment();
+        picks.forEach(container => {
           const rect = container.getBoundingClientRect();
-          const centerY = Math.round(rect.top - galleryRect.top + scrollTop + rect.height / 2);
-          const color = getContainerGlowColor(container);
-          return `<div class="sidebar-frost-glow" aria-hidden="true" style="top:${centerY}px;background:radial-gradient(circle, ${color} 0%, transparent 70%);"></div>`;
-        }).join("");
+          const top = Math.round(rect.top - galleryRect.top + scrollTop) - FROST_TILE_BLEED;
+          const height = Math.round(rect.height) + (FROST_TILE_BLEED * 2);
+
+          const tile = document.createElement("div");
+          tile.className = "sidebar-frost-tile";
+          tile.setAttribute("aria-hidden", "true");
+          tile.style.top = `${top}px`;
+          tile.style.height = `${height}px`;
+          // Shown immediately; the picture fades in over it once decoded.
+          tile.style.backgroundColor = getContainerGlowColor(container);
+
+          const img = document.createElement("img");
+          img.alt = "";
+          img.decoding = "async";
+          // Never let the reflection compete with the actual gallery
+          // thumbnails for connections - it's decoration, and it already
+          // has its color stand-in showing in the meantime.
+          img.setAttribute("fetchpriority", "low");
+          img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
+          img.src = cloudinaryDisplayUrl(container.dataset.url, { width: FROST_TILE_WIDTH, quality: FROST_TILE_QUALITY });
+          tile.appendChild(img);
+          fragment.appendChild(tile);
+        });
+        strip.appendChild(fragment);
         strip.style.height = `${Math.round(galleryEl.getBoundingClientRect().height + scrollTop)}px`;
       }
 
@@ -4751,9 +4816,30 @@ downloadLink.addEventListener("click", function(e) {
     // panel's own "hide below 1400px" media query, which overrides that
     // inline style via !important.
     const similarPanelVisible = !!similarPanelEl && getComputedStyle(similarPanelEl).display !== "none";
-    const ROW_GAP = 48; // keep in sync with .enlarge-main-row's CSS gap
+    // Read the spacing tokens back out of CSS rather than keeping hardcoded
+    // copies here - they're defined once in :root and overridden by the
+    // lightbox's own responsive tiers, so this automatically follows both.
+    const rootStyle = getComputedStyle(document.documentElement);
+    const cssPx = (name, fallback) => {
+      const value = parseFloat(rootStyle.getPropertyValue(name));
+      return Number.isFinite(value) ? value : fallback;
+    };
+    const ROW_GAP = cssPx("--lightbox-row-gap", 80);
+    const navInset = cssPx("--lightbox-nav-inset", 20);
+    const navSize = cssPx("--lightbox-nav-size", 48);
     const reservedForSimilarPanel = similarPanelVisible ? (similarPanelEl.offsetWidth + ROW_GAP) : 0;
-    const viewportWidth = (window.innerWidth - reservedForSimilarPanel) * 0.9;  // 90% of the width actually left for the image
+    // Space kept clear on each side of the whole centered composition:
+    // enough for a nav arrow at its viewport inset, plus ROW_GAP of
+    // breathing room between that arrow and the composition's own edge -
+    // the same gap the image and the "Similar" panel have between them, so
+    // image <-> panel and composition <-> arrow read as one consistent
+    // rhythm. The previous version took a flat 90% of the remaining width
+    // instead, which left arbitrary margins: at 1920px with the panel
+    // showing they came out ~50px, i.e. narrower than the arrow's own
+    // 20px + 48px footprint, so the right arrow actually overlapped the
+    // panel.
+    const sideReserve = navInset + navSize + ROW_GAP;
+    const viewportWidth = window.innerWidth - reservedForSimilarPanel - (sideReserve * 2);
     const viewportHeight = window.innerHeight; // Full viewport height
 
     // Estimate tag container height
@@ -4771,8 +4857,11 @@ downloadLink.addEventListener("click", function(e) {
 
     // Determine limiting dimension
     if (widthRatio > heightRatio && widthRatio > 1) {
-      // Width is the limiting factor
-      enlargeImg.style.width = "90vw";
+      // Width is the limiting factor. Explicit pixels, not the "90vw" this
+      // used to hardcode - 90vw ignores both the panel's reserved width and
+      // the arrows' side reserve above, which is how the image ended up
+      // sized as though it had the whole viewport to itself.
+      enlargeImg.style.width = `${Math.round(viewportWidth)}px`;
       enlargeImg.style.height = "auto";
     } else if (heightRatio > 1) {
       // Height is the limiting factor

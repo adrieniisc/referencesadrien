@@ -945,6 +945,75 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     with correctly-mapped `radial-gradient` colors that still `transform`-sync on scroll, and
     `.floating-material-panel`/`.material-chip-container` are absent from the DOM with
     `renderMaterialFilterChips` undefined on `window`.
+  - **Third round of visual-QA fixes (2026-07-31, same day)** — three items.
+    (1) **Lightbox horizontal spacing is now one token-driven rhythm, and the arrows no longer
+    overlap the Similar panel.** Reported as "more space between maxed image and similar, same
+    space between right of the image and right arrow". Three `:root` tokens (`--lightbox-row-gap`
+    80px, `--lightbox-nav-inset` 20px, `--lightbox-nav-size` 48px) replace the hand-synced pairs
+    this had drifted into - `.enlarge-main-row`'s `gap`, `.enlarge-nav-btn`'s size and the
+    `.enlarge-nav-prev/next` insets all read from them, and `enlargeImage()` reads them *back* via
+    `getComputedStyle(document.documentElement)` instead of carrying its own `ROW_GAP = 48`
+    constant that had to be kept in sync with the CSS by hand (the previous entries in this file
+    kept flagging that as a hazard; it now can't drift). The responsive tiers override the tokens
+    rather than the rules (`:root` inside the ≤900px / ≤640px media queries), so the JS math
+    automatically follows every tier. **The real bug this exposed:** `enlargeImage()` sized the
+    image at a flat 90% of whatever width was left after reserving the panel, which left arbitrary
+    side margins - at 1920px with the panel showing they came out ~50px, i.e. *narrower than the
+    nav arrow's own 20px inset + 48px width*, so the right arrow genuinely overlapped the Similar
+    panel. Now it reserves `navInset + navSize + ROW_GAP` per side explicitly, so a width-limited
+    image lands exactly `--lightbox-row-gap` away from each arrow - the same gap that sits between
+    it and the panel, which is what "same space" was asking for. Arrows stay anchored to the
+    viewport edges (unchanged, and deliberately - anchoring them to the composition would make
+    them jump horizontally between images); a height-limited (portrait) image is narrower than
+    that budget so its arrows only ever sit *further* out, never closer. Also fixed in the same
+    pass: the width-limited branch hardcoded `enlargeImg.style.width = "90vw"`, ignoring both
+    reserves it had just computed - now set in explicit px from the computed available width. Cost
+    of this: the image is meaningfully narrower than before at any given viewport (at 2400px,
+    1104px instead of ~1432px) because the arrows' clearance is real space now. If that reads as
+    too small, the number to revisit is `.enlarge-similar-panel`'s 920px width, not the reserve.
+    (2) **Sidebar frost art is a real reflection again, reversing the previous round's colored
+    glow blobs** - "light blobs in sidebar do not work, i want reflection of the images i'm seeing
+    and scrolling (frosted)". `buildSidebarFrostStrip()` builds `.sidebar-frost-tile` divs (one per
+    first-column image, at that image's own real offset/height within the gallery's full scrollable
+    height, ±`FROST_TILE_BLEED` 8px so the gallery's row gap doesn't show as a seam) each holding a
+    real `<img>`, instead of `.sidebar-frost-glow` radial gradients. The glow version existed
+    specifically to avoid a network fetch per tile ("images taking time to load"/pop-in jumping) -
+    two things pay that cost down instead of reverting blind: the source is a `w_200,q_50`
+    Cloudinary transform at `fetchpriority="low"` (single-digit KB, blurred by 24px before anyone
+    sees it, and never competing with real gallery thumbnails for connections), and each tile
+    still paints `getContainerGlowColor()`'s dominant-color hex as its background *underneath* the
+    image, which fades in on top via a `.loaded` class - so a tile is already the right color
+    before its picture arrives and there is no blank state to pop out of. The
+    scroll-sync mechanism is untouched (single strip, `transform: translateY(-scrollTop)`,
+    rAF-throttled, rebuilt only on real layout changes). `getContainerGlowColor()` and
+    `FROST_GLOW_FALLBACK_HEX` were **kept** for exactly that base-color role - don't delete them as
+    dead glow leftovers. Blur/saturate/opacity (24px / 1.2 / 0.45) live on the one strip wrapper so
+    neighbouring tiles blend into a single frosted surface rather than separately-blurred squares,
+    and the strip is deliberately wider than the sidebar (`left: -30%; width: 160%`, clipped by
+    `.sidebar-frost-art`'s `overflow: hidden`) so the blur's soft edges fall outside the visible
+    area instead of fading out against the borders. If it ever needs toning down further, opacity
+    is the knob - more blur just walks back toward the colour wash this replaced.
+    (3) **ArtStation icon in the About modal replaced with the actual mark** - the previous glyph
+    was a freehand approximation (a rounded triangle plus a bar, and no right leg at all). Now the
+    real three-shape logo (triangle, separate bar beneath it, diagonal right leg, all sharing the
+    same 30°-from-vertical edge angle) as a single path on the same 24×24 viewBox, so it still
+    inherits `currentColor` and the existing 17px `.about-social-icon svg` sizing. The other three
+    icons (website/LinkedIn/IMDb) are unchanged hand-drawn glyphs.
+    **Verified with the same Playwright + hand-rolled Firestore/Auth stub pattern** documented in
+    the entries above (42 synthetic SVG data-URI images, mixed portrait/landscape, 3 folders) - 24
+    assertions across 2400px / 1400px / 500px viewports: the image↔panel, panel↔right-arrow and
+    left-arrow↔image gaps all measure 80.0px at 2400px (232px arrow clearance for a portrait image,
+    i.e. never less), 16px at the 500px tier with the arrow rendering at its 38px token size, the
+    width-limited image's inline width ends in `px` not `vw`, the frost strip contains one `<img>`
+    per tile and zero glow divs with every image reaching `.loaded`, tiles stacked in ascending
+    order and the strip's `transform` tracking `scrollTop` exactly with the same DOM node and same
+    first `src` before/after (i.e. moved, not rebuilt), and the ArtStation path rasterized to a
+    canvas shows ink in the triangle band, ink in the bar band reaching x≈0, a real gap between
+    them crossed only by the right leg, and ink at the far right - plus zero console errors from
+    app code. The usual sandbox caveat still applies: **no live Cloudinary here**, so the frost
+    tiles' real `w_200,q_50` fetch latency has never been measured against the actual CDN (the
+    harness serves data URIs) - if pop-in is reported again, that transform's size/priority is the
+    first knob to turn, not the mechanism.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
