@@ -185,7 +185,14 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     the size panel's left (both `position: static`, the row itself is the one `position: fixed`
     element, `bottom: 18px; right: 18px`) - two blocks stacked in one corner read as too much
     vertical clutter. If either panel needs repositioning again, adjust the row, not the individual
-    panels' own (now static) positioning. One small round swatch per color name the
+    panels' own (now static) positioning. **Single-lined and height-matched to the size panel
+    (2026-07-31)**, since wrapped into two rows it read as taller/heavier than the size selector
+    next to it: `.color-dot-container` went from `flex-wrap: wrap` to `nowrap`, and the dot
+    diameter went from 20px to 30px - equal to `.size-icon`'s height - with `.floating-color-panel`
+    given the same 5px padding as `.floating-size-panel`, so the two boxes come out exactly the
+    same total height with no explicit height set on either. If either panel's padding or icon/dot
+    size changes again, the other needs the matching change or they'll drift apart vertically.
+    One small round swatch per color name the
     dominant-color auto-tagger can produce (black/white/gray/brown/beige/red/orange/yellow/green/
     cyan/blue/purple/pink). Clicking a dot filters the gallery to images whose keywords include
     that color word; clicking the already-selected dot again clears it back to no color filter

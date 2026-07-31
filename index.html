@@ -524,7 +524,7 @@
       right: 18px;
       z-index: 1000;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       gap: 10px;
     }
 
@@ -579,7 +579,13 @@
        size panel in its own block; moved (same day) into the shared
        `.floating-controls-row` flex row instead, sitting to the size
        panel's left, since a separate block stacked on top of it read as
-       too much vertical clutter in one corner.
+       too much vertical clutter in one corner. Single-lined and matched
+       to the size panel's height (2026-07-31) - same 5px padding as
+       `.floating-size-panel` and a dot diameter equal to `.size-icon`'s
+       height (30px), so the two boxes come out the same total height
+       with nothing but the padding/border math needed to keep them
+       aligned - if either panel's padding or icon/dot size changes, the
+       other needs the same change to stay matched.
     -------------------------------------------------- */
     .floating-color-panel {
       position: static;
@@ -589,19 +595,18 @@
       -webkit-backdrop-filter: blur(10px);
       border-radius: var(--radius-md);
       z-index: 1000;
-      padding: 6px;
-      max-width: 190px;
+      padding: 5px;
       box-shadow: var(--shadow-md);
     }
     .color-dot-container {
       display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      justify-content: flex-end;
+      flex-wrap: nowrap;
+      gap: 4px;
     }
     .color-dot {
-      width: 20px;
-      height: 20px;
+      width: 30px;
+      height: 30px;
+      flex-shrink: 0;
       border-radius: 50%;
       cursor: pointer;
       box-sizing: border-box;
@@ -1512,7 +1517,8 @@
   .floating-controls-row { right: 12px; bottom: 12px; gap: 6px; }
   .size-icon-container { gap: 4px; }
   .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
-  .floating-color-panel { max-width: 168px; }
+  .color-dot-container { gap: 3px; }
+  .color-dot { width: 24px; height: 24px; }
 }
 
 /* Extra-narrow phones: shrink the sidebar further and drop the brand text
