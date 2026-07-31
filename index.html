@@ -550,7 +550,14 @@
       z-index: 1000;
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       gap: 10px;
+      /* No top anchor, so wrapping grows the row upward from the bottom-
+         right corner instead of overflowing off-screen - matters now that
+         a third panel (material) can push this onto two lines on narrow
+         viewports. */
+      max-width: calc(100vw - 36px);
     }
 
     /* --------------------------------------------------
@@ -654,6 +661,54 @@
     }
     .color-dot[data-color="black"] {
       border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    /* --------------------------------------------------
+       Floating Material Filter Panel - same floating-pill treatment as the
+       color/size panels, text chips instead of dots since material has no
+       color of its own to swatch. Sized off .size-icon's own numbers (30px
+       tall, same 5px panel padding) for the same reason the color panel is -
+       so all three come out the same height with no explicit height set on
+       any of them.
+    -------------------------------------------------- */
+    .floating-material-panel {
+      position: static;
+      background-color: rgba(26,26,30,0.85);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: var(--radius-md);
+      z-index: 1000;
+      padding: 5px;
+      box-shadow: var(--shadow-md);
+    }
+    .material-chip-container {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 4px;
+    }
+    .material-chip {
+      height: 30px;
+      padding: 0 10px;
+      box-sizing: border-box;
+      border-radius: var(--radius-sm);
+      background-color: transparent;
+      border: 1px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-transform: capitalize;
+      white-space: nowrap;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .material-chip:hover { background-color: rgba(255,255,255,0.08); color: var(--text); }
+    .material-chip.selected {
+      background-color: var(--accent-soft);
+      color: var(--accent);
     }
 
     /* --------------------------------------------------
@@ -1168,6 +1223,14 @@
   opacity: 0.85;
 }
 
+.enlarged-resolution {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
 .enlarged-tags {
   display: inline-block;
   background-color: rgba(26, 26, 30, 0.85);
@@ -1181,6 +1244,68 @@
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+}
+
+/* --------------------------------------------------
+   Lightbox "Similar images" panel (2026-07-31)
+-------------------------------------------------- */
+.enlarge-similar-panel {
+  position: fixed;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  z-index: 15001;
+  width: 190px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background-color: rgba(20,20,24,0.7);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: none; /* toggled by renderSimilarImages() */
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.enlarge-similar-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.enlarge-similar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.enlarge-similar-thumb {
+  aspect-ratio: 1;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+.enlarge-similar-thumb:hover { border-color: var(--accent); opacity: 0.85; }
+.enlarge-similar-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Not enough width for a 90vw-ish image plus a 190px side panel without
+   the two overlapping badly - hidden below this rather than squeezed, so
+   the main image's own sizing math (in enlargeImage()) never has to know
+   this panel exists. Needs !important: renderSimilarImages() sets this
+   element's display via inline style (matching how the rest of this
+   modal's JS already works), which otherwise wins over a plain media
+   query rule regardless of specificity. */
+@media (max-width: 1100px) {
+  .enlarge-similar-panel { display: none !important; }
 }
 
 /* Add this to the enlarged image container to allow proper positioning */
@@ -1563,6 +1688,8 @@
   .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
   .color-dot-container { gap: 3px; }
   .color-dot { width: 24px; height: 24px; }
+  .material-chip-container { gap: 3px; }
+  .material-chip { height: 26px; padding: 0 7px; font-size: 0.68rem; }
 }
 
 /* Extra-narrow phones: shrink the sidebar further and drop the brand text
@@ -1822,6 +1949,7 @@
       <div class="filter-menu" id="filterMenu">
         <div class="filter-option" data-sort="alphabetical">Alphabetical</div>
         <div class="filter-option" data-sort="recent">Recent Add</div>
+        <div class="filter-option" data-sort="random">Random</div>
       </div>
       <ul class="folder-list" id="folderList">
         <!-- Folder items will be generated dynamically -->
@@ -1890,6 +2018,16 @@
         <!-- Color dots are generated by renderColorFilterDots() -->
       </div>
     </div>
+    <!-- FLOATING MATERIAL FILTER PANEL - same pattern as the color panel,
+         except there's no auto-detector behind it (no AI/ML in this app):
+         a chip only appears once an admin has typed that exact word into
+         some image's Keywords (Add Image / Edit Tags), same bootstrapping
+         path the color words used before they got dedicated swatches. -->
+    <div class="floating-material-panel" id="materialFilterPanel" title="Filter by material">
+      <div class="material-chip-container">
+        <!-- Chips are generated by renderMaterialFilterChips() -->
+      </div>
+    </div>
     <!-- FLOATING SIZE PANEL -->
     <div class="floating-size-panel">
       <div class="size-icon-container">
@@ -1915,8 +2053,19 @@
   <!-- Tags container now positioned at the bottom of the modal -->
   <div class="enlarged-tags-container">
     <div class="enlarged-tags" id="enlargedTags"></div>
+    <span class="enlarged-resolution" id="enlargedResolution"></span>
   </div>
   <a id="enlargedDownloadBtn" class="enlarged-download-btn" href="#" download>Download</a>
+  <!-- Floating "similar images" panel - position:fixed takes it out of the
+       modal's flex column entirely, so it overlays near the right edge
+       independent of the main image's own width/height sizing logic
+       (enlargeImage()) rather than reflowing that carefully-tuned math.
+       Populated by renderSimilarImages(); hidden whenever nothing scores
+       as similar or the viewport's too narrow to have room for it. -->
+  <div class="enlarge-similar-panel" id="enlargeSimilarPanel">
+    <div class="enlarge-similar-title">Similar</div>
+    <div class="enlarge-similar-grid" id="enlargeSimilarGrid"></div>
+  </div>
 </div>
 
   
@@ -2172,6 +2321,50 @@
       `).join("");
       if (panel) panel.style.display = visibleSwatches.length ? "" : "none";
     }
+
+    // Material facets - same idea as the color filter above (ANDed onto
+    // the show/hide decision, chip only shown once something's actually
+    // tagged with it), but with no auto-detector behind it: there's no
+    // AI/ML in this app (see the removal note), so a material word only
+    // ever lands in an image's keywords because an admin typed it into
+    // Add Image / Edit Tags. This list is just the candidate vocabulary a
+    // chip can appear for - editing it doesn't retag anything.
+    const MATERIAL_FILTER_OPTIONS = [
+      "metal", "wood", "stone", "concrete", "brick",
+      "fabric", "glass", "ceramic", "organic", "ground"
+    ];
+    let currentMaterialFilter = null;
+    function imageMatchesMaterialFilter(container) {
+      if (!currentMaterialFilter) return true;
+      const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+      return keywords.split(",").map(k => k.trim()).includes(currentMaterialFilter);
+    }
+    function getUsedMaterialFilters() {
+      const validMaterials = new Set(MATERIAL_FILTER_OPTIONS);
+      const used = new Set();
+      document.querySelectorAll(".image-container").forEach(container => {
+        const keywords = (container.getAttribute("data-keywords") || "").toLowerCase();
+        keywords.split(",").map(k => k.trim()).forEach(k => {
+          if (validMaterials.has(k)) used.add(k);
+        });
+      });
+      return used;
+    }
+    function renderMaterialFilterChips() {
+      const used = getUsedMaterialFilters();
+      if (currentMaterialFilter && !used.has(currentMaterialFilter)) {
+        currentMaterialFilter = null;
+      }
+      const panel = document.getElementById("materialFilterPanel");
+      const container = document.querySelector(".material-chip-container");
+      if (!container) return;
+      const visibleMaterials = MATERIAL_FILTER_OPTIONS.filter(m => used.has(m));
+      container.innerHTML = visibleMaterials.map(m => `
+        <div class="material-chip${m === currentMaterialFilter ? " selected" : ""}" data-material="${m}">${m}</div>
+      `).join("");
+      if (panel) panel.style.display = visibleMaterials.length ? "" : "none";
+    }
+
     // "Week" here isn't a calendar week - it resets on the 1st of every
     // month and then every 7 days after that (1, 8, 15, 22), so the last
     // window of a month absorbs whatever days are left over (7-10 days
@@ -2509,7 +2702,7 @@
     const category = (imgContainer.getAttribute("data-category") || "").toLowerCase();
 
     const matchesSearch = imgName.includes(searchTerm) || keywords.includes(searchTerm) || category.includes(searchTerm);
-    imgContainer.classList.toggle("hidden", !(matchesSearch && imageMatchesColorFilter(imgContainer)));
+    imgContainer.classList.toggle("hidden", !(matchesSearch && imageMatchesColorFilter(imgContainer) && imageMatchesMaterialFilter(imgContainer)));
   });
   scheduleLayout();
 }
@@ -3625,7 +3818,7 @@ downloadLink.addEventListener("click", function(e) {
       shouldShow = category === filterValue;
     }
 
-    container.classList.toggle("hidden", !(shouldShow && imageMatchesColorFilter(container)));
+    container.classList.toggle("hidden", !(shouldShow && imageMatchesColorFilter(container) && imageMatchesMaterialFilter(container)));
   });
   scheduleLayout();
 }
@@ -3644,6 +3837,13 @@ downloadLink.addEventListener("click", function(e) {
           let timeB = parseInt(b.getAttribute("data-add-time")) || 0;
           return timeB - timeA;
         });
+      } else if (type === "random") {
+        // Fisher-Yates - reshuffled fresh every time this runs (menu click
+        // or the default shuffle on load), not a shuffle-once-and-persist.
+        for (let i = imagesArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [imagesArray[i], imagesArray[j]] = [imagesArray[j], imagesArray[i]];
+        }
       }
       imagesArray.forEach(img => gallery.appendChild(img));
       scheduleLayout();
@@ -3749,6 +3949,7 @@ downloadLink.addEventListener("click", function(e) {
         await Promise.all(deletePromises);
         updateFolderCounts();
         renderColorFilterDots();
+        renderMaterialFilterChips();
         performSearch();
         toggleDeleteMode();
         scheduleLayout();
@@ -4070,6 +4271,7 @@ downloadLink.addEventListener("click", function(e) {
         });
         await Promise.all(savePromises);
         renderColorFilterDots();
+        renderMaterialFilterChips();
         performSearch();
         editTagsModal.classList.remove("active");
         toggleTagEditMode();
@@ -4083,13 +4285,87 @@ downloadLink.addEventListener("click", function(e) {
      * Enlarge Image Modal Closure (click outside image)
      ********************************************************/
 
+    // "Similar" here is a keyword/tag-overlap heuristic, not real visual
+    // similarity - there's no ML in this app (see the AI tagging removal
+    // note) and no perceptual-hash/feature data stored per image, so this
+    // scores against data every image already has in the DOM (data-keywords
+    // - which includes the auto color tag - plus data-category as a
+    // tiebreaker) rather than fetching/decoding every candidate image to
+    // compare pixels. Zero extra network cost: all of this runs against
+    // .image-container elements already loaded into the page.
+    function findSimilarImages(container, limit = 9) {
+      if (!container) return [];
+      const keywords = (container.getAttribute("data-keywords") || "")
+        .toLowerCase().split(",").map(k => k.trim()).filter(Boolean);
+      if (keywords.length === 0) return [];
+      const folder = container.getAttribute("data-category") || "";
+
+      const scored = [];
+      document.querySelectorAll(".image-container").forEach(other => {
+        if (other === container) return;
+        const otherKeywords = (other.getAttribute("data-keywords") || "")
+          .toLowerCase().split(",").map(k => k.trim()).filter(Boolean);
+        let score = 0;
+        keywords.forEach(k => { if (otherKeywords.includes(k)) score += 1; });
+        // Folder only counts as a tiebreaker on top of at least one real
+        // keyword match - on its own a shared folder can hold plenty of
+        // dissimilar images, so it shouldn't be enough by itself.
+        if (score > 0 && other.getAttribute("data-category") === folder) score += 1;
+        if (score > 0) scored.push({ container: other, score });
+      });
+      scored.sort((a, b) => b.score - a.score);
+      return scored.slice(0, limit).map(s => s.container);
+    }
+
+    function renderSimilarImages(container) {
+      const panel = document.getElementById("enlargeSimilarPanel");
+      const grid = document.getElementById("enlargeSimilarGrid");
+      if (!panel || !grid) return;
+      grid.innerHTML = "";
+      const similar = findSimilarImages(container);
+      if (similar.length === 0) {
+        panel.style.display = "none";
+        return;
+      }
+      // Built with createElement (not innerHTML + a later lookup-by-id)
+      // specifically so each thumb's click handler closes over the exact
+      // container it was built from - re-querying by doc id afterward
+      // would be the same ambiguous-lookup shape findImageIdByUrl() is
+      // documented as being unsafe for whenever two images can share a
+      // value (here, two thumbs could share a docId if one somehow never
+      // got one).
+      similar.forEach(otherContainer => {
+        const sourceImg = otherContainer.querySelector("img");
+        const thumb = document.createElement("div");
+        thumb.className = "enlarge-similar-thumb";
+        const thumbImg = document.createElement("img");
+        thumbImg.src = cloudinaryDisplayUrl(otherContainer.dataset.url, { width: 200 });
+        thumbImg.alt = sourceImg ? sourceImg.alt : "";
+        thumbImg.loading = "lazy";
+        thumb.appendChild(thumbImg);
+        thumb.addEventListener("click", (e) => {
+          e.stopPropagation();
+          enlargeImage(
+            otherContainer.dataset.url,
+            thumbImg.alt,
+            otherContainer.getAttribute("data-keywords") || "",
+            otherContainer
+          );
+        });
+        grid.appendChild(thumb);
+      });
+      panel.style.display = "flex";
+    }
+
   function enlargeImage(url, filename, keywords = "", container = null) {
   currentEnlargedContainer = container;
+  renderSimilarImages(container);
   const enlargeModal = document.getElementById("enlargeImageModal");
   const enlargeImg = document.getElementById("enlargeImage");
   const enlargeSpinner = document.getElementById("enlargeSpinner");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
+  const resolutionElement = document.getElementById("enlargedResolution");
 
   // Cap resolution to what the lightbox can actually show - the modal never
   // exceeds the viewport, so there's no point downloading a multi-thousand-
@@ -4105,6 +4381,7 @@ downloadLink.addEventListener("click", function(e) {
   enlargeImg.classList.remove("loaded");
   enlargeImg.style.width = "";
   enlargeImg.style.height = "";
+  resolutionElement.textContent = "";
   enlargeSpinner.classList.add("active");
   enlargeModal.style.justifyContent = "center";
   enlargeModal.style.paddingTop = "0";
@@ -4168,15 +4445,22 @@ downloadLink.addEventListener("click", function(e) {
     enlargeModal.style.paddingTop = `${verticalPadding}px`;
     enlargeModal.style.paddingBottom = `${verticalPadding}px`;
     
-    // Display tags below the image
+    // Display tags below the image. The resolution readout sits in the same
+    // row and shows regardless of whether there are any tags, so the row
+    // itself now shows whenever we have a loaded image - only the tags pill
+    // inside it toggles on keyword presence.
     if (keywords && keywords.trim() !== "") {
       tagsElement.textContent = keywords;
-      tagsElement.parentElement.style.display = "block";
+      tagsElement.style.display = "inline-block";
     } else {
-      // Hide tags container if there are no keywords
-      tagsElement.parentElement.style.display = "none";
+      tagsElement.style.display = "none";
     }
-    
+    // Dimensions of the (possibly 1920px-capped, see displayUrl above)
+    // lightbox image - exact for anything at or under that cap, which in
+    // practice is most uploads given compressImageIfNeeded()'s 1.5MB
+    // target. Download still fetches the true original regardless.
+    resolutionElement.textContent = `${imgWidth} × ${imgHeight}`;
+    tagsElement.parentElement.style.display = "block";
   };
 
   // Start loading the image to calculate dimensions
@@ -4224,10 +4508,14 @@ downloadLink.addEventListener("click", function(e) {
 function closeEnlargeModal() {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
+  const similarPanel = document.getElementById("enlargeSimilarPanel");
 
   enlargeModal.style.display = "none";
   if (downloadBtn) {
     downloadBtn.style.display = "none";
+  }
+  if (similarPanel) {
+    similarPanel.style.display = "none";
   }
   currentEnlargedContainer = null;
 }
@@ -4575,6 +4863,7 @@ function closeEnlargeModal() {
       retagColorsBtn.disabled = false;
       retagColorsBtn.textContent = originalLabel;
       renderColorFilterDots();
+      renderMaterialFilterChips();
       performSearch();
       alert(`Re-tagged colors for ${containers.length} image(s): ${changed} changed${failed ? `, ${failed} failed` : ""}.`);
     }
@@ -4671,6 +4960,7 @@ function closeEnlargeModal() {
               addImageToGallery(url, folder, keywords, "submission-image", Date.now(), docId);
               updateFolderCounts();
               renderColorFilterDots();
+              renderMaterialFilterChips();
               addBtn.textContent = "Added";
               folderSelectEl.disabled = true;
             } catch (error) {
@@ -5061,6 +5351,7 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now(), docId);
     updateFolderCounts();
     renderColorFilterDots();
+    renderMaterialFilterChips();
     console.log(`Image added to gallery`);
     
     // Update UI to show success
@@ -5183,6 +5474,19 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
       performSearch();
     });
 
+    // Same delegated-on-the-stable-container pattern as the color dots
+    // above, for the same reason (renderMaterialFilterChips() rebuilds
+    // this container's innerHTML whenever which materials are in use
+    // changes).
+    document.querySelector(".material-chip-container")?.addEventListener("click", (e) => {
+      const chip = e.target.closest(".material-chip");
+      if (!chip) return;
+      const material = chip.getAttribute("data-material");
+      currentMaterialFilter = (currentMaterialFilter === material) ? null : material;
+      renderMaterialFilterChips();
+      performSearch();
+    });
+
    document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("DOM loaded, initializing application...");
@@ -5216,9 +5520,15 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     // Load data
     await loadFoldersFromFirebase();
     await loadImagesFromFirebase();
+    // Default view is shuffled, not upload order - reshuffled fresh on
+    // every page load (see sortGallery's "random" branch). Explicit
+    // Alphabetical/Recent Add/Random picks from the sort menu override this
+    // for the rest of the session.
+    sortGallery("random");
     scheduleLayout();
     updateFolderCounts();
     renderColorFilterDots();
+    renderMaterialFilterChips();
 
 
     // Select 'All' folder
