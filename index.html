@@ -2645,9 +2645,10 @@ aboutModal.addEventListener("click", (e) => {
     // Cloudinary stores the file in its original format (e.g. HEIC from iPhones),
     // which most browsers can't render in an <img> tag. Insert an f_auto,q_auto
     // transformation so Cloudinary serves a browser-compatible format instead.
-    function cloudinaryDisplayUrl(url, { width } = {}) {
+    function cloudinaryDisplayUrl(url, { width, quality } = {}) {
       if (typeof url !== 'string' || !url.includes('/upload/')) return url;
-      const transform = width ? `f_auto,q_auto,c_limit,w_${width}` : 'f_auto,q_auto';
+      const q = quality ? `q_${quality}` : 'q_auto';
+      const transform = width ? `f_auto,${q},c_limit,w_${width}` : `f_auto,${q}`;
       return url.replace('/upload/', `/upload/${transform}/`);
     }
 
@@ -2784,7 +2785,15 @@ aboutModal.addEventListener("click", (e) => {
     // numerically larger but dull one directly, without the algorithm
     // ever having to first decide "is this whole image neutral" as a
     // separate step that can mis-fire.
-    function dominantColorNameFromCanvas(canvas) {
+    // `debugLabel`, if passed, logs the full name -> vote-weight breakdown
+    // to the console (not just the winner) - added 2026-07-31 after a real
+    // fire hydrant, a glazed tile, and foliage all still came back "gray"
+    // even after the chroma-weighted rework above, with no way to see
+    // *why* without live Cloudinary access to inspect actual pixel data.
+    // If another image comes back wrong, check its logged breakdown first
+    // (via the site owner's own browser console) instead of guessing at
+    // thresholds blind again.
+    function dominantColorNameFromCanvas(canvas, { debugLabel } = {}) {
       const SAMPLE = 64;
       const sampleCanvas = document.createElement('canvas');
       sampleCanvas.width = SAMPLE;
@@ -2820,6 +2829,11 @@ aboutModal.addEventListener("click", (e) => {
 
       let bestName = null, bestWeight = 0;
       votes.forEach((weight, name) => { if (weight > bestWeight) { bestWeight = weight; bestName = name; } });
+      if (debugLabel) {
+        const breakdown = Array.from(votes.entries()).sort((a, b) => b[1] - a[1])
+          .map(([name, weight]) => `${name}:${weight.toFixed(1)}`).join(', ');
+        console.debug(`[color detect] ${debugLabel} -> ${bestName} (${breakdown})`);
+      }
       return bestName;
     }
 
@@ -2829,21 +2843,40 @@ aboutModal.addEventListener("click", (e) => {
     async function detectDominantColorTag(file) {
       try {
         const canvas = await decodeToCanvas(file);
-        return dominantColorNameFromCanvas(canvas);
+        return dominantColorNameFromCanvas(canvas, { debugLabel: file.name });
       } catch (err) {
         console.warn(`Could not detect dominant color for ${file.name}:`, err);
         return null;
       }
     }
 
-    // For an already-hosted Cloudinary URL (Review Submissions' "Add",
-    // which reuses the image already uploaded at submission time rather
-    // than re-uploading it - see completeUpload()/reviewSubmissions
-    // below). Requested small (w_64) since only a rough sample is needed,
-    // which also keeps the crossOrigin canvas read fast. Cloudinary serves
-    // its delivery URLs with CORS enabled, but if that ever isn't true for
-    // some reason the canvas read throws (a "tainted canvas" security
-    // error) and this just returns null rather than blocking the Add.
+    // For an already-hosted Cloudinary URL (Review Submissions' "Add" and
+    // the Re-tag Colors bulk action - see completeUpload()/reviewSubmissions
+    // and reevaluateAllImageColors() below). Requested at w_200/q_90
+    // (2026-07-31, was w_64 with q_auto) - real photos re-tagged through
+    // this path (a glossy fire hydrant, a glazed tile, foliage) kept
+    // coming back "gray" even after the chroma-weighted vote rework,
+    // despite being obviously colored; the one thing that rework's own
+    // synthetic Node tests couldn't exercise at all is this function's
+    // only difference from the local-File path (detectDominantColorTag,
+    // which decodes the full-resolution original with no Cloudinary
+    // transform involved) - a live, lossy re-compression down to a tiny
+    // w_64 image. `q_auto` in particular can pick a much more aggressive
+    // quality for a thumbnail this small than it would for a
+    // full-size display image, and JPEG/WebP compression discards color
+    // (chroma) information disproportionately to brightness at low
+    // bitrates - exactly the kind of artifact that would wash real
+    // saturation out before this function ever sees the pixels. Bumped to
+    // a less-aggressively-compressed w_200/q_90 sample - still tiny and
+    // fast for a crossOrigin canvas read, but with much less compression
+    // pressure. Passes the url through as dominantColorNameFromCanvas's
+    // debugLabel so if a re-tagged image is still wrong, its full
+    // name/vote breakdown is in the browser console to check next,
+    // instead of guessing at another pipeline-level cause blind. Cloudinary
+    // serves its delivery URLs with CORS enabled, but if that ever isn't
+    // true for some reason the canvas read throws (a "tainted canvas"
+    // security error) and this just returns null rather than blocking the
+    // Add/re-tag.
     async function detectDominantColorTagFromUrl(url) {
       try {
         const img = new Image();
@@ -2851,13 +2884,13 @@ aboutModal.addEventListener("click", (e) => {
         await new Promise((resolve, reject) => {
           img.onload = resolve;
           img.onerror = reject;
-          img.src = cloudinaryDisplayUrl(url, { width: 64 });
+          img.src = cloudinaryDisplayUrl(url, { width: 200, quality: 90 });
         });
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         canvas.getContext('2d').drawImage(img, 0, 0);
-        return dominantColorNameFromCanvas(canvas);
+        return dominantColorNameFromCanvas(canvas, { debugLabel: url });
       } catch (err) {
         console.warn(`Could not detect dominant color for ${url}:`, err);
         return null;

@@ -395,6 +395,31 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     still gets an obviously wrong tag, add another synthetic case shaped like it and check there
     first, same advice as last time, which turned out to matter: synthetic-only verification is
     exactly what let the 2026-07-30 version ship still broken.
+    **Confirmed still broken after Re-tag Colors, 2026-07-31, same day as the rework above** - the
+    owner ran Re-tag Colors against the real gallery and a glossy fire hydrant, a glazed mosaic
+    tile, and several foliage photos still came back "gray". Since this is the *first* real signal
+    gathered after an actual admin-triggered run (as opposed to synthetic Node cases, which cannot
+    exercise this at all), it points at something the synthetic tests structurally can't cover:
+    `detectDominantColorTagFromUrl(url)` - the only path Re-tag Colors and Review Submissions' "Add"
+    use - fetches a *live, lossily re-compressed* Cloudinary transform (`w_64` with `q_auto`),
+    unlike `detectDominantColorTag(file)` (plain admin uploads), which decodes the full-resolution
+    original locally with no Cloudinary transform involved at all. `q_auto` can pick a much more
+    aggressive quality for a thumbnail that tiny than it would for a real display image, and
+    JPEG/WebP compression discards chroma disproportionately to brightness at low bitrates -
+    exactly the kind of artifact that would wash real saturation out before
+    `dominantColorNameFromCanvas()` ever sees the pixels, on glossy/reflective subjects most of
+    all (a hydrant's shiny paint, a glazed tile's reflections) - which matches the specific failing
+    photos here. Bumped the transform to `w_200`/`q_90` (`cloudinaryDisplayUrl()` gained an optional
+    `quality` param for this, defaulting to `q_auto` everywhere else so display thumbnails are
+    unaffected) - still a tiny, fast crossOrigin fetch, just under much less compression pressure.
+    **Unconfirmed whether this is the full explanation or just a contributing factor** - there's
+    still no live Cloudinary access in a sandboxed session to verify against the real photos, so
+    `dominantColorNameFromCanvas()` gained an optional `debugLabel` param (wired to the image
+    filename/URL at both call sites) that `console.debug`s the *full* name→vote-weight breakdown,
+    not just the winner, whenever it's passed - if an image is still wrong after this, ask whoever
+    can open the browser console during a Re-tag Colors run (or a fresh upload) to paste the
+    `[color detect] ...` line for that image, and treat that as real ground truth instead of
+    guessing at another pipeline-level theory blind, the same lesson as every round before this one.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view.
