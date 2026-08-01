@@ -3496,20 +3496,6 @@
       cracked: ["fractured", "split"],
       rough: ["coarse", "textured"],
       smooth: ["polished", "even"],
-      black: ["dark", "ebony"],
-      white: ["pale", "ivory"],
-      gray: ["grey", "ashen"],
-      grey: ["gray", "ashen"],
-      brown: ["tan", "umber"],
-      beige: ["cream", "sand"],
-      red: ["crimson", "scarlet"],
-      orange: ["amber", "tangerine"],
-      yellow: ["gold", "amber"],
-      green: ["olive", "sage"],
-      cyan: ["teal", "turquoise"],
-      blue: ["azure", "navy"],
-      purple: ["violet", "lilac"],
-      pink: ["rose", "magenta"],
       creature: ["monster", "beast"],
       angle: ["corner", "edge"],
       construction: ["building", "structure"],
@@ -3558,6 +3544,18 @@
       creature: ["créature", "kreatur", "creatura", "生物", "生物"],
       angle: ["angle", "winkel", "angolo", "角度", "角"],
       construction: ["construction", "baustelle", "costruzione", "建筑", "建設"],
+      // Both singular and plural stored as separate keys (2026-08-01) since
+      // this map only ever matches an image's *exact* typed keyword - if a
+      // tag is "tools" but only "tool" had an entry, an image tagged
+      // "tools" would still get no translation at all. Storing the plural
+      // form's translation also happens to cover a singular search term for
+      // free (performSearch()'s own `translatedKeywords.includes(searchTerm)`
+      // check matches "outil" against a stored "outils" as a substring), but
+      // that's incidental - the real fix is having both keys exist.
+      tool: ["outil", "werkzeug", "attrezzo", "工具", "道具"],
+      tools: ["outils", "werkzeuge", "attrezzi", "工具", "道具"],
+      plane: ["avion", "flugzeug", "aereo", "飞机", "飛行機"],
+      planes: ["avions", "flugzeuge", "aerei", "飞机", "飛行機"],
     };
 
     // "Synonym Tags: On/Off" (persisted to localStorage) - see the block
@@ -3574,15 +3572,26 @@
       return (keywordsCsv || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
     }
 
+    // Color words never get a synonym (explicit request) - SYNONYM_MAP
+    // itself no longer has entries for any of them, but this set is also
+    // checked directly in computeSynonymTags() below so re-adding one to
+    // the map later (e.g. by copying the pattern from a neighboring entry)
+    // doesn't silently reintroduce it. Includes "grey" alongside "gray"
+    // even though only "gray" is one of COLOR_FILTER_SWATCHES' own color
+    // names - they're the same color, just different spellings.
+    const SYNONYM_EXCLUDED_WORDS = new Set([...COLOR_FILTER_SWATCHES.map(s => s.color), "grey"]);
+
     // Up to 2 synonyms per matched keyword, comma-joined, deduped
     // case-insensitively against both the original tags and each other -
-    // e.g. "wood, old" -> "timber, lumber, aged, weathered".
+    // e.g. "wood, old" -> "timber, lumber, aged, weathered". Colors are
+    // skipped entirely - see SYNONYM_EXCLUDED_WORDS above.
     function computeSynonymTags(keywordsCsv) {
       const words = normalizeTagList(keywordsCsv);
       const originalSet = new Set(words);
       const seen = new Set();
       const result = [];
       words.forEach(word => {
+        if (SYNONYM_EXCLUDED_WORDS.has(word)) return;
         (SYNONYM_MAP[word] || []).forEach(syn => {
           const normalized = syn.toLowerCase();
           if (originalSet.has(normalized) || seen.has(normalized)) return;
@@ -7994,6 +8003,20 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
 
   let imageUrl;
   let colorTag;
+  // Declared here (not `const` inside the try block below) so it's still
+  // in scope at uploadFile.size's use-site after the try/catch - a real
+  // bug that reached production: `const uploadFile` was block-scoped to
+  // the try block, so every upload actually completed successfully
+  // against Cloudinary (visible in the console as "File uploaded
+  // successfully, URL: ...") and then immediately crashed with
+  // `ReferenceError: uploadFile is not defined` the moment control left
+  // the try block, before completeUpload() ever ran - meaning the image
+  // never made it into Firestore/the gallery despite genuinely existing on
+  // Cloudinary already. imageUrl/colorTag right above already followed
+  // this same "declare outside, assign inside" pattern; uploadFile just
+  // didn't, most likely because it was added later (2026-08-01, for the
+  // lightbox size pill's fileSize param) without matching it.
+  let uploadFile;
   try {
     console.log(`Starting upload process for ${file.name}`);
 
@@ -8005,7 +8028,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     // compressed file, in parallel with the network upload, so it doesn't
     // add extra wait time - see detectDominantColorTag() above.
     console.log(`Uploading ${file.name}...`);
-    const uploadFile = await compressImageIfNeeded(file);
+    uploadFile = await compressImageIfNeeded(file);
     [imageUrl, colorTag] = await Promise.all([
       uploadImage(uploadFile),
       detectDominantColorTag(uploadFile)

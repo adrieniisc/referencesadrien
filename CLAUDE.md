@@ -1146,12 +1146,80 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     folder names and the color auto-tagger's words) - if a commonly-used tag has no synonyms/
     translations yet, that's expected (not a bug) until `SYNONYM_MAP`/`TRANSLATION_MAP` are extended
     for it.
+  - **Translation search missing "tools"/"planes" - not actually a synonym/translation coupling
+    bug (2026-08-01)** - reported as "translation only works for synonyms it seems... i write
+    'outil' and i dont get anything for tools... searching 'avions' i dont get planes results."
+    `computeSynonymTags()` and `computeTranslatedTags()` are two entirely independent lookups
+    against two separate maps (`SYNONYM_MAP`/`TRANSLATION_MAP`) - neither depends on the other -
+    so there's no actual coupling to fix; the real cause was simpler and more literal: `tool(s)`
+    and `plane(s)` were never keys in `TRANSLATION_MAP` *at all*, closed-vocabulary style, same as
+    any other untracked word (see the block comment above `SYNONYM_MAP` - "a tag that isn't a key
+    in either map below simply gets no synonyms/translations"). Added both singular and plural as
+    separate keys for each (`tool`/`tools`, `plane`/`planes`) - this map only ever matches an
+    image's *exact* typed keyword, so if the real admin-typed tag is the plural form ("tools") but
+    only the singular had an entry, that image would still get no translation at all; adding both
+    covers either tagging convention without having to know which one is actually in use.
+    Storing the plural French form for each also happens to satisfy a singular search term for free
+    (performSearch()'s `translatedKeywords.includes(searchTerm)` matches "outil" as a substring of
+    a stored "outils"), but that's incidental, not the actual fix - the real fix is the keys
+    existing at all. No `SYNONYM_MAP` entries were added for these (not requested, and per the
+    existing "not all tags get a synonym" design this isn't required for translation to work).
+    Existing images already tagged "tools"/"planes" need an admin to click **Re-tag Synonyms** to
+    backfill `translatedKeywords` from this new map data - it already recomputes both fields
+    together for every loaded image, so no separate mechanism was needed; only *new* uploads and
+    Edit Tags saves pick this up automatically going forward. Confirmed via the same
+    Playwright-against-the-real-page approach as prior synonym/translation work:
+    `computeTranslatedTags('tools')` now returns a string containing `outils`, and a plain
+    substring check confirms `outil` and `avion` (the singular French search terms actually typed)
+    both match the stored plural translations for `tools`/`planes` respectively.
+  - **Uploads were silently failing to publish entirely, fixed 2026-08-01 - a genuine production
+    bug, caught from a real console log the owner pasted in.** Every upload was actually reaching
+    Cloudinary fine (`console.log`'d "File uploaded successfully, URL: ..."), then immediately
+    crashing with `Uncaught (in promise) ReferenceError: uploadFile is not defined` before
+    `completeUpload()` ever ran - meaning the image genuinely existed on Cloudinary but never made
+    it into Firestore or the gallery, for every single upload, silently (the dock's own error
+    handling never caught this since the crash happened *after* the try/catch that would have shown
+    it as a red "Error" row). Root cause: `processUpload()` declared `const uploadFile = await
+    compressImageIfNeeded(file)` *inside* the try block, but used `uploadFile.size` afterward,
+    outside it, for the fileSize param added by the same day's "Lightbox size pill" work - `const`/
+    `let` are block-scoped, so `uploadFile` didn't exist any more the moment control left the `try
+    { }` block, regardless of whether the try block itself succeeded. `imageUrl`/`colorTag` right
+    above it already followed the correct pattern (`let` declared *before* the try block, assigned
+    inside) specifically because they're also read after it - `uploadFile` just never got the same
+    treatment when it was added later. Fixed by hoisting `let uploadFile;` up next to them. Confirmed
+    via a Playwright run with the real `processUpload()` against a mocked upload endpoint: before the
+    fix, the promise rejected with exactly that ReferenceError and nothing was ever written to
+    Firestore; after, the same call resolves cleanly and the image saves with a correct `fileSize`.
+    If another "file uploaded successfully then a ReferenceError" report shows up, check for this
+    same shape first - a value computed inside `try { }` and used after it - before assuming it's a
+    new bug.
   - **Fourth round of fixes (2026-08-01, same day) - real-usage bug reports against the batch
     above, plus one explicit new feature request.**
     - **`orange`'s synonyms no longer include `rust`** (`SYNONYM_MAP`) - `rust` is also its own
       real, distinct tag (`rust: ["corrosion", "oxidation"]`), so surfacing it as a synonym of the
       *color* orange read as wrong/confusing on an orange-but-not-rusted image. Replaced with
       `tangerine`.
+    - **No color word gets a synonym at all, superseding the `orange`/`rust` fix above the same
+      day** - "Dont add a synonym for colors" - all 13 `COLOR_FILTER_SWATCHES` color entries
+      (`black`, `white`, `gray`/`grey`, `brown`, `beige`, `red`, `orange`, `yellow`, `green`,
+      `cyan`, `blue`, `purple`, `pink`) were removed from `SYNONYM_MAP` outright, not just
+      individually tuned - a synonym for a color name reads as a second, redundant color tag
+      (e.g. `orange` -> `amber`/`tangerine` when `amber` is itself a real, separately-typed color
+      some images use) rather than a useful alternate search term the way `wood` -> `timber` is.
+      `computeSynonymTags()` also gained an explicit `SYNONYM_EXCLUDED_WORDS` guard (built from
+      `COLOR_FILTER_SWATCHES` plus the `grey` spelling) checked before the `SYNONYM_MAP` lookup -
+      belt-and-suspenders so a color re-added to the map later (e.g. by copying a neighboring
+      entry's pattern) doesn't silently reintroduce this. Translations are untouched - colors still
+      get `TRANSLATION_MAP` entries, since those exist purely to widen search matching in other
+      languages, not to add a second displayed tag. Confirmed via the same
+      Playwright-against-the-real-page approach as the rest of this file's synonym work:
+      `computeSynonymTags()` on a CSV of all 13 color words returns an empty string, while a mixed
+      `"wood, old, red"` list still returns `wood`/`old`'s synonyms with nothing for `red`, and an
+      unrecognized word alongside a known one (`"xyz, wood"`) still only produces `wood`'s - the
+      existing "not every tag gets a synonym, closed vocabulary" behavior is unchanged for
+      non-color words. "Synonyms can re-tag completely" was also reconfirmed against the same-day
+      Edit Tags fix above and Re-tag Synonyms (both already fully recompute-and-overwrite rather
+      than merge) - no change needed there, already correct.
     - **Synonym/translated tags going stale after Edit Tags, fixed** - reported as "synonym tags
       seem to only apply to the last tag of each image." Root cause: `completeUpload()` and Re-tag
       Synonyms both correctly compute `synonymKeywords`/`translatedKeywords` from *every* keyword,
