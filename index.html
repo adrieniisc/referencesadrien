@@ -301,6 +301,13 @@
   background-color: rgba(28, 28, 32, 0.8);
 }
 
+#aboutModal .modal-content hr.about-social-separator {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 0.6rem 0 0.8rem;
+  width: 40px;
+}
+
 #aboutModal .modal-content p.about-social-label {
   margin-bottom: 0.4rem;
   font-size: 0.75rem;
@@ -2935,7 +2942,8 @@
       <p>Feel free to contribute and share your own images/textures with the "SUBMIT" button :)</p>
       <p>Have fun :)</p>
       <p>Adrien</p>
-      <p class="about-social-label">my links :</p>
+      <hr class="about-social-separator">
+      <p class="about-social-label">My links :</p>
       <div class="about-social-links">
         <a class="about-social-icon" href="https://www.artstation.com/adrienisakovic" target="_blank" rel="noopener noreferrer" title="ArtStation" aria-label="ArtStation">
           <!-- ArtStation's actual mark: the triangle, the separate bar
@@ -3368,6 +3376,17 @@
       "wood"
     ];
     let currentFolderFilter = "all";
+    // Opening a folder (or "All"/"New This Week", or the "aReference" brand
+    // link's own reset-to-All) should always land at the top of the
+    // gallery, not wherever the scrollbar happened to be left from the
+    // previous folder - otherwise switching folders can silently drop you
+    // mid-scroll into a completely different folder's images. Scoped to
+    // just these explicit folder-switch actions (not every filterImages()
+    // call - e.g. the ones that re-run after a delete/move/tag-edit
+    // mutation deliberately leave scroll position alone).
+    function resetGalleryScroll() {
+      document.querySelector(".main-content")?.scrollTo(0, 0);
+    }
     // Virtual filter value for the "New This Week" category - not a real
     // folder path, so it's kept out of `folders`/Firestore and handled as a
     // special case anywhere filtering branches on the folder path shape.
@@ -4547,6 +4566,7 @@
       const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
       if (allFolder) highlightSelected(allFolder);
       filterImages("all");
+      resetGalleryScroll();
     }
     document.getElementById("sidebarBrand")?.addEventListener("click", goToHomeAll);
 
@@ -5605,6 +5625,7 @@ downloadLink.addEventListener("click", function(e) {
         hideAllSubfolders();
         currentFolderFilter = "all";
         filterImages("all");
+        resetGalleryScroll();
       });
       folderList.appendChild(allItem);
 
@@ -5628,6 +5649,7 @@ downloadLink.addEventListener("click", function(e) {
         hideAllSubfolders();
         currentFolderFilter = NEW_THIS_WEEK_FILTER;
         filterImages(NEW_THIS_WEEK_FILTER);
+        resetGalleryScroll();
         // Every other folder view keeps whatever order the gallery is
         // already in (random by default - see sortGallery("random") at
         // init) since order doesn't mean anything there. "New This Week" is
@@ -5690,6 +5712,7 @@ downloadLink.addEventListener("click", function(e) {
               highlightSelected(childLi);
               currentFolderFilter = parent + "/" + child;
               filterImages(parent + "/" + child);
+              resetGalleryScroll();
             });
             subUl.appendChild(childLi);
           });
@@ -5700,6 +5723,7 @@ downloadLink.addEventListener("click", function(e) {
   toggleSubfolders(subUl, parentLi);  // Updated to pass parentLi
   currentFolderFilter = parent;
   filterImages(parent);
+  resetGalleryScroll();
 });
 
         folderList.appendChild(parentLi);
