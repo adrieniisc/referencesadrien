@@ -1130,6 +1130,52 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   darkened from `rgba(26,26,30,0.82)` to `rgba(16,16,19,0.88)` (closer to `--bg` than
   `--bg-elevated`, which is what that literal rgba matched) - the floating color/size panels that
   share the same original rgba value were deliberately left untouched, this was sidebar-only.
+- **Sidebar frost strip: fixed a real vertical misalignment vs. the gallery images it mirrors
+  (2026-08-01)** — the 2026-08-01 tile-reuse fix above stopped the reflection from visibly
+  resetting/jumping, but a follow-up screenshot showed it still "doesn't match the images next to
+  it." Root cause, found by comparing actual rendered pixel positions (not just DOM/computed-style
+  assertions - the same class of gap that let the search-icon bug ship unnoticed): tile `top` was
+  computed relative to `#gallery`'s own top (`galleryEl.getBoundingClientRect()`), but tiles render
+  inside `#sidebarFrostArt`, which is `inset:0` within `.sidebar` - and `.sidebar` starts at the very
+  top of the page, while `#gallery` sits *inside* `.main-content`'s own `padding-top` (clearing the
+  fixed header - 80px at the base tier, more at narrower breakpoints). Every tile was rendering
+  exactly that padding amount higher on screen than the real image it mirrors. Fixed by measuring
+  each tile's offset against `art.getBoundingClientRect()` (the actual container the strip lives in)
+  instead of the gallery's - correct regardless of the header's height at any breakpoint. Verified via
+  Playwright: comparing a first-column image's rendered rect against its matching frost tile's rect
+  (matched by image src) now gives a constant `-8px` offset across every row, which is exactly
+  `FROST_TILE_BLEED` (the deliberate bleed so the gallery's row gap doesn't show as a seam) - not a
+  bug, the intended value.
+- **Lightbox: the enlarged photo itself is now vertically centered, not just the photo+caption block
+  as a whole (2026-08-01)** — a follow-up screenshot (with the true viewport center and the image's
+  actual center marked) showed that even after the 2026-08-01 "equal top/bottom margins" fix above,
+  the *picture* itself still sat above true center - because that fix centered `.enlarge-image-column`
+  as a whole (image + tags/resolution caption stacked in flow), so the caption's own height still
+  pushed the image upward by about half of itself. Fixed by taking the caption out of flow entirely:
+  `.enlarged-tags-container` is now `position: absolute` (`left/right: 10%`, same ~80%-of-image-width
+  cap as its old `max-width: 80%`) instead of a flex sibling with `margin-top: auto`, so
+  `.enlarge-image-column`'s only *flow* child is the image - centering the column (`justify-content:
+  center`, plus `.enlarge-main-row` now explicitly `height: 100%` so the column has a real full-height
+  box to center within, not just whatever height incidentally came from the "Similar" panel being
+  tall enough to stretch it) centers the image alone. The caption's position is set by
+  `enlargeImage()`'s new `positionEnlargedTags()`, called from both `onload`/`onerror` after the
+  image's width/height are set: `top = imgRect.bottom - columnRect.top`, i.e. directly under the
+  image's own just-rendered bottom edge, wherever that lands. Knock-on fix needed in the same pass:
+  `availableHeight`'s reservation (used to cap a tall/height-limited image's size so there's still
+  room left for the caption) had to reserve **double** the caption's estimated height, not one - since
+  the image is now centered in the *full* viewport height, only *half* of whatever's reserved ends up
+  below the image (the other half goes above it, symmetrically), so reserving a single caption's worth
+  only left half a caption's worth of actual clearance. Verified via Playwright for both a
+  width-limited (short/wide) and height-limited (tall/narrow) synthetic image: image's own vertical
+  center now measures exactly equal to the modal's true vertical center (0px difference) in both
+  cases, and the caption's bottom edge lands exactly at the viewport edge for a maximally-tall image
+  (no overflow) rather than the ~11px overflow the single-reservation version had.
+- **Subtle large drop-shadow on the floating size/color filter panels (2026-08-01, explicit
+  request)** — added a `--shadow-float` token (`0 28px 70px rgba(0,0,0,0.35)` - bigger blur/spread,
+  lower opacity than the existing `--shadow-md`) and pointed `.floating-size-panel`/
+  `.floating-color-panel` at it instead, so they read as lifted further off the gallery behind them
+  without the shadow itself looking heavy/dark. Left every other `--shadow-md` user (modals, similar-
+  panel thumbnails, etc.) unchanged - this was scoped to just those two panels per the request.
 - **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
   filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
   Access is controlled by real Firestore security rules now — see "Admin access" below and

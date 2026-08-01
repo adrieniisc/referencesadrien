@@ -42,6 +42,11 @@
       --radius-md: 12px;
       --radius-lg: 18px;
       --shadow-md: 0 10px 28px rgba(0,0,0,0.4);
+      /* Bigger, softer, lower-opacity than --shadow-md - a "subtle large"
+         shadow (2026-08-01, explicit request) meant to lift the floating
+         size/color filter panels further off the gallery behind them
+         without reading as a hard/dark edge. */
+      --shadow-float: 0 28px 70px rgba(0,0,0,0.35);
       --gallery-gap: 6px;
       --row-height: 240px; /* default gallery size = M */
       --sidebar-width: 270px;
@@ -702,7 +707,12 @@
       justify-content: flex-end;
       padding: 5px;
       max-width: max-content;
-      box-shadow: var(--shadow-md);
+      /* Subtle large drop-shadow (2026-08-01, explicit request) - was
+         --shadow-md, same as most other floating chrome in this app; this
+         one panel and .floating-color-panel get the bigger/softer
+         --shadow-float instead so they read as lifted further off the
+         gallery behind them. */
+      box-shadow: var(--shadow-float);
     }
     .size-icon-container {
       display: inline-flex;
@@ -753,7 +763,9 @@
       border-radius: var(--radius-md);
       z-index: 1000;
       padding: 5px;
-      box-shadow: var(--shadow-md);
+      /* Matches .floating-size-panel's bigger, softer shadow - see its
+         comment. */
+      box-shadow: var(--shadow-float);
     }
     .color-dot-container {
       display: flex;
@@ -1295,9 +1307,24 @@
     -------------------------------------------------- */
 
 .enlarged-tags-container {
-  position: relative;
-  width: auto;
-  max-width: 80%;
+  /* position: absolute (2026-08-01, superseding "margin-top: auto" below) -
+     this used to be a normal-flow flex sibling of the image inside
+     .enlarge-image-column, which meant centering that column as a whole
+     centered the *image+tags* block together - shifting the image itself
+     above the viewport's true vertical center by roughly half the tags
+     row's own height (reported as "maxed image not aligned to vertical
+     center", visible even after the 2026-07-31 fix that made the outer
+     *block's* margins symmetric). Pulling this out of flow entirely means
+     .enlarge-image-column's only flow child is the image, so centering the
+     column centers the image alone; this container is instead positioned
+     by enlargeImage()'s onload/onerror handlers directly under the image's
+     own just-computed rendered bottom edge (see `positionEnlargedTags()`).
+     left/right insets (not width/max-width) keep it symmetric around the
+     image's horizontal center regardless of its own content width - same
+     ~80%-of-image-width cap as the old max-width. */
+  position: absolute;
+  left: 10%;
+  right: 10%;
   display: flex;
   /* Row instead of column (2026-07-31, superseding the note below) - see
      .enlarged-tags/.enlarged-resolution for why this doesn't reintroduce
@@ -1311,7 +1338,6 @@
   gap: 10px;
   padding: 10px 0;
   opacity: 0.6;
-  margin-top: auto; /* Push to bottom of container */
 }
 
 
@@ -1391,7 +1417,13 @@
 .enlarge-main-row {
   display: flex;
   flex-direction: row;
-  align-items: stretch; /* image column keeps full height for its own tags-pushed-to-bottom logic below */
+  /* Explicit full height (2026-08-01, was implicit/content-sized) - needed
+     so .enlarge-image-column (stretched to match via align-items: stretch
+     below) has a real, deterministic full-viewport height to center the
+     image within, regardless of whether the "Similar" panel happens to be
+     visible/tall enough to stretch it that way incidentally. */
+  height: 100%;
+  align-items: stretch; /* image column takes the row's full height, so it can center the image within all of it - see .enlarge-image-column */
   justify-content: center;
   gap: var(--lightbox-row-gap);
   width: 100%;
@@ -1401,7 +1433,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* Centers the image - now the column's only *flow* child, since
+     .enlarged-tags-container is position: absolute (see its own comment) -
+     within the column's full stretched height, i.e. the true viewport
+     center, independent of the tags/resolution caption underneath it. */
+  justify-content: center;
   min-width: 0; /* let this shrink below its content's natural size so the row can actually narrow it */
+  position: relative; /* containing block for .enlarged-tags-container */
 }
 
 /* --------------------------------------------------
@@ -2669,6 +2707,18 @@
       }
 
       const galleryRect = galleryEl.getBoundingClientRect();
+      // Reference frame for tile `top` values below is `art`'s own box, not
+      // the gallery's (2026-08-01 fix) - `art` (#sidebarFrostArt) is inset:0
+      // within .sidebar, which starts at the very top of the page, while
+      // #gallery sits inside .main-content's own padding-top (clearing the
+      // fixed header - 80px at the base tier, more at narrower breakpoints).
+      // Positioning tiles relative to the gallery's top but rendering them
+      // inside a container whose own top is *above* the gallery's (by that
+      // padding amount) put every reflection tile that many pixels higher
+      // on screen than the real image it's supposed to mirror - a constant,
+      // breakpoint-dependent misalignment, reported as the reflection not
+      // matching the images next to it.
+      const artRect = art.getBoundingClientRect();
       const scrollTop = viewport.scrollTop;
 
       // Reuse existing tiles by identity instead of wiping and rebuilding
@@ -2691,7 +2741,7 @@
         // so adding scrollTop back gives a position that stays correct
         // regardless of where the page happens to be scrolled to right now.
         const rect = container.getBoundingClientRect();
-        const top = Math.round(rect.top - galleryRect.top + scrollTop) - FROST_TILE_BLEED;
+        const top = Math.round(rect.top - artRect.top + scrollTop) - FROST_TILE_BLEED;
         const height = Math.round(rect.height) + (FROST_TILE_BLEED * 2);
 
         let tile = frostTilesByKey.get(key);
@@ -2731,7 +2781,7 @@
       frostTilesByKey = nextTilesByKey;
 
       strip.appendChild(fragment);
-      strip.style.height = `${Math.round(galleryEl.getBoundingClientRect().height + scrollTop)}px`;
+      strip.style.height = `${Math.round(galleryRect.bottom - artRect.top + scrollTop)}px`;
 
       syncSidebarFrostStripPosition();
     }
@@ -4828,6 +4878,20 @@ downloadLink.addEventListener("click", function(e) {
   const tagsElement = document.getElementById("enlargedTags");
   const resolutionElement = document.getElementById("enlargedResolution");
   const similarPanelEl = document.getElementById("enlargeSimilarPanel");
+  const imageColumn = document.querySelector(".enlarge-image-column");
+
+  // .enlarged-tags-container is position: absolute (see its own CSS
+  // comment) precisely so it never factors into centering the image within
+  // .enlarge-image-column's full height - this positions it directly under
+  // the image's own just-rendered bottom edge instead. getBoundingClientRect()
+  // forces the layout to settle after enlargeImg's width/height were just
+  // set, so this always reads the image's real, current rendered box.
+  function positionEnlargedTags() {
+    const tagsContainer = tagsElement.parentElement;
+    const imgRect = enlargeImg.getBoundingClientRect();
+    const columnRect = imageColumn.getBoundingClientRect();
+    tagsContainer.style.top = `${imgRect.bottom - columnRect.top}px`;
+  }
 
   // Hide (rather than populate) the "Similar" panel synchronously, before
   // anything else - populating it immediately would show the *previous*
@@ -4893,6 +4957,7 @@ downloadLink.addEventListener("click", function(e) {
     }
     resolutionElement.textContent = "";
     tagsElement.parentElement.style.display = "flex";
+    positionEnlargedTags();
   };
   enlargeImg.onload = function() {
     enlargeSpinner.classList.remove("active");
@@ -4936,14 +5001,27 @@ downloadLink.addEventListener("click", function(e) {
     const viewportWidth = window.innerWidth - reservedForSimilarPanel - (sideReserve * 2);
     const viewportHeight = window.innerHeight; // Full viewport height
 
-    // Estimate tag container height
-    const tagContainerHeight = keywords && keywords.trim() !== "" ? 50 : 0; // pixels
+    // Estimate tag container height: .enlarged-tags-container's own
+    // 10px+10px padding plus .enlarged-tags/.enlarged-resolution's 34px
+    // min-height - exact for a single-line tag list (the common case), an
+    // underestimate if the tag list is long enough to wrap onto more lines
+    // (see .enlarged-tags's white-space: normal) - this can't know that in
+    // advance without rendering the real text first, same caveat this
+    // estimate had before.
+    const tagContainerHeight = keywords && keywords.trim() !== "" ? 54 : 0; // pixels
 
     // Define padding at top and bottom (equal)
     const verticalPadding = 20; // pixels
 
-    // Calculate available height for the image
-    const availableHeight = viewportHeight - tagContainerHeight - (verticalPadding * 2);
+    // Calculate available height for the image. Reserves *double* the
+    // caption's footprint (2026-08-01, was single) - .enlarge-image-column
+    // now centers the image alone within the full viewport height (see the
+    // comment near the bottom of this function), so the leftover space
+    // splits evenly above *and* below the image; only the bottom half is
+    // usable for the tags/resolution caption. Reserving only a single
+    // caption's worth left just half of that below the image, which wasn't
+    // always enough room for the caption itself on a tall/narrow image.
+    const availableHeight = viewportHeight - (tagContainerHeight * 2) - (verticalPadding * 2);
 
     // Calculate ratios
     const widthRatio = imgWidth / viewportWidth;
@@ -4969,17 +5047,18 @@ downloadLink.addEventListener("click", function(e) {
       enlargeImg.style.height = "auto";
     }
 
-    // Deliberately left at justify-content: center / no padding (as set when
-    // the modal was opened, above) rather than switching to flex-start with
-    // a fixed top/bottom padding here. verticalPadding above only sizes the
-    // image (via availableHeight) so there's always room left for the tags
-    // row underneath without overflowing the viewport - it no longer
-    // becomes literal CSS padding. A width-limited (short/wide) image is
-    // shorter than availableHeight, so under flex-start + fixed padding the
-    // unused space collected entirely below the content (equal to
-    // verticalPadding at the top, everything else at the bottom); centering
-    // the whole column instead means the leftover space always splits
-    // evenly above and below, for any image shape.
+    // The modal/column stay at justify-content: center (set when the modal
+    // opened, and via .enlarge-image-column's own CSS) - verticalPadding
+    // above only sizes the image (via availableHeight) so there's always
+    // some room left below it for the tags/resolution caption without the
+    // image overflowing the viewport; it's not applied as literal CSS
+    // padding anywhere. Since .enlarged-tags-container is position:
+    // absolute (see its own CSS comment) and no longer a flow sibling of
+    // the image, centering .enlarge-image-column centers the *image alone*
+    // in the full viewport height - not an image+caption block, which
+    // previously shifted the image itself above true center by roughly
+    // half the caption's own height (reported as "maxed image not aligned
+    // to vertical center").
 
     // Display tags below the image. The resolution readout sits in the same
     // row and shows regardless of whether there are any tags, so the row
@@ -4997,6 +5076,11 @@ downloadLink.addEventListener("click", function(e) {
     // target. Download still fetches the true original regardless.
     resolutionElement.textContent = `${imgWidth} × ${imgHeight}`;
     tagsElement.parentElement.style.display = "flex";
+    // Must run after the width/height branch above (needs enlargeImg's
+    // final rendered box) and after the display toggle just above (an
+    // absolutely-positioned element with display: none reports a zero-size
+    // getBoundingClientRect(), which would compute a bogus top).
+    positionEnlargedTags();
   };
 
   // Set image source and alt - this is what actually starts the load
