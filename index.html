@@ -3041,7 +3041,6 @@
             <button id="findDuplicatesBtn">Find Duplicates</button>
             <button id="retagColorsBtn">Re-tag Colors</button>
             <button id="retagSynonymsBtn">Re-tag Synonyms</button>
-            <button id="synonymTagsToggleBtn">Synonym Tags: On</button>
           </div>
           <hr class="separator">
          <div class="sidebar-admin-section">
@@ -3460,11 +3459,11 @@
      * is why they show up in the lightbox's tag list (enlargeImage() merges
      * them in for display only) but never in Edit Tags or the upload dock,
      * both of which read/write the plain `keywords` field directly.
-     * `synonymTagsEnabled` (persisted to localStorage, toggled via the
-     * sidebar's "Synonym Tags: On/Off" admin button) gates both of those
-     * uses at once - turning it off removes synonyms from the lightbox tag
-     * list *and* from search matching (see performSearch()), not just one
-     * or the other.
+     * `synonymTagsEnabled` gates both of those uses at once (the lightbox
+     * tag list and search matching, see performSearch()) - forced to
+     * `true` permanently (2026-08-01), no on/off switch any more. See its
+     * own declaration below for why the old localStorage-backed toggle was
+     * removed rather than just fixed.
      *
      * Translated tags: fr/de/it/zh/ja translations of the same vocabulary,
      * always computed and always included in search matching (no on/off
@@ -3558,15 +3557,21 @@
       planes: ["avions", "flugzeuge", "aerei", "飞机", "飛行機"],
     };
 
-    // "Synonym Tags: On/Off" (persisted to localStorage) - see the block
-    // comment above for exactly what this gates.
-    let synonymTagsEnabled = true;
-    try {
-      const storedSynonymPref = localStorage.getItem("synonymTagsEnabled");
-      if (storedSynonymPref !== null) synonymTagsEnabled = storedSynonymPref === "true";
-    } catch (error) {
-      console.warn("Could not read synonym tags preference:", error);
-    }
+    // Forced permanently on (2026-08-01, explicit request: "make sure they
+    // are forced") - superseding a localStorage-backed on/off toggle (the
+    // removed "Synonym Tags: On/Off" sidebar button). That design is
+    // exactly what caused "synonyms aren't applied when booting the page":
+    // the flag defaulted to `true` in code, but a stray "false" written to
+    // a real browser's localStorage (from an earlier admin test-toggle)
+    // silently overrode that default on every later page load, with
+    // nothing on screen to indicate synonyms were suppressed - the only
+    // way to notice was opening the sidebar and seeing the button already
+    // say "Off", and the only way to fix it *for that one browser* was
+    // toggling it back. A per-browser, easily-forgotten-about flag was
+    // never a good fit for a feature meant to always be on by default -
+    // there's no stored preference to go stale any more, and nothing left
+    // to accidentally leave off.
+    const synonymTagsEnabled = true;
 
     function normalizeTagList(keywordsCsv) {
       return (keywordsCsv || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
@@ -3970,7 +3975,6 @@
     const duplicatesList = document.getElementById("duplicatesList");
     const retagColorsBtn = document.getElementById("retagColorsBtn");
     const retagSynonymsBtn = document.getElementById("retagSynonymsBtn");
-    const synonymTagsToggleBtn = document.getElementById("synonymTagsToggleBtn");
 
     // Delete Image elements
     const deleteImageBtn = document.getElementById("deleteImageBtn");
@@ -4306,10 +4310,24 @@
   const searchTerm = mainImageSearch.value.toLowerCase();
 
   // If search is empty, just respect the current folder filter
-  if (searchTerm === "") {
+  if (searchTerm.trim() === "") {
     filterImages(currentFolderFilter);
     return;
   }
+
+  // Multi-word search (2026-08-01, "allow for multiple search words
+  // matching... wood statue... steel tools") - each whitespace-separated
+  // word has to match *somewhere* in the image's combined haystack (AND
+  // across words), not the whole typed string as one literal substring -
+  // "wood statue" used to only match an image whose keywords/name/category
+  // happened to contain that exact five-character-plus-space run, which in
+  // practice was almost never (tags are comma-separated single words, not
+  // phrases), so a two-word search came back empty even for an image
+  // tagged both "wood" and "statue". Word order/position doesn't matter -
+  // "statue wood" matches the same images "wood statue" does - and a word
+  // can come from any field (one from `keywords`, another from
+  // `data-category`, etc.), same as the single-word case already allowed.
+  const searchWords = searchTerm.split(/\s+/).filter(Boolean);
 
   const allImages = document.querySelectorAll(".image-container");
   allImages.forEach(imgContainer => {
@@ -4329,9 +4347,9 @@
     // derived.
     const translatedKeywords = (imgContainer.dataset.translatedKeywords || "").toLowerCase();
     const synonymKeywords = synonymTagsEnabled ? (imgContainer.dataset.synonymKeywords || "").toLowerCase() : "";
+    const haystack = `${imgName} ${keywords} ${category} ${translatedKeywords} ${synonymKeywords}`;
 
-    const matchesSearch = imgName.includes(searchTerm) || keywords.includes(searchTerm) || category.includes(searchTerm)
-      || translatedKeywords.includes(searchTerm) || synonymKeywords.includes(searchTerm);
+    const matchesSearch = searchWords.every(word => haystack.includes(word));
     imgContainer.classList.toggle("hidden", !(matchesSearch && imageMatchesColorFilter(imgContainer)));
   });
   scheduleLayout();
@@ -4820,7 +4838,22 @@ contributorsModal.addEventListener("click", (e) => {
         if (l > 0.90) return 'white';
         return 'gray';
       }
-      if (h >= 15 && h < 50 && l < 0.45) return 'brown';
+      // Upper bound 45 (2026-08-01, was 50) - "lots of yellow dominant pics
+      // are stored in brown". This carve-out is meant to catch a *darkened
+      // orange* (rust, terracotta, wood) reading as brown rather than
+      // orange - but the plain hue-only classification below already draws
+      // the orange/yellow line at 45 (h < 45 -> orange, else -> yellow), so
+      // a 50 upper bound here reached 5 degrees past that line into hue
+      // territory that would otherwise be *yellow*, not orange, diverting
+      // any sufficiently dark, saturated yellow/gold/mustard pixel (hue
+      // 45-50, e.g. rgb(160,130,10) at h=48) into "brown" before it ever
+      // reached the yellow check. Confirmed with real reference colors: a
+      // dark mustard (h=48, l=0.33) now correctly falls through to yellow,
+      // while genuine dark oranges/browns actually in the 15-45 hue band
+      // (saddle brown h=25, dark goldenrod h=43) are unaffected and still
+      // read as brown - this narrows what the carve-out catches, it
+      // doesn't change how it decides once a hue is in range.
+      if (h >= 15 && h < 45 && l < 0.45) return 'brown';
       if (h >= 15 && h < 60 && l >= 0.45 && l < 0.88 && s < 0.35) return 'beige';
       if (h < 15 || h >= 345) return 'red';
       if (h < 45) return 'orange';
@@ -7549,19 +7582,6 @@ function closeEnlargeModal() {
       alert(`Re-tagged synonyms/translations for ${containers.length} image(s): ${changed} changed${failed ? `, ${failed} failed` : ""}.`);
     }
     retagSynonymsBtn?.addEventListener("click", reevaluateAllSynonymTags);
-
-    // "Synonym Tags: On/Off" switch - see the block comment near
-    // SYNONYM_MAP for exactly what synonymTagsEnabled gates.
-    function updateSynonymTagsToggleBtn() {
-      if (synonymTagsToggleBtn) synonymTagsToggleBtn.textContent = `Synonym Tags: ${synonymTagsEnabled ? "On" : "Off"}`;
-    }
-    synonymTagsToggleBtn?.addEventListener("click", () => {
-      synonymTagsEnabled = !synonymTagsEnabled;
-      try { localStorage.setItem("synonymTagsEnabled", String(synonymTagsEnabled)); }
-      catch (error) { console.warn("Could not persist synonym tags preference:", error); }
-      updateSynonymTagsToggleBtn();
-    });
-    updateSynonymTagsToggleBtn();
 
     /********************************************************
      * Review Submissions
