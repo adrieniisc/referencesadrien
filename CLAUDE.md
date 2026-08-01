@@ -1301,6 +1301,100 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   than continuing to shrink it to fit one row - same "own row below the header" pattern
   About/Submit themselves already use at <=900px, just one tier lower and for one button instead of
   two.
+- **Submit/Contributors swapped positions, both given About's background blur (2026-08-01,
+  explicit requests)** — Submit is now the outermost (leftmost) header button, Contributors sits
+  between it and About (was the reverse) - purely a `right`/`top` swap between `.submit-reference-
+  btn` and `.contributors-btn` at every breakpoint (including which row each drops to at the
+  <=640px/<=420px tiers), About's own values untouched; the three `<button>` tags were reordered in
+  the HTML to match, for tab-order sanity. Separately, `#submitReferenceModal`/`#contributorsModal`
+  didn't have the `backdrop-filter: blur(15px)` rule `#aboutModal` already had (they all share the
+  same `.modal-backdrop` z-index/opacity/transition, but the blur was `#aboutModal`-only) - all
+  three ids now share one rule.
+- **Search placeholder typewriter: no more generic "images..." phrase, folders/subfolders type out
+  in capital letters (2026-08-01, explicit request)** — `getSearchPlaceholderOptions()` dropped the
+  hardcoded `"images..."` entry entirely and now selects `#folderList li:not(.all):not(.new-this-
+  week) > .folder-label > .folder-name` (was scoped to `#folderList >` direct children only) so
+  subfolders cycle through too, not just top-level folders - both levels share the same `li >
+  .folder-label > .folder-name` DOM shape (see `renderFolders()`), so widening the selector was
+  enough on its own. Each name is `.toUpperCase()`'d before the `...` suffix is appended, so the
+  typewriter types e.g. "WOOD..." - "All"/"New This Week" stay excluded, same as before.
+- **Admin login: "Username" label/placeholder instead of "Email" (2026-08-01, explicit request)** —
+  cosmetic only. `#adminEmailInput` is still `type="email"` and still gets passed straight to
+  `signInWithEmailAndPassword()` unchanged - there's still exactly one admin account and it still
+  has to be signed in with the real address (isakovicadrien@gmail.com), only the visible label/
+  placeholder text changed. Don't widen this into an actual separate-username concept without a
+  fresh explicit ask - Firebase Auth here only knows email/password.
+- **Add Image modal rebuilt a second time the same day into a pool → sort/tag → review flow
+  (2026-08-01, explicit request: "still not convinced... bigger page... first step is to upload ALL
+  images... second step is easy selecting (click and hold and hover... by dragging the mouse)...
+  Third page: queue review... Publish, done")** — supersedes the same-day three-step wizard
+  documented earlier in this file (Select Images / Folder & Tags / Review & Publish, with per-step
+  "Publish Now"/"Add to Queue" buttons). The step *panels* and step *indicator* survive, but what
+  happens in each one changed completely:
+  - **Step 1 ("Add Images")** - the dropzone is unchanged, but it no longer feeds a single
+    folder+tags selection directly. Every file chosen (via any number of separate browse/drop
+    actions in the same modal session) is pushed into `uploadPool` (module-level array of
+    `{id, file, url}`, `url` an object URL) instead of being read back off `fileInput.files` -
+    `fileInput` is reset to empty immediately after each add (`fileInput.addEventListener("change",
+    () => { addFilesToPool(fileInput.files); fileInput.value = ""; })`) specifically so the native
+    input's own "replace on re-select" behavior can't clobber what's already in the pool. A
+    view-only preview grid (`#poolPreviewList`, reusing the old `.file-preview-list`/
+    `.file-preview-item` CSS) shows everything added so far, each tile with its own "×" to discard
+    a mistaken add before it's ever sorted.
+  - **Step 2 ("Sort & Tag")** - the *same* `uploadPool`, rendered a second time as an interactive
+    grid (`#selectPoolGrid`/`.wizard-pool-tile`). Selecting is click-*and*-drag, not a rectangle
+    marquee: `wireSelectPoolTile()` binds `mousedown` (toggles that tile and records the resulting
+    mode - select or deselect - as `poolDragState`) and `mouseenter` (while `poolDragState` is set,
+    applies that same mode to whatever tile the pointer is now over) - so a plain click is just a
+    drag of zero tiles, and dragging across several tiles paints them all to the same state the
+    first tile flipped to. A single `document`-level `mouseup` listener (bound once at script init,
+    not inside the render function) clears `poolDragState` regardless of where the button was
+    released - same "bind drag-lifecycle listeners globally, once" lesson this file's `enlargeImage()`/
+    download-button and old upload-dock-minimize-button bugs already taught. `folderSelect`/
+    `imageKeywords` (same ids/populate-by-`renderFolders()`/`initTagChipInput()` plumbing as always)
+    now sit in this step's own "confirm bar" and apply only to the current selection, not to
+    everything in the pool. "Confirm & Queue Selected" (`#poolConfirmBtn`, disabled while nothing's
+    selected) pushes `{files, folderValue, keywords}` onto `uploadQueue` (same shape/array
+    `renderUploadQueue()`/`startUploadBatch()`/Publish All already expected from the first wizard
+    version - none of that plumbing needed to change) and removes just the confirmed items from
+    `uploadPool`, revoking their object URLs - "the selected images disappear in the queue," and
+    whatever's left in the pool stays for another select/tag/confirm pass. Clicking Next while the
+    pool still has un-sorted images shows a `confirm()` warning ("N images haven't been sorted...
+    won't be published... Continue anyway?") rather than silently losing them or hard-blocking -
+    dismissing it stays on step 2.
+  - **Step 3 ("Review & Publish")** - `renderUploadQueue()` now builds a card per queued batch
+    (`.upload-queue-item`, grid instead of a single-line list) with a real thumbnail strip
+    (`.batch-review-thumb`/`.batch-review-thumbs-strip` - reused from the Edit Tags modal rather
+    than inventing another "small square thumbnails in a wrapped row" treatment) generated fresh
+    from each batch's `File` objects, plus its folder and tags - "easy to read/see images with
+    folder and tags," not just a file count. The old per-batch-selection "Publish Now" instant-
+    upload path is gone entirely (there's no longer a "current selection" outside the pool to
+    publish directly) - "Publish All" (unchanged `startUploadBatch()` per queued batch) is the only
+    way anything actually uploads.
+  - **Modal sizing widened again** ("still not convinced... bigger page") - margins tightened 80px
+    → 40px total, `max-width` 1400px → 1600px, `min-height` `min(70vh,700px)` → `min(82vh,820px)`.
+    The old two-column `.image-modal-grid` (380px form column + flexible preview column) is gone -
+    every step now gets the modal's full width (`.wizard-panels`, a plain single flex column),
+    since the pool/selection grids and the queue review all read better wide than squeezed next to
+    a side column.
+  - **Closing the modal (× or backdrop click) still doesn't clear `uploadPool` or `uploadQueue`** -
+    extends the reasoning the original Publish Queue feature already established for `uploadQueue`
+    alone ("accidentally dismissing the modal mid-batch doesn't lose staged work") to the pool too.
+    `resetImageModal()` only clears the transient step 2 selection/tag field and resets the wizard
+    step back to 1.
+  - **Verified end-to-end via Playwright** against a hand-rolled Firestore/Auth stub (per the
+    pattern this file's Testing section documents) plus a mocked `/.netlify/functions/upload`
+    response: added images across two separate browse actions (pool count accumulates rather than
+    replacing), drag-selected 3 of 8 via real `mouse.down()`/`mouse.move()`/`mouse.up()` (not
+    synthetic click sequences), click-toggled one back off and on, confirmed two separate batches
+    into the queue (folders/tag values, thumbnail counts, and remaining-pool counts all checked),
+    triggered and both dismissed and accepted the "unsorted images" `confirm()`, discarded a pool
+    tile via its "×", closed and reopened the modal to confirm the pool survives, and ran Publish
+    All through to all 8 upload-dock rows reaching `.upload-success` against the mocked endpoint -
+    zero console errors from app code. Screenshots confirm the visual result (selection ring +
+    checkmark, disabled-button opacity, overall layout) - same sandbox caveat as everything else
+    touching Cloudinary in this repo: the upload endpoint itself was mocked, not exercised against
+    real Cloudinary/Firebase.
 - **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
   filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
   Access is controlled by real Firestore security rules now — see "Admin access" below and
