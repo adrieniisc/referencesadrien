@@ -53,6 +53,22 @@
       --gallery-gap: 6px;
       --row-height: 240px; /* default gallery size = M */
       --sidebar-width: 270px;
+      /* Real measured height of .top-search-bar's own box (border-bottom
+         included) at each breakpoint below - NOT the same number as
+         .main-content's padding-top (128px/112px/104px at the same
+         breakpoints), which clears extra space for the About/Submit/
+         Contributors buttons once they drop to their own floating row
+         below the bar at <=900px; .top-search-bar's own box stays shorter
+         than that. Measured via a headless render rather than computed by
+         hand from the padding/font-size rules, since those interact across
+         three nested breakpoints in a way that's easy to get subtly wrong
+         (same trap this file's own history already flags for this exact
+         header). Exists so .sidebar-brand (the "aReference" heading) can
+         set its own height to put its bottom border at exactly this
+         height too, so the two separators - the one under the brand and
+         the one under the search bar - land on the same horizontal line
+         across the sidebar/content boundary instead of drifting apart. */
+      --header-height: 71px;
 
       /* Lightbox horizontal rhythm (2026-07-31) - one source of truth for
          the three numbers that decide how the enlarged image, the "Similar"
@@ -182,6 +198,50 @@
   background-color: rgba(255, 255, 255, 0.85);
 }
 
+/* Contributors Button CSS (2026-08-01, explicit request: "make a bit of
+   space and add a contributors button with the submit and about buttons") -
+   sits to Submit's left, one more step out from the viewport edge, same
+   box model/visual weight as .about-btn (dark pill, muted text) since this
+   is informational like About rather than an action like Submit. Its own
+   `right` is Submit's right (140px) + Submit's width (120px) + the same
+   10px gap the other two buttons already keep between each other - see
+   .top-search-bar's padding-right below for why that value has to grow
+   alongside this. */
+.contributors-btn {
+  position: absolute;
+  top: 15px;
+  right: 270px;
+  background-color: rgba(15, 15, 17, 0.82);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 400;
+  cursor: pointer;
+  width: 140px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 1200;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  height: 40px;
+  line-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.contributors-btn:hover {
+  background-color: rgba(38, 38, 43, 0.9);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
 /* Updated About Modal with blur effect */
 #aboutModal {
   backdrop-filter: blur(15px);
@@ -248,6 +308,30 @@
   border-color: var(--border-strong);
   color: var(--text);
 }
+
+/* Contributors modal list (2026-08-01) - names read from contributors.txt,
+   one <li> per non-empty line (see loadContributorsList() in the script).
+   Plain list, same muted/elevated visual language as the rest of this
+   modal's text rather than anything fancier - it's a short, simple list. */
+.contributors-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.contributors-list li {
+  padding: 0.55rem 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+}
+.contributors-list li:last-child { border-bottom: none; }
+.contributors-list li.contributors-list-empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
     /* --------------------------------------------------
        Styling for the sidebar admin button
     -------------------------------------------------- */
@@ -399,6 +483,21 @@
     .sidebar-brand {
       width: 100%;
       box-sizing: border-box;
+      /* Height (2026-08-01, explicit request: "match separator under
+         aReference vertical placement to the one under the searchbar") -
+         border-box height equal to --header-height minus .sidebar-scroll's
+         own 0.8rem top padding, so this element's border-bottom (the
+         separator) always lands exactly --header-height from the top of
+         the viewport - precisely where .top-search-bar's own border-bottom
+         (the search bar's separator) already sits, since .main-content's
+         padding-top is kept equal to the same --header-height value. Flex-
+         centered rather than relying on the text's natural line-height to
+         fill this height, since --header-height (and so this element's
+         height) differs by breakpoint below while the font-size only
+         changes at two of those same breakpoints. */
+      height: calc(var(--header-height) - 0.8rem);
+      display: flex;
+      align-items: center;
       padding-bottom: 0.6rem;
       margin-bottom: 0.6rem;
       border-bottom: 1px solid var(--border-color);
@@ -837,7 +936,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 999;
+      /* Raised from 999 to above .sidebar's 1100 (2026-08-01) - the real
+         site-wide fix .submissions-review-content's own comment already
+         called for, prompted by the Add Image modal's wizard rework
+         needing to be wider than the "clears the 270px sidebar" ceiling
+         every previous modal here stayed under. Below 999, any modal wide
+         enough to visually extend under the sidebar had that overlapping
+         strip's clicks swallowed by the sidebar instead of reaching the
+         modal underneath (confirmed via Playwright - a wizard-step-pill
+         click landing in that strip resolved to `.sidebar-scroll`, not the
+         modal, until this was raised). Still below the About/Submit/
+         Contributors/Submit-reference buttons (1200) and the lightbox/
+         upload dock (15000+/20000), so those keep behaving the same as
+         before - only modals vs. the sidebar changes. */
+      z-index: 1150;
     }
     .modal-backdrop.active { opacity: 1; visibility: visible; }
     .modal-content {
@@ -892,31 +1004,130 @@
       color: var(--text-faint);
       margin: -0.4rem 0 0.6rem;
     }
-    /* Add Image modal widened + reorganized into two columns (2026-08-01,
-       explicit request: "too small and clunky for big uploads" - the old
-       400px single column meant a 40-image batch's preview thumbnails and
-       a multi-category publish queue both had to squeeze into the same
-       narrow, short scrolling lists one after another). More than 2x the
-       base .modal-content's 400px. 900px still comfortably clears the
-       270px sidebar even at a 1400px-wide viewport - same reasoning
-       .submissions-review-content's own 840px cap documents - with extra
-       room to spare since this modal's grid needs it more than that one
-       did. */
+    /* Add Image modal rebuilt as a large step-by-step wizard (2026-08-01,
+       explicit request: "make the upload page way bigger, you can go as
+       big as the images container of the page with margins... make it
+       intuitive and steps logic" - superseding the same-day two-column
+       900px layout this replaced). Sized against the viewport/sidebar the
+       same way the gallery's own content area is ("the images container of
+       the page" = .main-content/#gallery, which starts at
+       `left: var(--sidebar-width)`) rather than a fixed pixel cap like
+       every other modal here - 80px total ("with margins") split evenly by
+       the centered modal-backdrop, capped at 1400px so it doesn't sprawl
+       to an unreasonable width on an ultrawide monitor. */
+    /* #imageModal's own backdrop keeps dimming/blocking the *entire*
+       viewport (same as every other modal - the sidebar's admin buttons
+       shouldn't stay clickable underneath while this is open), but gets
+       padding-left: var(--sidebar-width) so the flex `justify-content:
+       center` that positions .image-modal-content only centers it within
+       the gallery area to the right of the sidebar, not the whole
+       viewport. Without this, a modal this wide (deliberately sized to
+       match the gallery's own width, see .image-modal-content below) came
+       out centered on the viewport's midpoint instead - which sits well
+       inside the sidebar's own width - and visibly spilled left into the
+       sidebar since a wide-enough backdrop still paints/centers around the
+       full viewport by default. Reset back to 0 at the <=900px tier below,
+       where the modal drops to a plain fixed-width dialog unrelated to the
+       sidebar's own width. */
+    #imageModal { padding-left: var(--sidebar-width); }
     .image-modal-content {
-      max-width: 900px;
+      width: calc(100vw - var(--sidebar-width) - 80px);
+      max-width: 1400px;
+      max-height: calc(100vh - 80px);
+      /* A real minimum, not just a cap (2026-08-01) - without this, a
+         short step (step 2's plain folder/tags fields, or step 3's summary)
+         let the whole modal shrink-wrap down to a small dialog again,
+         undoing the "way bigger" request the moment content was light.
+         min() so it still backs off gracefully on a short viewport instead
+         of overflowing it. */
+      min-height: min(70vh, 700px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Step indicator - three numbered pills connected by a line, the usual
+       "where am I / what's next" convention for a multi-step form. A pill
+       for a step already reached (see wizardFurthestStep in the script) is
+       clickable so backing up doesn't require the Back button specifically;
+       a step further ahead than the furthest one reached has nothing valid
+       to jump to yet, so it stays inert instead of a dead/confusing click. */
+    .wizard-steps-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 0 0 1.2rem;
+      flex-shrink: 0;
+    }
+    .wizard-step-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      opacity: 0.5;
+      transition: opacity 0.15s ease;
+    }
+    .wizard-step-pill.reachable { cursor: pointer; opacity: 0.75; }
+    .wizard-step-pill.active { opacity: 1; }
+    .wizard-step-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background-color: var(--bg-sunken);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .wizard-step-pill.active .wizard-step-num {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: #17120c;
+    }
+    .wizard-step-pill.completed .wizard-step-num {
+      background-color: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .wizard-step-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .wizard-step-pill.active .wizard-step-label { color: var(--text); }
+    .wizard-step-connector {
+      flex: 1;
+      height: 1px;
+      background: var(--border-color);
+      min-width: 20px;
     }
     .image-modal-grid {
       display: grid;
-      /* Fixed-width form column, flexible preview/queue column - the form
-         fields (file input, folder, keywords) don't benefit from growing
-         past a normal input's comfortable width, so extra space goes to
-         the side that actually needs it for organizing a big batch. */
-      grid-template-columns: 300px 1fr;
-      gap: 0 1.8rem;
-      align-items: start;
+      /* Fixed-width form/wizard column, flexible preview/queue column - the
+         form fields (dropzone, folder, keywords) don't benefit from growing
+         past a comfortable reading width, so the extra space this bigger
+         modal has goes to the side that actually needs it for organizing a
+         big batch. `stretch` (the grid default, set explicitly here) rather
+         than the old `start` - now that .image-modal-content has a real
+         min-height, stretching both columns to that same tall row height is
+         what lets the step 1 dropzone (flex: 1, below) actually fill it
+         instead of sitting shrink-wrapped near the top with dead space
+         beneath it. */
+      grid-template-columns: 380px 1fr;
+      gap: 0 2rem;
+      align-items: stretch;
+      flex: 1;
+      min-height: 0;
     }
     .image-modal-form, .image-modal-preview {
       min-width: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
     .image-modal-preview-label {
       font-size: 0.72rem;
@@ -935,21 +1146,139 @@
     /* Below the form column's own comfortable width, stack instead of
        squeezing both columns - matches the point .submissions-review-
        content's responsive tiers already use similar reasoning for. */
-    @media (max-width: 760px) {
-      .image-modal-content { max-width: 480px; }
+    @media (max-width: 900px) {
+      /* Back to plain full-viewport centering (see #imageModal's own
+         comment above) - below this tier the modal is just a normal
+         fixed-width dialog, not sized/positioned against the sidebar. */
+      #imageModal { padding-left: 0; }
+      .image-modal-content { width: calc(100vw - 60px); max-width: 640px; min-height: 0; }
       .image-modal-grid { grid-template-columns: 1fr; gap: 0; }
       .image-modal-preview { margin-top: 0.4rem; }
+      .wizard-step-label { display: none; }
     }
+    /* Step 1: drag & drop zone - a big, obviously clickable/droppable
+       target now that the modal has the room for one, instead of a bare
+       <input type="file">. Still just a <label for="fileInput"> wrapping
+       the real (visually hidden) input, so a plain click opens the native
+       file picker with no extra JS - only the drag-and-drop highlight/drop
+       handling (wireFileDropzone() in the script) is new behavior. */
+    .wizard-dropzone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      /* flex: 1 (2026-08-01) - fills the now-stretched .wizard-panel's
+         available height instead of shrink-wrapping to its own padding, so
+         step 1 reads as one big, obviously droppable target rather than a
+         small box floating above empty space. min-height as a floor for
+         browsers/contexts where the flex chain above doesn't resolve to a
+         real height (e.g. the narrow-viewport tier, which stacks the grid
+         columns instead of stretching them). */
+      flex: 1;
+      min-height: 220px;
+      padding: 2.4rem 1rem;
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-md);
+      background-color: var(--bg-sunken);
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    }
+    .wizard-dropzone:hover, .wizard-dropzone.drag-active {
+      border-color: var(--accent);
+      background-color: var(--accent-soft);
+      color: var(--text);
+    }
+    .wizard-dropzone-icon { width: 34px; height: 34px; }
+    .wizard-dropzone-text { font-size: 0.9rem; }
+    /* Visually hidden rather than removed/display:none, so it stays a real
+       focusable/labelable form control (screen readers, keyboard Tab) -
+       only its own tiny box is invisible, not its label-triggered click
+       behavior. */
+    .wizard-dropzone input[type="file"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .wizard-panel { display: none; }
+    /* flex column (2026-08-01), not just `block` - .image-modal-form is
+       itself a flex column now (see .image-modal-form, .image-modal-preview
+       above), and only a flex-item active panel can pass `flex: 1` down to
+       its own children (step 1's dropzone) to actually fill the stretched
+       column's height. Step 2/3's plain form fields/summary don't need that
+       stretch themselves - they just top-align within it, which is normal
+       for a form panel of varying height inside a fixed-height frame. */
+    .wizard-panel.active {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    .wizard-review-summary {
+      background-color: var(--bg-sunken);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.8rem 1rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 0.8rem;
+    }
+    .wizard-review-summary strong { color: var(--text); }
+    .wizard-nav {
+      /* auto (2026-08-01, was a flat 1.2rem) - .image-modal-form is a flex
+         column now, so this pushes itself to the bottom of that column
+         regardless of how tall the active panel above it ends up being,
+         keeping Back/Next anchored at the same spot across all three steps
+         instead of drifting up/down with each panel's own content height. */
+      margin-top: auto;
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+    .wizard-nav-btn {
+      background-color: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .wizard-nav-btn:hover { border-color: var(--border-strong); color: var(--text); }
+    .wizard-nav-btn-primary {
+      background-color: var(--accent);
+      color: #17120c;
+      border-color: var(--accent);
+      margin-left: auto;
+    }
+    .wizard-nav-btn-primary:hover { opacity: 0.88; color: #17120c; }
     /* Grid instead of the old wrapped flex row (2026-08-01) - a big batch's
        thumbnails now organize into columns/rows instead of one long
-       horizontally-wrapping strip, and get roughly double the previous
-       160px viewing height to go with it. */
+       horizontally-wrapping strip. Bigger tiles and a viewport-relative
+       max-height (2026-08-01, wizard rework) since the modal itself is now
+       viewport-sized instead of a fixed 900px. */
     .file-preview-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
       gap: 10px;
       margin: 0 0 0.6rem;
-      max-height: 320px;
+      /* flex: 1 (2026-08-01) - .image-modal-preview is a flex column now,
+         so this grows to fill its leftover height (up to max-height below)
+         instead of sitting shrink-wrapped to just its thumbnail rows with
+         empty space beneath it - the same "actually fill the big modal"
+         reasoning as the step 1 dropzone's own flex: 1. */
+      flex: 1;
+      max-height: 42vh;
       overflow-y: auto;
     }
     .file-preview-item {
@@ -965,7 +1294,7 @@
     }
     .file-preview-item span {
       display: block;
-      font-size: 0.65rem;
+      font-size: 0.68rem;
       color: var(--text-faint);
       white-space: nowrap;
       overflow: hidden;
@@ -973,38 +1302,43 @@
       margin-top: 2px;
       text-align: center;
     }
+    .file-preview-empty, .publish-queue-empty {
+      padding: 0.8rem 1rem;
+      border: 1px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-faint);
+      font-size: 0.82rem;
+      line-height: 1.5;
+      margin-bottom: 0.6rem;
+    }
     /* Add Image modal: queued (not-yet-uploaded) batches, each one a
        files+folder+tags selection staged so several categories can be
-       uploaded in one go instead of reopening this modal per category.
-       Wrapped in a tinted, labeled panel (.publish-queue-panel) so this
-       staging area reads as clearly separate from the instant Add/Add to
-       Queue controls below it, instead of blending into the rest of the
-       plain modal. Hidden entirely while nothing is queued. */
+       uploaded in one go instead of reopening this modal per category. Now
+       a permanent, always-visible side-column section (2026-08-01, wizard
+       rework) rather than a panel that only appears once something's
+       queued - the step panels no longer have their own preview column to
+       share this space with, and .publish-queue-empty above fills the gap
+       with an explanatory placeholder while nothing's queued, so this side
+       of the modal never looks broken/blank on a fresh open. Still wrapped
+       in a tinted panel once active, so the staging area reads as clearly
+       separate from the instant-publish controls in the wizard column. */
     .publish-queue-panel {
       display: none;
-      margin-top: 0.6rem;
       padding: 10px 12px 12px;
       background: var(--accent-soft);
       border: 1px solid rgba(221, 149, 86, 0.35);
       border-radius: var(--radius-md);
     }
     .publish-queue-panel.active { display: block; }
-    .publish-queue-panel-label {
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--accent);
-      margin-bottom: 0.5rem;
-    }
     /* Grid instead of a single stacked column (2026-08-01) - several queued
        categories now organize side by side instead of one under another,
-       with roughly double the previous 140px viewing height. */
+       with a viewport-relative max-height (was a fixed 280px) now that the
+       modal itself is viewport-sized. */
     .upload-queue-list {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 8px;
-      max-height: 280px;
+      max-height: 34vh;
       overflow-y: auto;
     }
     .upload-queue-item {
@@ -1043,9 +1377,9 @@
       color: var(--text-muted);
     }
     /* "Add to Queue" is a secondary/staging action, visually distinct from
-       the primary solid-accent "Add" (instant upload) button next to it -
-       two equal-weight solid buttons made the two very different actions
-       (upload now vs. stage for later) look interchangeable. */
+       the primary solid-accent "Publish Now" (instant upload) button next
+       to it - two equal-weight solid buttons made the two very different
+       actions (upload now vs. stage for later) look interchangeable. */
     #queueAddImageBtn {
       background-color: transparent;
       color: var(--accent);
@@ -1658,12 +1992,14 @@
      gallery scrolling underneath, instead of just the input itself having
      a background. Horizontal insets are handled by padding instead of
      `left`/`right` so the bar's edge-to-edge background doesn't leave
-     gaps. The About/Submit buttons are `position: absolute` and layer on
-     top (z-index 1200 > this bar's 1000), so `padding-right` still
-     reserves the same visual gap for them as before - 270px = Submit's
-     `right` (140px) + its width (120px) + the same 10px gap the two
-     buttons keep between each other (2026-07-31: tightened from 312px
-     alongside that gap shrinking from 24px to 10px). */
+     gaps. The About/Submit/Contributors buttons are `position: absolute`
+     and layer on top (z-index 1200 > this bar's 1000), so `padding-right`
+     still reserves the same visual gap for them as before - 420px =
+     Contributors' `right` (270px) + its width (140px) + the same 10px gap
+     the buttons keep between each other (2026-08-01: grew from 270px when
+     the Contributors button was added to the left of Submit; before that,
+     2026-07-31: tightened from 312px alongside that gap shrinking from
+     24px to 10px). */
   left: var(--sidebar-width);
   right: 0;
   padding: 14px 24px;
@@ -1672,7 +2008,7 @@
      lines up with the gallery images' left edge instead of sitting further
      right than them. */
   padding-left: 0.8rem;
-  padding-right: 270px;
+  padding-right: 420px;
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -1761,15 +2097,22 @@
   -webkit-backdrop-filter: blur(12px);
 }
 
-/* Crossfading placeholder overlay (2026-08-01, explicit "esthetic change"
-   request) - cycles between "Search images..." and the gallery's real
-   folder names, faded in/out by rotateSearchPlaceholder() in the script
-   below rather than jumping. Positioned to land exactly where the native
-   placeholder text would (left offset matches #mainImageSearch's own
-   left padding), and given the same z-index:1 fix #search-bar-icon
+/* Typewriter placeholder overlay (2026-08-01: replaced the previous
+   crossfade with an actual type/delete animation, explicit request - "make
+   the searchbar text animation like a typewriter instead of appear/
+   disappear"). Cycles between "Search images..." and the gallery's real
+   folder names, typed out character-by-character then deleted before the
+   next phrase starts (runTypewriterStep() in the script below), instead of
+   fading the whole string in/out at once. Positioned to land exactly where
+   the native placeholder text would (left offset matches #mainImageSearch's
+   own left padding), and given the same z-index:1 fix #search-bar-icon
    already needed - #mainImageSearch's backdrop-filter makes it its own
    stacking context, so anything meant to show "inside" it needs a
-   positive z-index to paint above that context regardless of DOM order. */
+   positive z-index to paint above that context regardless of DOM order.
+   The opacity transition/hidden class are kept for the instant show/hide
+   on focus/typing (a real placeholder wouldn't show there either) - only
+   the *cycling* between phrases changed from a fade to a type/delete
+   animation. */
 .search-placeholder-fade {
   position: absolute;
   left: 44px;
@@ -1786,6 +2129,18 @@
   z-index: 1;
 }
 .search-placeholder-fade.search-placeholder-hidden { opacity: 0; }
+/* Blinking caret after the typed text, like a real text cursor - a
+   separate inline element rather than a ::after on the text span itself,
+   since its own opacity animation would otherwise be overridden by
+   whatever opacity .search-placeholder-hidden sets on the shared parent. */
+.search-placeholder-cursor {
+  display: inline-block;
+  margin-left: 1px;
+  animation: searchPlaceholderBlink 0.8s step-end infinite;
+}
+@keyframes searchPlaceholderBlink {
+  50% { opacity: 0; }
+}
 
 
 
@@ -2073,10 +2428,11 @@
    it's not a factor here any more.)
 -------------------------------------------------- */
 @media (max-width: 900px) {
-  :root { --sidebar-width: 230px; }
+  :root { --sidebar-width: 230px; --header-height: 64.16px; }
   .top-search-bar { padding-right: 24px; }
   .about-btn { top: 76px; right: 20px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .submit-reference-btn { top: 76px; right: 130px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  .contributors-btn { top: 76px; right: 240px; width: 110px; padding: 8px 6px; font-size: 0.8rem; }
   #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
   .search-bar-icon { left: 12px; width: 16px; height: 16px; }
   .search-placeholder-fade { left: 38px; font-size: 0.85rem; }
@@ -2089,16 +2445,30 @@
    or overflows the viewport)
 -------------------------------------------------- */
 @media (max-width: 640px) {
-  :root { --sidebar-width: 200px; }
+  :root { --sidebar-width: 200px; --header-height: 52px; }
   .sidebar { padding: 0.6rem; }
-  .sidebar-brand { font-size: 1.35rem; }
+  /* .sidebar-brand's height formula (base CSS) assumes only .sidebar-scroll's
+     own 0.8rem padding sits above it - true at the base/900px tiers, but
+     .sidebar itself also gets 0.6rem padding at this tier and below (just
+     above), and since .sidebar-scroll is a normal-flow (non-absolute) child
+     of .sidebar, that padding pushes it inward too. Confirmed by measuring
+     the actual rendered gap between the two separators at this tier before
+     this override existed - it was off by almost exactly 0.6rem. */
+  .sidebar-brand { font-size: 1.35rem; height: calc(var(--header-height) - 1.4rem); }
   .top-search-bar { padding: 8px 12px; padding-left: 0.6rem; gap: 0.6rem; }
   .about-btn { top: 64px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .submit-reference-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
+  /* Dropped to its own row below About/Submit, same reasoning as the
+     <=420px tier's own override (see its comment) - checked across this
+     entire tier's width range (421-640px) via a headless sweep, and even
+     at the widest end of it, squeezing all three across one row put
+     Contributors' left edge under the sidebar at everything below ~516px,
+     not just at the narrowest phone widths. */
+  .contributors-btn { top: 106px; right: 16px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
   .search-bar-icon { left: 12px; width: 16px; height: 16px; }
   .search-placeholder-fade { left: 38px; font-size: 0.85rem; }
-  .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 112px; }
+  .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 156px; }
   .floating-controls-row { right: 12px; bottom: 12px; gap: 6px; }
   .size-icon-container { gap: 4px; }
   .size-icon { width: 30px; height: 30px; font-size: 0.72rem; }
@@ -2112,12 +2482,25 @@
    competing with the search input for space, so there's no reason to
    drop it here any more. */
 @media (max-width: 420px) {
-  :root { --sidebar-width: 140px; }
-  .sidebar-brand { font-size: 1.15rem; }
+  :root { --sidebar-width: 140px; --header-height: 52px; }
+  /* Same 1.4rem reasoning as the 640px tier above - .sidebar's own 0.6rem
+     padding still applies at this tier too. */
+  .sidebar-brand { font-size: 1.15rem; height: calc(var(--header-height) - 1.4rem); }
   .top-search-bar { padding: 8px 10px; padding-left: 0.6rem; }
   .about-btn { top: 58px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
   .submit-reference-btn { top: 58px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
-  .main-content { padding-top: 104px; }
+  /* Dropped to its own row below About/Submit (2026-08-01), rather than
+     squeezed into the same row - at this tier the sidebar alone (140px)
+     plus About+Submit's own combined footprint (180px) already leaves only
+     60px of the 380px reference width for a third button, nowhere near
+     enough for "Contributors" at any legible size. Confirmed via a
+     headless render: keeping it on the shared row at a shrunk width still
+     had its left edge landing under the 140px sidebar, where its clicks
+     would have been swallowed the same way the z-index fix above this file
+     exists to prevent for modals. Right-aligned to match About's own right
+     edge since it's now the only button on its row. */
+  .contributors-btn { top: 106px; right: 12px; width: 78px; padding: 6px 8px; font-size: 0.78rem; }
+  .main-content { padding-top: 154px; }
 }
 
 .batch-tag-review-content {
@@ -2309,6 +2692,7 @@
 </head>
 <body>
 
+    <button id="contributorsBtn" class="contributors-btn">Contributors</button>
     <button id="aboutBtn" class="about-btn">About</button>
     <button id="submitReferenceBtn" class="submit-reference-btn">Submit</button>
 
@@ -2319,15 +2703,16 @@
         <path d="M20 20l-3.6-3.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
       <input type="search" id="mainImageSearch" placeholder="Search images...">
-      <!-- Purely decorative crossfading placeholder (2026-08-01, explicit
-           "esthetic change" request) - a real <input placeholder> can't be
-           CSS-transitioned, so this overlay sits on top of it instead and
-           fades between "Search images..." and the actual folder names,
-           cycled by rotateSearchPlaceholder() in the script below. The
+      <!-- Purely decorative typewriter placeholder (2026-08-01, explicit
+           "make the searchbar text animation like a typewriter instead of
+           appear/disappear" request) - a real <input placeholder> can't be
+           animated like this, so this overlay sits on top of it instead and
+           types/deletes between "Search images..." and the actual folder
+           names, driven by runTypewriterStep() in the script below. The
            input's own placeholder attribute is left as the a11y/no-JS
            fallback and just visually hidden via #mainImageSearch::placeholder
            (see CSS) rather than removed. -->
-      <span class="search-placeholder-fade" id="searchPlaceholderFade" aria-hidden="true">Search images...</span>
+      <span class="search-placeholder-fade" id="searchPlaceholderFade" aria-hidden="true"><span id="searchPlaceholderText">Search images...</span><span class="search-placeholder-cursor">|</span></span>
     </div>
   </div>
 
@@ -2399,6 +2784,18 @@
       <div style="margin-top:0.8rem;">
         <button id="confirmSubmitReferenceBtn">Send</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Contributors (2026-08-01) - lists everyone who's contributed
+       images, read from contributors.txt (one name per line) at the repo
+       root rather than hardcoded here, so the owner can add/remove/reorder
+       names by editing a plain text file instead of touching this markup. -->
+  <div class="modal-backdrop" id="contributorsModal">
+    <div class="modal-content">
+      <button class="close-modal-btn" id="closeContributorsModalBtn">&times;</button>
+      <h3>Images contributors</h3>
+      <ul id="contributorsList" class="contributors-list"></ul>
     </div>
   </div>
 
@@ -2548,41 +2945,82 @@
       </div>
     </div>
   </div>
-  <!-- MODAL: Add Image (2026-08-01: widened + split into a two-column
-       layout - see .image-modal-content/.image-modal-grid CSS for why. The
-       element ids/behavior below are unchanged from the old single-column
-       version, only their grouping into .image-modal-form/.image-modal-preview
-       moved. -->
+  <!-- MODAL: Add Image (2026-08-01: rebuilt as a large step-by-step wizard,
+       see .image-modal-content/.wizard-* CSS for the sizing and step-panel
+       mechanics. Every element id below is unchanged from the old
+       two-column layout (fileInput, folderSelect, imageKeywords,
+       confirmAddImageBtn, queueAddImageBtn, publishQueueBtn, etc.) - only
+       regrouped into three step panels plus a persistent side column, so
+       none of the existing upload/queue JS needed to change to work with
+       this markup, only the new step-navigation JS (setWizardStep() and
+       friends) was added on top. -->
   <div class="modal-backdrop" id="imageModal">
     <div class="modal-content image-modal-content">
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
-      <h3>Add Image</h3>
+      <h3>Add Images</h3>
+
+      <div class="wizard-steps-indicator" id="wizardStepsIndicator">
+        <div class="wizard-step-pill" data-step="1">
+          <span class="wizard-step-num">1</span>
+          <span class="wizard-step-label">Select Images</span>
+        </div>
+        <div class="wizard-step-connector"></div>
+        <div class="wizard-step-pill" data-step="2">
+          <span class="wizard-step-num">2</span>
+          <span class="wizard-step-label">Folder &amp; Tags</span>
+        </div>
+        <div class="wizard-step-connector"></div>
+        <div class="wizard-step-pill" data-step="3">
+          <span class="wizard-step-num">3</span>
+          <span class="wizard-step-label">Review &amp; Publish</span>
+        </div>
+      </div>
 
       <div class="image-modal-grid">
         <div class="image-modal-form">
-          <label for="fileInput">Select Image(s):</label>
-          <input type="file" id="fileInput" accept="image/*" multiple>
-          <div id="fileInputHint" class="modal-hint">No file selected</div>
+          <div class="wizard-panel" data-panel="1">
+            <label for="fileInput" class="wizard-dropzone" id="fileDropzone">
+              <svg class="wizard-dropzone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <div class="wizard-dropzone-text">Drag &amp; drop images here, or click to browse</div>
+              <input type="file" id="fileInput" accept="image/*" multiple>
+            </label>
+            <div id="fileInputHint" class="modal-hint">No file selected</div>
+          </div>
 
-          <label for="folderSelect">Location:</label>
-          <select id="folderSelect"></select>
+          <div class="wizard-panel" data-panel="2">
+            <label for="folderSelect">Location:</label>
+            <select id="folderSelect"></select>
 
-          <label for="imageKeywords">Keywords (optional):</label>
-          <input type="text" id="imageKeywords" placeholder="e.g., red, green">
-          <div class="modal-hint">Goes live immediately - no review step.</div>
+            <label for="imageKeywords">Keywords (optional):</label>
+            <input type="text" id="imageKeywords" placeholder="e.g., red, green">
+            <div class="modal-hint">Goes live immediately - no review step.</div>
+          </div>
 
-          <div class="image-modal-actions">
-            <button id="confirmAddImageBtn">Add</button>
-            <button id="queueAddImageBtn">Add to Queue</button>
+          <div class="wizard-panel" data-panel="3">
+            <div class="wizard-review-summary" id="wizardReviewSummary"></div>
+            <div class="image-modal-actions">
+              <button id="confirmAddImageBtn">Publish Now</button>
+              <button id="queueAddImageBtn">Add to Queue</button>
+            </div>
+          </div>
+
+          <div class="wizard-nav">
+            <button type="button" id="wizardBackBtn" class="wizard-nav-btn">&larr; Back</button>
+            <button type="button" id="wizardNextBtn" class="wizard-nav-btn wizard-nav-btn-primary">Next &rarr;</button>
           </div>
         </div>
 
         <div class="image-modal-preview">
           <div class="image-modal-preview-label">Selected images</div>
+          <div id="filePreviewEmpty" class="file-preview-empty">No images selected yet - use the dropzone on the left.</div>
           <div id="filePreviewList" class="file-preview-list"></div>
 
+          <div class="image-modal-preview-label">Queued — not published yet</div>
+          <div id="publishQueueEmpty" class="publish-queue-empty">Batches you add via "Add to Queue" will show up here - stage several folder/tag combinations, then publish them all at once.</div>
           <div id="publishQueuePanel" class="publish-queue-panel">
-            <div class="publish-queue-panel-label">Queued — not published yet</div>
             <div id="uploadQueueList" class="upload-queue-list"></div>
             <div id="publishQueueBar" class="publish-queue-bar">
               <span id="publishQueueSummary"></span>
@@ -2991,6 +3429,15 @@
     // The .image-container currently open in the lightbox, so the prev/next
     // arrows know where they are within the currently visible gallery order.
     let currentEnlargedContainer = null;
+    // Re-runs the currently-open lightbox image's own size/position math
+    // (set by enlargeImage(), see its updateEnlargedImageSize()/
+    // refreshEnlargedLayout()) - null whenever the lightbox is closed. Read
+    // by the window resize/fullscreenchange listeners below so a viewport
+    // change while the lightbox is open (most notably entering/exiting
+    // browser fullscreen) re-sizes the image and repositions the tags/
+    // resolution caption instead of leaving them at whatever pixel values
+    // were computed for the old viewport size.
+    let activeEnlargedLayoutRefresh = null;
     let isDeleteMode = false;
     let selectedImages = [];
     let isMoveMode = false;
@@ -3020,6 +3467,102 @@
     const folderSelect = document.getElementById("folderSelect");
     const imageKeywords = document.getElementById("imageKeywords");
     initTagChipInput(imageKeywords);
+
+    // Add Image modal step wizard (2026-08-01) - three panels
+    // (Select Images / Folder & Tags / Review & Publish) shown one at a
+    // time instead of all at once, now that the modal itself is much
+    // bigger and has the room to walk through the upload in stages instead
+    // of cramming every field onto one screen. wizardFurthestStep tracks
+    // the deepest step reached so far in this modal session, so a step
+    // pill can be clicked to jump back to any already-visited step without
+    // also allowing a jump *ahead* to a step that hasn't been reached (and
+    // so hasn't been validated) yet.
+    const wizardPanels = document.querySelectorAll(".wizard-panel");
+    const wizardStepPills = document.querySelectorAll(".wizard-step-pill");
+    const wizardBackBtn = document.getElementById("wizardBackBtn");
+    const wizardNextBtn = document.getElementById("wizardNextBtn");
+    const wizardReviewSummary = document.getElementById("wizardReviewSummary");
+    let wizardStep = 1;
+    let wizardFurthestStep = 1;
+
+    function updateWizardReviewSummary() {
+      const files = Array.from(fileInput.files || []);
+      const folderOption = folderSelect.options[folderSelect.selectedIndex];
+      const folderLabel = folderOption ? folderOption.textContent.trim().replace(/^—\s*/, "") : (folderSelect.value || "all");
+      const tags = imageKeywords.tagChipsAPI.getValue();
+      const fileWord = files.length === 1 ? "image" : "images";
+      wizardReviewSummary.innerHTML = `<strong>${files.length}</strong> ${fileWord} &rarr; <strong>${folderLabel}</strong>` +
+        (tags ? ` (tags: ${tags})` : "");
+    }
+
+    function setWizardStep(step) {
+      wizardStep = step;
+      wizardFurthestStep = Math.max(wizardFurthestStep, step);
+      wizardPanels.forEach(panel => {
+        panel.classList.toggle("active", Number(panel.dataset.panel) === step);
+      });
+      wizardStepPills.forEach(pill => {
+        const pillStep = Number(pill.dataset.step);
+        pill.classList.toggle("active", pillStep === step);
+        pill.classList.toggle("completed", pillStep < step);
+        pill.classList.toggle("reachable", pillStep !== step && pillStep <= wizardFurthestStep);
+      });
+      // No previous step to go back to from step 1; step 3's own Publish
+      // Now/Add to Queue buttons replace "Next" as the way forward, so it
+      // has nothing to advance to either.
+      wizardBackBtn.style.visibility = step === 1 ? "hidden" : "visible";
+      wizardNextBtn.style.display = step === 3 ? "none" : "";
+      if (step === 3) updateWizardReviewSummary();
+    }
+
+    wizardStepPills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        const step = Number(pill.dataset.step);
+        if (step <= wizardFurthestStep) setWizardStep(step);
+      });
+    });
+
+    wizardNextBtn.addEventListener("click", () => {
+      if (wizardStep === 1 && (!fileInput.files || fileInput.files.length === 0)) {
+        alert("Please select at least one image file first.");
+        return;
+      }
+      setWizardStep(Math.min(wizardStep + 1, 3));
+    });
+
+    wizardBackBtn.addEventListener("click", () => {
+      setWizardStep(Math.max(wizardStep - 1, 1));
+    });
+
+    // Drag & drop onto the step 1 dropzone, on top of its plain
+    // <label for="fileInput"> click-to-browse behavior. fileInput.files is
+    // normally read-only, but assignable from a real FileList like the
+    // one a drop event's DataTransfer carries.
+    const fileDropzone = document.getElementById("fileDropzone");
+    ["dragenter", "dragover"].forEach(evt => {
+      fileDropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        fileDropzone.classList.add("drag-active");
+      });
+    });
+    ["dragleave", "drop"].forEach(evt => {
+      fileDropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        fileDropzone.classList.remove("drag-active");
+      });
+    });
+    fileDropzone.addEventListener("drop", (e) => {
+      const dropped = e.dataTransfer && e.dataTransfer.files;
+      if (dropped && dropped.length > 0) {
+        fileInput.files = dropped;
+        updateFilePreview();
+      }
+    });
+    // Neither the wizard panels nor the step pills hardcode an initial
+    // .active state in the HTML - this sets it once at script init so the
+    // modal shows step 1 correctly the very first time it's opened, same
+    // as every later open/reset already does via resetImageModal().
+    setWizardStep(1);
 
     const gallery = document.getElementById("gallery");
     const sizeIcons = document.querySelectorAll(".size-icon");
@@ -3292,6 +3835,33 @@
     }
 
     window.addEventListener("resize", () => scheduleLayout());
+    // Re-run the lightbox's own sizing/positioning math on the same
+    // viewport-change signals the gallery relayout above already listens
+    // for, whenever the lightbox actually has an image open - window
+    // resize fires for both an actual window resize *and* entering/exiting
+    // browser/OS fullscreen, and some browsers only fire fullscreenchange
+    // (not resize) for that transition, hence listening for both. Without
+    // this, the enlarged image stayed at its old computed pixel size and
+    // the tags/resolution caption's absolutely-positioned `top` (set once
+    // by positionEnlargedTags() and never revisited) went stale - since the
+    // image column re-centers on any viewport change, the caption then sat
+    // wherever that old `top` happened to fall relative to the new,
+    // recentered image, which was usually off past its bottom edge and
+    // read as it having disappeared entirely. rAF-throttled the same way
+    // scheduleFrostArtSync() above is, since resize (in particular a live
+    // window-drag-resize) can fire many times per frame.
+    let enlargedLayoutRefreshPending = false;
+    function scheduleEnlargedLayoutRefresh() {
+      if (enlargedLayoutRefreshPending || !activeEnlargedLayoutRefresh) return;
+      enlargedLayoutRefreshPending = true;
+      requestAnimationFrame(() => {
+        enlargedLayoutRefreshPending = false;
+        activeEnlargedLayoutRefresh?.();
+      });
+    }
+    window.addEventListener("resize", scheduleEnlargedLayoutRefresh);
+    document.addEventListener("fullscreenchange", scheduleEnlargedLayoutRefresh);
+    document.addEventListener("webkitfullscreenchange", scheduleEnlargedLayoutRefresh);
     // Scrolling the gallery doesn't change any image's own layout (so it
     // doesn't need layoutGallery()/a strip rebuild), but the strip does
     // need to move to stay in sync - every scroll event, rAF-throttled,
@@ -3326,16 +3896,21 @@
 
     mainImageSearch.addEventListener("input", performSearch);
 
-    // Purely cosmetic (2026-08-01, explicit "esthetic change" request):
-    // cycles the search bar's overlay placeholder (see .search-placeholder-
-    // fade) between "Search images..." and the gallery's real top-level
-    // folder names, crossfading between them instead of a static string. A
-    // native <input placeholder> can't be CSS-transitioned, hence the
-    // separate overlay span this drives instead of mainImageSearch.placeholder
-    // directly. Folder names are read live from the sidebar DOM on every
-    // tick rather than cached, so this never goes stale after Add/Rename/
-    // Delete Folder - no separate list to keep in sync.
+    // Purely cosmetic (2026-08-01, explicit "esthetic change" request, then
+    // 2026-08-01 again: "make the searchbar text animation like a typewriter
+    // instead of appear/disappear" - superseding the crossfade this
+    // originally shipped with). Cycles the search bar's overlay placeholder
+    // (see .search-placeholder-fade) between "Search images..." and the
+    // gallery's real top-level folder names, typed and deleted one
+    // character at a time instead of fading the whole string in/out. A
+    // native <input placeholder> can't be animated like this at all, hence
+    // the separate overlay span this drives instead of
+    // mainImageSearch.placeholder directly. Folder names are read live from
+    // the sidebar DOM on every phrase rather than cached, so this never
+    // goes stale after Add/Rename/Delete Folder - no separate list to keep
+    // in sync.
     const searchPlaceholderFade = document.getElementById("searchPlaceholderFade");
+    const searchPlaceholderText = document.getElementById("searchPlaceholderText");
     let searchPlaceholderIndex = 0;
     function getSearchPlaceholderOptions() {
       const folderNames = [...document.querySelectorAll("#folderList > li:not(.all):not(.new-this-week) > .folder-label > .folder-name")]
@@ -3343,21 +3918,59 @@
         .filter(Boolean);
       return ["images...", ...folderNames.map(name => `${name}...`)];
     }
-    function rotateSearchPlaceholder() {
-      if (!searchPlaceholderFade) return;
-      // Don't fight real user input/focus - a native placeholder wouldn't
-      // show under those conditions either.
-      if (document.activeElement === mainImageSearch || mainImageSearch.value) return;
-      const options = getSearchPlaceholderOptions();
-      if (options.length === 0) return;
-      searchPlaceholderFade.classList.add("search-placeholder-hidden");
-      setTimeout(() => {
-        searchPlaceholderIndex = (searchPlaceholderIndex + 1) % options.length;
-        searchPlaceholderFade.textContent = `Search ${options[searchPlaceholderIndex]}`;
-        searchPlaceholderFade.classList.remove("search-placeholder-hidden");
-      }, 350);
+    // Don't fight real user input/focus - a native placeholder wouldn't
+    // show under those conditions either. Every tick below checks this and,
+    // while it's not idle, just reschedules itself instead of progressing -
+    // so typing/focusing pauses whichever phrase is mid-type/delete right
+    // where it is, and it picks back up from there once the field goes
+    // idle again (blurred and empty), rather than restarting or skipping
+    // ahead. This is a single self-perpetuating chain (each tick schedules
+    // the next one itself), so there's never more than one in flight - no
+    // need to guard against overlapping chains.
+    function isSearchPlaceholderIdle() {
+      return document.activeElement !== mainImageSearch && !mainImageSearch.value;
     }
-    setInterval(rotateSearchPlaceholder, 3200);
+    function typewriterType(text, onDone) {
+      let i = 0;
+      function tick() {
+        if (!isSearchPlaceholderIdle()) { setTimeout(tick, 400); return; }
+        i++;
+        searchPlaceholderText.textContent = `Search ${text.slice(0, i)}`;
+        if (i < text.length) setTimeout(tick, 55);
+        else onDone();
+      }
+      tick();
+    }
+    function typewriterDelete(text, onDone) {
+      let i = text.length;
+      function tick() {
+        if (!isSearchPlaceholderIdle()) { setTimeout(tick, 400); return; }
+        i--;
+        searchPlaceholderText.textContent = `Search ${text.slice(0, i)}`;
+        if (i > 0) setTimeout(tick, 32);
+        else onDone();
+      }
+      tick();
+    }
+    function runTypewriterStep() {
+      if (!searchPlaceholderText) return;
+      if (!isSearchPlaceholderIdle()) { setTimeout(runTypewriterStep, 400); return; }
+      const options = getSearchPlaceholderOptions();
+      if (options.length === 0) { setTimeout(runTypewriterStep, 400); return; }
+      const phrase = options[searchPlaceholderIndex % options.length];
+      typewriterType(phrase, () => {
+        setTimeout(() => {
+          typewriterDelete(phrase, () => {
+            searchPlaceholderIndex = (searchPlaceholderIndex + 1) % options.length;
+            setTimeout(runTypewriterStep, 200);
+          });
+        }, 1600);
+      });
+    }
+    if (searchPlaceholderText) {
+      searchPlaceholderText.textContent = "";
+      runTypewriterStep();
+    }
     mainImageSearch.addEventListener("input", () => {
       searchPlaceholderFade?.classList.toggle("search-placeholder-hidden", !!mainImageSearch.value);
     });
@@ -3420,6 +4033,67 @@ try {
   // sandboxed embeds) - skip the auto-open rather than breaking init.
   console.warn("Could not check first-visit state:", e);
 }
+
+/** CONTRIBUTORS JavaScript **/
+// "Images contributors" list (2026-08-01, explicit request) - names live in
+// contributors.txt (one per line) at the repo root rather than hardcoded
+// here, so they can be added/removed/reordered by editing a plain text
+// file instead of this markup. Fetched fresh every time the modal opens
+// (not cached) so an edit to the file shows up on the very next open
+// without needing a full page reload - the list is tiny, so refetching it
+// costs nothing.
+const contributorsBtn = document.getElementById("contributorsBtn");
+const contributorsModal = document.getElementById("contributorsModal");
+const closeContributorsModalBtn = document.getElementById("closeContributorsModalBtn");
+const contributorsList = document.getElementById("contributorsList");
+
+async function loadContributorsList() {
+  contributorsList.innerHTML = "";
+  try {
+    const response = await fetch("contributors.txt", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    const names = text.split("\n").map(line => line.trim()).filter(Boolean);
+    if (names.length === 0) {
+      const li = document.createElement("li");
+      li.className = "contributors-list-empty";
+      li.textContent = "No contributors listed yet.";
+      contributorsList.appendChild(li);
+      return;
+    }
+    names.forEach(name => {
+      const li = document.createElement("li");
+      li.textContent = name;
+      contributorsList.appendChild(li);
+    });
+  } catch (e) {
+    // Same defensive shape as the first-visit localStorage check above -
+    // this is a purely informational list, so a failed fetch (e.g. running
+    // from file:// rather than a real server, which fetch() can't read
+    // local files under) shouldn't block opening the modal, just show a
+    // fallback message instead of an empty list with no explanation.
+    console.warn("Could not load contributors.txt:", e);
+    const li = document.createElement("li");
+    li.className = "contributors-list-empty";
+    li.textContent = "Could not load the contributors list.";
+    contributorsList.appendChild(li);
+  }
+}
+
+contributorsBtn.addEventListener("click", () => {
+  contributorsModal.classList.add("active");
+  loadContributorsList();
+});
+
+closeContributorsModalBtn.addEventListener("click", () => {
+  contributorsModal.classList.remove("active");
+});
+
+contributorsModal.addEventListener("click", (e) => {
+  if (e.target === contributorsModal) {
+    contributorsModal.classList.remove("active");
+  }
+});
 
     /********************************************************
      * Submit Reference (public - not admin-gated)
@@ -5107,78 +5781,18 @@ downloadLink.addEventListener("click", function(e) {
     tagsContainer.style.top = `${imgRect.bottom - columnRect.top}px`;
   }
 
-  // Hide (rather than populate) the "Similar" panel synchronously, before
-  // anything else - populating it immediately would show the *previous*
-  // image's similar set for a moment, and the row's width would visibly
-  // shift once this image's own onload later resizes it around the
-  // panel's reserved space. renderSimilarImages() re-shows it (with this
-  // image's own matches) from inside the onload/onerror handlers below,
-  // so it appears at the same moment the big image does instead of
-  // popping in before it, or before it's even loaded.
-  if (similarPanelEl) similarPanelEl.style.display = "none";
-
-  // Same reasoning as the Similar panel above, for the tags/resolution
-  // pill: without this, opening a new image (especially via the prev/next
-  // arrows) left the *previous* image's tags text showing underneath the
-  // spinner until the new image's onload/onerror got around to overwriting
-  // it - while loading, only the spinner and nav arrows should be visible.
-  // Restored in onload/onerror below, once there's real data for it.
-  tagsElement.parentElement.style.display = "none";
-
-  // Cap resolution to what the lightbox can actually show - the modal never
-  // exceeds the viewport, so there's no point downloading a multi-thousand-
-  // pixel original just to scale it down. Using the same URL for both the
-  // visible <img> and the sizing probe below also means only one request is
-  // made (the browser dedupes them) instead of loading the image twice.
-  const displayUrl = cloudinaryDisplayUrl(url, { width: 1920 });
-
-  // Open the modal and show a spinner right away instead of waiting for the
-  // image to finish loading before anything appears - the load itself isn't
-  // instant (especially the first time this image size is requested), so
-  // this is what actually shows the user something is happening.
-  enlargeImg.classList.remove("loaded");
-  enlargeImg.style.width = "";
-  enlargeImg.style.height = "";
-  resolutionElement.textContent = "";
-  enlargeSpinner.classList.add("active");
-  enlargeModal.style.justifyContent = "center";
-  enlargeModal.style.paddingTop = "0";
-  enlargeModal.style.paddingBottom = "0";
-  enlargeModal.style.display = "flex";
-
-  // enlargeImg's own load/error events (read via naturalWidth/naturalHeight,
-  // which - unlike its width/height IDL attributes - report true intrinsic
-  // pixel size regardless of the CSS constraining its rendered box) drive
-  // the sizing math directly. This used to run through a second, off-DOM
-  // Image() just to read natural dimensions unaffected by enlargeImg's own
-  // CSS - which meant decoding every lightbox image twice. Handlers are
-  // attached before .src is set, same reasoning as always attaching
-  // listeners before triggering the thing they listen for, even though the
-  // load event itself can never fire before this synchronous block ends.
-  enlargeImg.onerror = function() {
-    // Still reveal what we have (the browser's broken-image icon) rather
-    // than leaving the spinner spinning forever
-    enlargeSpinner.classList.remove("active");
-    enlargeImg.classList.add("loaded");
-    renderSimilarImages(container);
-    // No natural dimensions to report on a failed load, so just the tags
-    // (if any) - re-show the row so it isn't left hidden indefinitely.
-    if (keywords && keywords.trim() !== "") {
-      tagsElement.textContent = keywords;
-      tagsElement.style.display = "inline-flex";
-    } else {
-      tagsElement.style.display = "none";
-    }
-    resolutionElement.textContent = "";
-    tagsElement.parentElement.style.display = "flex";
-    positionEnlargedTags();
-  };
-  enlargeImg.onload = function() {
-    enlargeSpinner.classList.remove("active");
-    enlargeImg.classList.add("loaded");
-    renderSimilarImages(container);
-    const imgWidth = this.naturalWidth;
-    const imgHeight = this.naturalHeight;
+  // The same sizing math enlargeImg's onload below ran inline (reading
+  // `this.naturalWidth`/`naturalHeight` from the load event) - factored out
+  // so it can also be re-run later against the same already-loaded image,
+  // via refreshEnlargedLayout()/activeEnlargedLayoutRefresh (see the
+  // window resize/fullscreenchange listeners near scheduleLayout()), when
+  // window.innerWidth/innerHeight change after the image has already
+  // loaded. Reads enlargeImg.naturalWidth/naturalHeight directly instead of
+  // `this` so it works the same whether called from the load event or from
+  // a later resize.
+  function updateEnlargedImageSize() {
+    const imgWidth = enlargeImg.naturalWidth;
+    const imgHeight = enlargeImg.naturalHeight;
 
     // Calculate viewport dimensions
     // Reserve space for the "Similar" panel (see .enlarge-main-row) when
@@ -5274,6 +5888,107 @@ downloadLink.addEventListener("click", function(e) {
     // half the caption's own height (reported as "maxed image not aligned
     // to vertical center").
 
+    // Dimensions of the (possibly 1920px-capped, see displayUrl above)
+    // lightbox image - exact for anything at or under that cap, which in
+    // practice is most uploads given compressImageIfNeeded()'s 1.5MB
+    // target. Download still fetches the true original regardless.
+    resolutionElement.textContent = `${imgWidth} × ${imgHeight}`;
+    // Must run after the width/height branch above (needs enlargeImg's
+    // final rendered box).
+    positionEnlargedTags();
+  }
+
+  // Re-run after the modal is already open and showing a real image - e.g.
+  // when the browser window is resized, or browser/OS fullscreen is
+  // entered/exited. That's exactly when window.innerWidth/innerHeight
+  // (what updateEnlargedImageSize()'s sizing math reads) change, so without
+  // this the image stayed at its old computed pixel size and the tags/
+  // resolution caption's last-computed position went stale along with it -
+  // reading as it having disappeared until the next enlargeImage() call
+  // (opening a different image) recomputed everything from scratch. Falls
+  // back to plain positionEnlargedTags() when there's no valid loaded image
+  // to size yet (naturalWidth/Height are 0 before the load event fires, or
+  // stay 0 on a failed load) - updateEnlargedImageSize()'s ratio math would
+  // divide by/against a real 0 in that case.
+  function refreshEnlargedLayout() {
+    if (enlargeImg.naturalWidth && enlargeImg.naturalHeight) {
+      updateEnlargedImageSize();
+    } else {
+      positionEnlargedTags();
+    }
+  }
+  activeEnlargedLayoutRefresh = refreshEnlargedLayout;
+
+  // Hide (rather than populate) the "Similar" panel synchronously, before
+  // anything else - populating it immediately would show the *previous*
+  // image's similar set for a moment, and the row's width would visibly
+  // shift once this image's own onload later resizes it around the
+  // panel's reserved space. renderSimilarImages() re-shows it (with this
+  // image's own matches) from inside the onload/onerror handlers below,
+  // so it appears at the same moment the big image does instead of
+  // popping in before it, or before it's even loaded.
+  if (similarPanelEl) similarPanelEl.style.display = "none";
+
+  // Same reasoning as the Similar panel above, for the tags/resolution
+  // pill: without this, opening a new image (especially via the prev/next
+  // arrows) left the *previous* image's tags text showing underneath the
+  // spinner until the new image's onload/onerror got around to overwriting
+  // it - while loading, only the spinner and nav arrows should be visible.
+  // Restored in onload/onerror below, once there's real data for it.
+  tagsElement.parentElement.style.display = "none";
+
+  // Cap resolution to what the lightbox can actually show - the modal never
+  // exceeds the viewport, so there's no point downloading a multi-thousand-
+  // pixel original just to scale it down. Using the same URL for both the
+  // visible <img> and the sizing probe below also means only one request is
+  // made (the browser dedupes them) instead of loading the image twice.
+  const displayUrl = cloudinaryDisplayUrl(url, { width: 1920 });
+
+  // Open the modal and show a spinner right away instead of waiting for the
+  // image to finish loading before anything appears - the load itself isn't
+  // instant (especially the first time this image size is requested), so
+  // this is what actually shows the user something is happening.
+  enlargeImg.classList.remove("loaded");
+  enlargeImg.style.width = "";
+  enlargeImg.style.height = "";
+  resolutionElement.textContent = "";
+  enlargeSpinner.classList.add("active");
+  enlargeModal.style.justifyContent = "center";
+  enlargeModal.style.paddingTop = "0";
+  enlargeModal.style.paddingBottom = "0";
+  enlargeModal.style.display = "flex";
+
+  // enlargeImg's own load/error events (read via naturalWidth/naturalHeight,
+  // which - unlike its width/height IDL attributes - report true intrinsic
+  // pixel size regardless of the CSS constraining its rendered box) drive
+  // the sizing math directly. This used to run through a second, off-DOM
+  // Image() just to read natural dimensions unaffected by enlargeImg's own
+  // CSS - which meant decoding every lightbox image twice. Handlers are
+  // attached before .src is set, same reasoning as always attaching
+  // listeners before triggering the thing they listen for, even though the
+  // load event itself can never fire before this synchronous block ends.
+  enlargeImg.onerror = function() {
+    // Still reveal what we have (the browser's broken-image icon) rather
+    // than leaving the spinner spinning forever
+    enlargeSpinner.classList.remove("active");
+    enlargeImg.classList.add("loaded");
+    renderSimilarImages(container);
+    // No natural dimensions to report on a failed load, so just the tags
+    // (if any) - re-show the row so it isn't left hidden indefinitely.
+    if (keywords && keywords.trim() !== "") {
+      tagsElement.textContent = keywords;
+      tagsElement.style.display = "inline-flex";
+    } else {
+      tagsElement.style.display = "none";
+    }
+    resolutionElement.textContent = "";
+    tagsElement.parentElement.style.display = "flex";
+    positionEnlargedTags();
+  };
+  enlargeImg.onload = function() {
+    enlargeSpinner.classList.remove("active");
+    enlargeImg.classList.add("loaded");
+    renderSimilarImages(container);
     // Display tags below the image. The resolution readout sits in the same
     // row and shows regardless of whether there are any tags, so the row
     // itself now shows whenever we have a loaded image - only the tags pill
@@ -5284,17 +5999,11 @@ downloadLink.addEventListener("click", function(e) {
     } else {
       tagsElement.style.display = "none";
     }
-    // Dimensions of the (possibly 1920px-capped, see displayUrl above)
-    // lightbox image - exact for anything at or under that cap, which in
-    // practice is most uploads given compressImageIfNeeded()'s 1.5MB
-    // target. Download still fetches the true original regardless.
-    resolutionElement.textContent = `${imgWidth} × ${imgHeight}`;
+    // Must happen before updateEnlargedImageSize()'s positionEnlargedTags()
+    // call - an absolutely-positioned element with display: none reports a
+    // zero-size getBoundingClientRect(), which would compute a bogus top.
     tagsElement.parentElement.style.display = "flex";
-    // Must run after the width/height branch above (needs enlargeImg's
-    // final rendered box) and after the display toggle just above (an
-    // absolutely-positioned element with display: none reports a zero-size
-    // getBoundingClientRect(), which would compute a bogus top).
-    positionEnlargedTags();
+    updateEnlargedImageSize();
   };
 
   // Set image source and alt - this is what actually starts the load
@@ -5370,6 +6079,7 @@ function closeEnlargeModal() {
     similarPanel.style.display = "none";
   }
   currentEnlargedContainer = null;
+  activeEnlargedLayoutRefresh = null;
 }
 
 
@@ -5443,6 +6153,8 @@ function closeEnlargeModal() {
       fileInput.value = "";
       imageKeywords.tagChipsAPI.setTags("");
       updateFilePreview();
+      wizardFurthestStep = 1;
+      setWizardStep(1);
     }
 
     closeImageModalBtn.addEventListener("click", () => {
@@ -5456,9 +6168,11 @@ function closeEnlargeModal() {
     // on the browser's terse native "n files selected" text
     const fileInputHint = document.getElementById("fileInputHint");
     const filePreviewList = document.getElementById("filePreviewList");
+    const filePreviewEmpty = document.getElementById("filePreviewEmpty");
     function updateFilePreview() {
       filePreviewList.innerHTML = "";
       const files = Array.from(fileInput.files || []);
+      filePreviewEmpty.style.display = files.length === 0 ? "block" : "none";
       if (files.length === 0) {
         fileInputHint.textContent = "No file selected";
         return;
@@ -5904,7 +6618,15 @@ function closeEnlargeModal() {
 
     // New Admin Buttons to open modals
     newFolderAdminBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
-    addImageAdminBtn.addEventListener("click", () => { imageModal.classList.add("active"); });
+    addImageAdminBtn.addEventListener("click", () => {
+      imageModal.classList.add("active");
+      // Always open on step 1 - a previous session's file selection (if
+      // any - e.g. the modal was dismissed via the backdrop, which doesn't
+      // call resetImageModal()) is left alone, but the wizard itself
+      // always starts predictably from the top.
+      wizardFurthestStep = 1;
+      setWizardStep(1);
+    });
 
     // Confirm Add Image button - uploads this batch immediately.
   confirmAddImageBtn.addEventListener("click", async () => {
@@ -5953,6 +6675,11 @@ function closeEnlargeModal() {
       imageKeywords.tagChipsAPI.setTags("");
       updateFilePreview();
       renderUploadQueue();
+      // Back to step 1 to stage the next category, same reasoning as
+      // addImageAdminBtn's own reset - the current selection was just
+      // cleared, so there's nothing left to review on steps 2/3 anyway.
+      wizardFurthestStep = 1;
+      setWizardStep(1);
     });
 
     function renderUploadQueue() {
@@ -5985,14 +6712,17 @@ function closeEnlargeModal() {
       });
 
       const totalFiles = uploadQueue.reduce((sum, batch) => sum + batch.files.length, 0);
+      const publishQueueEmpty = document.getElementById("publishQueueEmpty");
       if (uploadQueue.length > 0) {
         panel.classList.add("active");
         bar.style.display = "flex";
+        if (publishQueueEmpty) publishQueueEmpty.style.display = "none";
         const categoryWord = uploadQueue.length === 1 ? "category" : "categories";
         summary.textContent = `${uploadQueue.length} ${categoryWord} queued (${totalFiles} images)`;
       } else {
         panel.classList.remove("active");
         bar.style.display = "none";
+        if (publishQueueEmpty) publishQueueEmpty.style.display = "block";
       }
     }
 

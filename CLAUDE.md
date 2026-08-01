@@ -1176,6 +1176,131 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   `.floating-color-panel` at it instead, so they read as lifted further off the gallery behind them
   without the shadow itself looking heavy/dark. Left every other `--shadow-md` user (modals, similar-
   panel thumbnails, etc.) unchanged - this was scoped to just those two panels per the request.
+- **Add Image modal rebuilt as a large step-by-step wizard (2026-08-01, explicit request: "make
+  the upload page way bigger... as big as the images container of the page with margins... make
+  it intuitive and steps logic")** — replaces the same-day 900px two-column layout.
+  `.image-modal-content` is now sized against the viewport/sidebar the same way `.main-content`
+  itself is (`width: calc(100vw - var(--sidebar-width) - 80px)`, capped at 1400px, with a real
+  `min-height: min(70vh, 700px)` so a short step - step 2's plain fields, step 3's summary - can't
+  shrink the whole modal back down to a small dialog), and its three fields (file picker, folder+
+  tags, review+publish) are now three `.wizard-panel`s shown one at a time
+  (`setWizardStep()`/`wizardFurthestStep` in the script) instead of all at once: **1) Select
+  Images** - a big drag-and-drop `.wizard-dropzone` (`flex:1`, so it actually fills the stretched
+  column instead of shrink-wrapping) wrapping the same `#fileInput`, plus drop-to-populate handling
+  new on top of the existing label-click-to-browse behavior; **2) Folder & Tags** - the pre-existing
+  `#folderSelect`/`#imageKeywords` fields, unchanged; **3) Review & Publish** - a plain-language
+  summary (`updateWizardReviewSummary()`) plus the existing "Add"/"Add to Queue" buttons (renamed
+  "Publish Now"/"Add to Queue" in the UI, ids unchanged). A step pill in the indicator row is
+  clickable once `wizardFurthestStep` has reached it (lets you jump back without hunting for the
+  Back button, but never jump *ahead* to an unvalidated step). The publish-queue panel (staged
+  batches) moved out of being conditionally shown and is now a permanent, always-visible section of
+  the side column (with `#publishQueueEmpty`/`#filePreviewEmpty` placeholder text so neither side of
+  the modal looks broken/blank on a fresh open) - it's no longer sharing space with a `wizard-panel`
+  that only shows on step 1. Every existing element id (`fileInput`, `folderSelect`,
+  `imageKeywords`, `confirmAddImageBtn`, `queueAddImageBtn`, `publishQueueBtn`, `filePreviewList`,
+  `uploadQueueList`, etc.) is unchanged, so none of `startUploadBatch()`/`processUpload()`/
+  `renderUploadQueue()` needed to change - only new step-navigation JS was added on top, plus
+  `resetImageModal()`/`addImageAdminBtn`/`queueAddImageBtn` each now also reset the wizard back to
+  step 1 at the appropriate point (closing/reopening the modal, or after staging a batch to
+  immediately start the next one).
+  **This surfaced a real, pre-existing site-wide bug, not just a sizing question:** widening this
+  modal past roughly `viewport - 540px` ran straight into the exact hazard
+  `.submissions-review-content`'s own comment already flagged - `.modal-backdrop` (999) sits
+  *below* `.sidebar` (1100), so a modal wide enough to visually extend under the sidebar has that
+  overlapping strip's clicks swallowed by the sidebar instead of reaching the modal underneath.
+  Confirmed via Playwright (a step-pill click landing in that strip resolved to `.sidebar-scroll`,
+  not the modal) before fixing it, rather than shrinking this modal back down to dodge it. Fixed
+  by raising `.modal-backdrop` to `z-index: 1150` site-wide - above the sidebar, still below the
+  About/Submit/Contributors buttons and the lightbox/upload dock (15000+/20000) - which is the
+  general fix that comment already called for; `.submissions-review-content`'s own 840px cap was
+  left in place (still harmless) rather than widened, since nothing asked for that panel to grow.
+  Separately, `#imageModal` specifically also gets `padding-left: var(--sidebar-width)` (reset to
+  0 at the <=900px tier, where the modal drops to a plain centered dialog) - without it, a modal
+  this wide centered on the *whole viewport's* midpoint instead of the gallery area's own midpoint,
+  visibly spilling left past the sidebar's right edge even after the z-index fix stopped it from
+  being unclickable there. **Verified end-to-end via Playwright** (a hand-rolled Firestore/Auth
+  stub, since there's no live Firebase/Cloudinary in a sandboxed session) - the modal renders
+  centered over the gallery area only (not overlapping the sidebar), all three steps show/hide
+  correctly, step-pill forward/backward jumps work, the empty-state placeholders toggle correctly,
+  and a full add-to-queue round trip leaves the right batch in the queue list and resets to step 1.
+- **Search bar placeholder: crossfade replaced with an actual typewriter animation (2026-08-01,
+  explicit request: "make the searchbar text animation like a typewriter instead of appear/
+  disappear")** — `#searchPlaceholderFade` now wraps two inline spans, `#searchPlaceholderText`
+  (the part the script rewrites) and a separate blinking `.search-placeholder-cursor` (`|`,
+  CSS `@keyframes` opacity blink) after it. `runTypewriterStep()` types each phrase from
+  `getSearchPlaceholderOptions()` (unchanged - still "images..." plus every real top-level folder
+  name, read live) character-by-character, pauses, deletes it character-by-character, then moves to
+  the next phrase - replacing `rotateSearchPlaceholder()`'s old fade-out/swap-text/fade-in. It's a
+  single self-perpetuating chain (each tick schedules the next one itself via `setTimeout`), and
+  every tick checks `isSearchPlaceholderIdle()` (unchanged condition: not focused and no typed
+  value) - while the field isn't idle, a tick just reschedules itself instead of progressing, so
+  focusing/typing pauses whichever phrase is mid-type/delete exactly where it is and resumes from
+  there once idle again, rather than restarting. The instant show/hide on focus/blur/input (the
+  `.search-placeholder-hidden` opacity toggle) is unchanged - only how the text *cycles* changed.
+- **Sidebar-brand separator aligned to the search-bar separator (2026-08-01, explicit request)** —
+  the horizontal line under "aReference" and the one under the search bar (`.top-search-bar`'s own
+  `border-bottom`) used to land at different heights (confirmed by measurement: ~9px apart at the
+  base tier before this, and off by a full `.sidebar`-padding's worth - ~10.5px - at the <=640px/
+  <=420px tiers specifically). Added a `--header-height` token (71px at the base tier), set via a
+  **headless-measured** `.top-search-bar` `getBoundingClientRect().bottom` at each breakpoint, not
+  computed by hand from the padding/font-size rules or copied from `.main-content`'s own
+  padding-top (128px/112px/104px at the same breakpoints) - that padding exists to clear the
+  About/Submit/Contributors buttons once they drop to their own floating row below the bar at
+  <=900px, which is a taller, separate thing from where the bar's own border-bottom actually sits.
+  `.sidebar-brand` gets an explicit `height: calc(var(--header-height) - 0.8rem)` (flex-centered
+  text) so its own border-bottom lands at exactly `--header-height` from the top of the viewport -
+  **except** at the <=640px/<=420px tiers, where it's `calc(var(--header-height) - 1.4rem)`
+  instead, because `.sidebar` itself also gets `0.6rem` padding at those two tiers (on top of
+  `.sidebar-scroll`'s own constant `0.8rem`) - `.sidebar-scroll` is a normal-flow (non-absolute)
+  child of `.sidebar`, so that padding pushes it inward too. **This second part was previously
+  assumed to be dead/unused CSS** (see `.sidebar`'s own padding rule) - it isn't; if `.sidebar`'s
+  padding ever changes at those tiers, this offset needs re-checking. Verified via Playwright
+  across all four breakpoints (320-1600px swept in ~20px/tier increments) - the two separators'
+  `getBoundingClientRect().bottom` values now agree to within ~0.5px (float rounding) everywhere.
+- **Lightbox tags/resolution caption no longer goes stale on a viewport change (2026-08-01,
+  reported as "when going from fullscreen to windowed, the tags and resolution box disappear and
+  only come back when opening another image")** — root cause: `enlargeImage()` computed the
+  enlarged image's size and the caption's position (`positionEnlargedTags()`) exactly once, driven
+  off the image's `load`/`error` event, using `window.innerWidth`/`innerHeight` at that moment.
+  Nothing re-ran that math on a later viewport change - a window resize event *does* fire for
+  entering/exiting browser fullscreen (confirmed the existing gallery relayout already listens for
+  plain `resize` for this reason), but only the gallery's own `scheduleLayout()` was wired to it,
+  not anything inside the lightbox. Since `.enlarge-image-column` re-centers on any viewport change
+  but the caption's `top` (an absolute-position pixel value, set once) didn't, the caption ended up
+  positioned relative to where the image *used to* be, not where it re-centered to - usually well
+  past the image's new bottom edge, off toward/past the viewport edge, reading as "disappeared."
+  Fixed by factoring the onload sizing math out into `updateEnlargedImageSize()` (callable
+  independently of the load event, unlike before) and exposing a per-open `refreshEnlargedLayout()`
+  through a new module-level `activeEnlargedLayoutRefresh` variable (mirrors the existing
+  `currentEnlargedContainer` pattern, cleared in `closeEnlargeModal()`) - a **single**, bound-once
+  `resize`/`fullscreenchange`/`webkitfullscreenchange` listener (rAF-throttled the same way
+  `scheduleFrostArtSync()` already is) calls whichever refresh function is currently active, if any,
+  instead of `enlargeImage()` adding a new listener on every open (the same "listener bound inside a
+  function that runs repeatedly, never cleaned up" shape this file has hit and fixed before, for the
+  download button and the old minimize button). Verified directly (not just reasoned through) via
+  Playwright: opened the lightbox against a synthetic image, shrank the viewport to simulate exiting
+  fullscreen, and confirmed the caption's own `top` recomputed to the new, correct value and stayed
+  fully within the new viewport bounds, rather than the stale value that would have put it well
+  below the shrunk viewport's bottom edge.
+- **Contributors button + modal (2026-08-01, explicit request)** — a fourth header button
+  (`.contributors-btn`, dark-pill styled like `.about-btn` since it's informational, not an action
+  like Submit), sitting left of Submit/About, opening `#contributorsModal` ("Images contributors"
+  heading + a plain `<ul>`). Names are **not** hardcoded in `index.html` - `loadContributorsList()`
+  `fetch()`es `contributors.txt` (repo root, one name per line, blank lines skipped) fresh every
+  time the modal opens, so editing that plain text file is enough to change the list, no HTML/JS
+  edit needed. Falls back to a muted "Could not load..." list item if the fetch fails (e.g. opened
+  via `file://` rather than a real server) rather than blocking the modal, same defensive shape as
+  the first-visit `localStorage` check right above it in the script. Needed real layout surgery to
+  fit a third button in, not just a new CSS rule: `.top-search-bar`'s reserved `padding-right` grew
+  270px -> 420px to keep clearing all three buttons, and - confirmed via a headless sweep across
+  the *entire* 320-1600px width range, not just the four named breakpoints - a naive "shrink and
+  keep all three on one row" approach at the <=640px tier put Contributors' left edge underneath
+  the sidebar for every width from 421px to ~515px, not just at the narrowest phone sizes. Fixed by
+  dropping Contributors to its own row below About/Submit at both the <=640px and <=420px tiers
+  (`.main-content`'s `padding-top` grown to 156px/154px respectively to clear the extra row) rather
+  than continuing to shrink it to fit one row - same "own row below the header" pattern
+  About/Submit themselves already use at <=900px, just one tier lower and for one button instead of
+  two.
 - **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
   filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
   Access is controlled by real Firestore security rules now — see "Admin access" below and
@@ -1187,6 +1312,10 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   Firebase Console → Firestore Database → Rules any time it changes, and it's on whoever does
   that to keep this file in sync with what's actually live. Don't assume editing it or committing
   it has any live effect on its own.
+- **`contributors.txt`** (2026-08-01) — one contributor name per line, blank lines ignored. The
+  only backing data for the Contributors modal's list (see `index.html`'s own entry above) -
+  fetched client-side at runtime, not built into the page. Edit this file to add/remove/reorder
+  names; no HTML/JS change needed.
 
 ## Environment variables (Netlify)
 
