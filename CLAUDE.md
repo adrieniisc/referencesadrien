@@ -1146,6 +1146,27 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     folder names and the color auto-tagger's words) - if a commonly-used tag has no synonyms/
     translations yet, that's expected (not a bug) until `SYNONYM_MAP`/`TRANSLATION_MAP` are extended
     for it.
+  - **Uploads were silently failing to publish entirely, fixed 2026-08-01 - a genuine production
+    bug, caught from a real console log the owner pasted in.** Every upload was actually reaching
+    Cloudinary fine (`console.log`'d "File uploaded successfully, URL: ..."), then immediately
+    crashing with `Uncaught (in promise) ReferenceError: uploadFile is not defined` before
+    `completeUpload()` ever ran - meaning the image genuinely existed on Cloudinary but never made
+    it into Firestore or the gallery, for every single upload, silently (the dock's own error
+    handling never caught this since the crash happened *after* the try/catch that would have shown
+    it as a red "Error" row). Root cause: `processUpload()` declared `const uploadFile = await
+    compressImageIfNeeded(file)` *inside* the try block, but used `uploadFile.size` afterward,
+    outside it, for the fileSize param added by the same day's "Lightbox size pill" work - `const`/
+    `let` are block-scoped, so `uploadFile` didn't exist any more the moment control left the `try
+    { }` block, regardless of whether the try block itself succeeded. `imageUrl`/`colorTag` right
+    above it already followed the correct pattern (`let` declared *before* the try block, assigned
+    inside) specifically because they're also read after it - `uploadFile` just never got the same
+    treatment when it was added later. Fixed by hoisting `let uploadFile;` up next to them. Confirmed
+    via a Playwright run with the real `processUpload()` against a mocked upload endpoint: before the
+    fix, the promise rejected with exactly that ReferenceError and nothing was ever written to
+    Firestore; after, the same call resolves cleanly and the image saves with a correct `fileSize`.
+    If another "file uploaded successfully then a ReferenceError" report shows up, check for this
+    same shape first - a value computed inside `try { }` and used after it - before assuming it's a
+    new bug.
   - **Fourth round of fixes (2026-08-01, same day) - real-usage bug reports against the batch
     above, plus one explicit new feature request.**
     - **`orange`'s synonyms no longer include `rust`** (`SYNONYM_MAP`) - `rust` is also its own

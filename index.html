@@ -7991,6 +7991,20 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
 
   let imageUrl;
   let colorTag;
+  // Declared here (not `const` inside the try block below) so it's still
+  // in scope at uploadFile.size's use-site after the try/catch - a real
+  // bug that reached production: `const uploadFile` was block-scoped to
+  // the try block, so every upload actually completed successfully
+  // against Cloudinary (visible in the console as "File uploaded
+  // successfully, URL: ...") and then immediately crashed with
+  // `ReferenceError: uploadFile is not defined` the moment control left
+  // the try block, before completeUpload() ever ran - meaning the image
+  // never made it into Firestore/the gallery despite genuinely existing on
+  // Cloudinary already. imageUrl/colorTag right above already followed
+  // this same "declare outside, assign inside" pattern; uploadFile just
+  // didn't, most likely because it was added later (2026-08-01, for the
+  // lightbox size pill's fileSize param) without matching it.
+  let uploadFile;
   try {
     console.log(`Starting upload process for ${file.name}`);
 
@@ -8002,7 +8016,7 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     // compressed file, in parallel with the network upload, so it doesn't
     // add extra wait time - see detectDominantColorTag() above.
     console.log(`Uploading ${file.name}...`);
-    const uploadFile = await compressImageIfNeeded(file);
+    uploadFile = await compressImageIfNeeded(file);
     [imageUrl, colorTag] = await Promise.all([
       uploadImage(uploadFile),
       detectDominantColorTag(uploadFile)
