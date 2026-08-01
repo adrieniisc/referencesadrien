@@ -1152,6 +1152,27 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       real, distinct tag (`rust: ["corrosion", "oxidation"]`), so surfacing it as a synonym of the
       *color* orange read as wrong/confusing on an orange-but-not-rusted image. Replaced with
       `tangerine`.
+    - **No color word gets a synonym at all, superseding the `orange`/`rust` fix above the same
+      day** - "Dont add a synonym for colors" - all 13 `COLOR_FILTER_SWATCHES` color entries
+      (`black`, `white`, `gray`/`grey`, `brown`, `beige`, `red`, `orange`, `yellow`, `green`,
+      `cyan`, `blue`, `purple`, `pink`) were removed from `SYNONYM_MAP` outright, not just
+      individually tuned - a synonym for a color name reads as a second, redundant color tag
+      (e.g. `orange` -> `amber`/`tangerine` when `amber` is itself a real, separately-typed color
+      some images use) rather than a useful alternate search term the way `wood` -> `timber` is.
+      `computeSynonymTags()` also gained an explicit `SYNONYM_EXCLUDED_WORDS` guard (built from
+      `COLOR_FILTER_SWATCHES` plus the `grey` spelling) checked before the `SYNONYM_MAP` lookup -
+      belt-and-suspenders so a color re-added to the map later (e.g. by copying a neighboring
+      entry's pattern) doesn't silently reintroduce this. Translations are untouched - colors still
+      get `TRANSLATION_MAP` entries, since those exist purely to widen search matching in other
+      languages, not to add a second displayed tag. Confirmed via the same
+      Playwright-against-the-real-page approach as the rest of this file's synonym work:
+      `computeSynonymTags()` on a CSV of all 13 color words returns an empty string, while a mixed
+      `"wood, old, red"` list still returns `wood`/`old`'s synonyms with nothing for `red`, and an
+      unrecognized word alongside a known one (`"xyz, wood"`) still only produces `wood`'s - the
+      existing "not every tag gets a synonym, closed vocabulary" behavior is unchanged for
+      non-color words. "Synonyms can re-tag completely" was also reconfirmed against the same-day
+      Edit Tags fix above and Re-tag Synonyms (both already fully recompute-and-overwrite rather
+      than merge) - no change needed there, already correct.
     - **Synonym/translated tags going stale after Edit Tags, fixed** - reported as "synonym tags
       seem to only apply to the last tag of each image." Root cause: `completeUpload()` and Re-tag
       Synonyms both correctly compute `synonymKeywords`/`translatedKeywords` from *every* keyword,

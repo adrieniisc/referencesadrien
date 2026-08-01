@@ -3496,20 +3496,6 @@
       cracked: ["fractured", "split"],
       rough: ["coarse", "textured"],
       smooth: ["polished", "even"],
-      black: ["dark", "ebony"],
-      white: ["pale", "ivory"],
-      gray: ["grey", "ashen"],
-      grey: ["gray", "ashen"],
-      brown: ["tan", "umber"],
-      beige: ["cream", "sand"],
-      red: ["crimson", "scarlet"],
-      orange: ["amber", "tangerine"],
-      yellow: ["gold", "amber"],
-      green: ["olive", "sage"],
-      cyan: ["teal", "turquoise"],
-      blue: ["azure", "navy"],
-      purple: ["violet", "lilac"],
-      pink: ["rose", "magenta"],
       creature: ["monster", "beast"],
       angle: ["corner", "edge"],
       construction: ["building", "structure"],
@@ -3574,15 +3560,26 @@
       return (keywordsCsv || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
     }
 
+    // Color words never get a synonym (explicit request) - SYNONYM_MAP
+    // itself no longer has entries for any of them, but this set is also
+    // checked directly in computeSynonymTags() below so re-adding one to
+    // the map later (e.g. by copying the pattern from a neighboring entry)
+    // doesn't silently reintroduce it. Includes "grey" alongside "gray"
+    // even though only "gray" is one of COLOR_FILTER_SWATCHES' own color
+    // names - they're the same color, just different spellings.
+    const SYNONYM_EXCLUDED_WORDS = new Set([...COLOR_FILTER_SWATCHES.map(s => s.color), "grey"]);
+
     // Up to 2 synonyms per matched keyword, comma-joined, deduped
     // case-insensitively against both the original tags and each other -
-    // e.g. "wood, old" -> "timber, lumber, aged, weathered".
+    // e.g. "wood, old" -> "timber, lumber, aged, weathered". Colors are
+    // skipped entirely - see SYNONYM_EXCLUDED_WORDS above.
     function computeSynonymTags(keywordsCsv) {
       const words = normalizeTagList(keywordsCsv);
       const originalSet = new Set(words);
       const seen = new Set();
       const result = [];
       words.forEach(word => {
+        if (SYNONYM_EXCLUDED_WORDS.has(word)) return;
         (SYNONYM_MAP[word] || []).forEach(syn => {
           const normalized = syn.toLowerCase();
           if (originalSet.has(normalized) || seen.has(normalized)) return;
