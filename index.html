@@ -268,8 +268,12 @@
   /* Same frosted-glass material as the floating color/size panels
      (rgba(26,26,30,0.85) + blur + border + shadow) instead of a flat
      opaque fill - .sidebar-frost-art (below) gives it real blurred color
-     to diffuse rather than just tinted transparency over nothing. */
-  background-color: rgba(26,26,30,0.82);
+     to diffuse rather than just tinted transparency over nothing.
+     Darkened + slightly more opaque than those panels' own shared value
+     (2026-08-01, explicit request) - closer to --bg (#131316) than
+     --bg-elevated (#1a1a1e) it started from, still translucent enough for
+     .sidebar-frost-art's reflection to read through underneath. */
+  background-color: rgba(16,16,19,0.88);
   border-right: 1px solid var(--border-color);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -280,7 +284,7 @@
   height: 100%;
 }
 @supports not (backdrop-filter: blur(20px)) {
-  .sidebar { background-color: var(--bg-elevated); }
+  .sidebar { background-color: var(--bg); }
 }
 
 .sidebar-frost-art {
@@ -399,7 +403,11 @@
       cursor: pointer;
       transition: background-color 0.15s ease, color 0.15s ease;
       text-align: left;
-      color: var(--text-muted);
+      /* Brighter than --text-muted (2026-08-01, explicit request) - folder
+         names were reading as dim/low-contrast against the sidebar's frosted
+         background. .folder-count (unaffected) stays on --text-faint so the
+         name still reads as the primary text and the count as secondary. */
+      color: var(--text);
     }
     .folder-list > li.all {
       font-weight: 600;
@@ -464,7 +472,9 @@
       border-radius: var(--radius-sm);
       cursor: pointer;
       transition: background-color 0.15s ease, color 0.15s ease;
-      color: var(--text-muted);
+      /* Brighter than --text-muted, matching the top-level folder list
+         (2026-08-01) - see .folder-list > li's comment. */
+      color: var(--text);
     }
     ul.subfolder-list li:hover { background-color: rgba(255,255,255,0.06); color: var(--text); }
     ul.subfolder-list li.selected {
@@ -1336,23 +1346,31 @@
 .enlarged-tags {
   display: inline-flex;
   align-items: center;
-  height: 34px;
+  justify-content: center;
+  min-height: 34px;
   box-sizing: border-box;
   background-color: rgba(26, 26, 30, 0.85);
   border: 1px solid var(--border-color);
   color: var(--text);
   font-size: 0.9rem;
-  padding: 0 16px;
-  border-radius: 999px;
+  padding: 8px 16px;
+  /* A full pill (999px) only reads right for a single line - once a long
+     tag list wraps (see white-space below), a 999px radius on a multi-line
+     box makes it look like a stretched capsule instead of a rounded
+     rectangle, so this uses the same moderate radius token as other
+     multi-line surfaces instead. */
+  border-radius: var(--radius-lg);
   max-width: 100%;
-  /* Automatic minimum size: in a row flex container (unlike the previous
-     column layout), a nowrap text item won't shrink below its own
-     min-content width without this, which would let it overflow past
-     max-width instead of actually ellipsizing. */
+  /* Automatic minimum size: in a row flex container, a text item won't
+     shrink below its own min-content width without this. */
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Every tag is always shown in full now - no more truncating a long tag
+     list with an ellipsis - so long lists wrap onto more than one line
+     instead of being cut off (word-break covers a single unbroken tag
+     longer than the pill's own max-width). */
+  white-space: normal;
+  word-break: break-word;
+  text-align: center;
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
 }
 
@@ -1563,6 +1581,23 @@
      thinner glyph anti-aliased down to near-illegibility in testing. */
   color: var(--highlight);
   pointer-events: none;
+  /* 2026-08-01: the icon was reported invisible - confirmed by pixel-
+     sampling a real headless render (getComputedStyle reported this at full
+     white/opacity 1 the whole time, which is why earlier passes assumed it
+     was fine - the bug only shows up in the actual rendered pixels).
+     #mainImageSearch has its own backdrop-filter, which - even though the
+     input is a plain position: static element - makes it establish a
+     stacking context of its own (any of backdrop-filter/filter/transform/
+     opacity<1 does this, not just position+z-index). A stacking context
+     with z-index:auto still slots into the "z-index: 0" paint bucket, the
+     same bucket this absolutely-positioned, z-index:auto icon is already
+     in - and within that bucket, later DOM order paints on top. The input
+     comes after the icon in the markup, so it was painting (and blurring)
+     over the icon instead of the icon showing over the input. A positive
+     z-index here moves the icon into the next bucket up, which always
+     paints after (on top of) any z-index:0 stacking context regardless of
+     DOM order. */
+  z-index: 1;
 }
 .search-bar-icon circle, .search-bar-icon path {
   stroke-width: 2.5;
@@ -2614,7 +2649,10 @@
       return candidates;
     }
 
-    let lastFrostArtKey = "";
+    // Keyed by docId/url so a tile that's still a first-column image across
+    // calls keeps its actual DOM node (and thus its already-loaded <img> and
+    // faded-in opacity) instead of being torn down and recreated.
+    let frostTilesByKey = new Map();
     function buildSidebarFrostStrip() {
       const art = document.getElementById("sidebarFrostArt");
       const galleryEl = document.getElementById("gallery");
@@ -2623,38 +2661,44 @@
 
       const picks = getFirstColumnContainers();
 
-      // Skip the DOM churn (and the re-fetch/re-decode of every tile) of
-      // rebuilding when the actual set of first-column images hasn't
-      // changed since the last build - a plain scroll never gets here at
-      // all, but layoutGallery() does, on every filter/search/add/delete.
-      const key = picks.map(c => c.dataset.docId || c.dataset.url).join("|");
-      if (key !== lastFrostArtKey) {
-        lastFrostArtKey = key;
-        let strip = art.querySelector(".sidebar-frost-strip");
-        if (!strip) {
-          strip = document.createElement("div");
-          strip.className = "sidebar-frost-strip";
-          art.appendChild(strip);
-        }
-        const galleryRect = galleryEl.getBoundingClientRect();
-        const scrollTop = viewport.scrollTop;
+      let strip = art.querySelector(".sidebar-frost-strip");
+      if (!strip) {
+        strip = document.createElement("div");
+        strip.className = "sidebar-frost-strip";
+        art.appendChild(strip);
+      }
+
+      const galleryRect = galleryEl.getBoundingClientRect();
+      const scrollTop = viewport.scrollTop;
+
+      // Reuse existing tiles by identity instead of wiping and rebuilding
+      // the whole strip on every call. layoutGallery() (and so this) reruns
+      // on every lazy-loaded thumbnail's own load event while scrolling, not
+      // just on filter/search/add/delete - a full teardown+rebuild on those
+      // calls reset every tile's <img> (fresh fetch, opacity back to 0 to
+      // fade in again) even for images that hadn't actually changed, which
+      // is what read as the reflection randomly jumping/flickering mid-
+      // scroll. Positions are still recomputed on every call (cheap: just
+      // inline style writes), so the strip never drifts out of sync with
+      // the gallery the way a membership-only rebuild key could leave it.
+      const nextTilesByKey = new Map();
+      const fragment = document.createDocumentFragment();
+      picks.forEach(container => {
+        const key = container.dataset.docId || container.dataset.url;
         // Place each tile over its image's own real box within the
         // gallery's full scrollable content (not just the currently-visible
         // viewport) - rect.top is relative to the current scroll position,
         // so adding scrollTop back gives a position that stays correct
         // regardless of where the page happens to be scrolled to right now.
-        strip.innerHTML = "";
-        const fragment = document.createDocumentFragment();
-        picks.forEach(container => {
-          const rect = container.getBoundingClientRect();
-          const top = Math.round(rect.top - galleryRect.top + scrollTop) - FROST_TILE_BLEED;
-          const height = Math.round(rect.height) + (FROST_TILE_BLEED * 2);
+        const rect = container.getBoundingClientRect();
+        const top = Math.round(rect.top - galleryRect.top + scrollTop) - FROST_TILE_BLEED;
+        const height = Math.round(rect.height) + (FROST_TILE_BLEED * 2);
 
-          const tile = document.createElement("div");
+        let tile = frostTilesByKey.get(key);
+        if (!tile) {
+          tile = document.createElement("div");
           tile.className = "sidebar-frost-tile";
           tile.setAttribute("aria-hidden", "true");
-          tile.style.top = `${top}px`;
-          tile.style.height = `${height}px`;
           // Shown immediately; the picture fades in over it once decoded.
           tile.style.backgroundColor = getContainerGlowColor(container);
 
@@ -2668,11 +2712,26 @@
           img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
           img.src = cloudinaryDisplayUrl(container.dataset.url, { width: FROST_TILE_WIDTH, quality: FROST_TILE_QUALITY });
           tile.appendChild(img);
-          fragment.appendChild(tile);
-        });
-        strip.appendChild(fragment);
-        strip.style.height = `${Math.round(galleryEl.getBoundingClientRect().height + scrollTop)}px`;
-      }
+        }
+        tile.style.top = `${top}px`;
+        tile.style.height = `${height}px`;
+        nextTilesByKey.set(key, tile);
+        // appendChild on a node already in the document moves it rather
+        // than cloning/recreating it, so a reused tile's <img> is never
+        // reloaded - this both reorders tiles to match `picks` and stages
+        // brand-new ones for insertion below.
+        fragment.appendChild(tile);
+      });
+
+      // Anything left over wasn't reused above, so it's no longer a
+      // first-column image - drop it.
+      frostTilesByKey.forEach((tile, key) => {
+        if (!nextTilesByKey.has(key)) tile.remove();
+      });
+      frostTilesByKey = nextTilesByKey;
+
+      strip.appendChild(fragment);
+      strip.style.height = `${Math.round(galleryEl.getBoundingClientRect().height + scrollTop)}px`;
 
       syncSidebarFrostStripPosition();
     }
@@ -4580,16 +4639,38 @@ downloadLink.addEventListener("click", function(e) {
       });
       inputEl.addEventListener("blur", commitPending);
 
+      // Case-insensitive de-dupe, keeping the first occurrence's original
+      // casing/spelling. commitPending() already checks this before pushing
+      // a new chip, but that only guards typing-then-Enter/comma - it never
+      // ran for a csv string loaded wholesale via setTags() (which could
+      // already contain a literal duplicate, e.g. from an image's existing
+      // keywords), nor for text still sitting uncommitted in the input when
+      // getValue() is called directly (Save clicked without the field ever
+      // blurring/committing first). Both of those left an exact duplicate
+      // tag able to reach Firestore.
+      function dedupeTags(list) {
+        const seen = new Set();
+        const result = [];
+        list.forEach(tag => {
+          const key = tag.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            result.push(tag);
+          }
+        });
+        return result;
+      }
+
       inputEl.tagChipsAPI = {
         setTags(csv) {
-          tags = (csv || "").split(",").map(t => t.trim()).filter(Boolean);
+          tags = dedupeTags((csv || "").split(",").map(t => t.trim()).filter(Boolean));
           inputEl.value = "";
           renderChips();
         },
         getValue() {
           const pending = inputEl.value.trim();
           const list = pending ? tags.concat([pending]) : tags;
-          return list.join(", ");
+          return dedupeTags(list).join(", ");
         }
       };
       return inputEl.tagChipsAPI;
@@ -4706,9 +4787,22 @@ downloadLink.addEventListener("click", function(e) {
         const thumb = document.createElement("div");
         thumb.className = "enlarge-similar-thumb";
         const thumbImg = document.createElement("img");
-        thumbImg.src = cloudinaryDisplayUrl(otherContainer.dataset.url, { width: 200 });
+        // Reuse the gallery grid's own thumbnail URL (width: 1200, same as
+        // addImageToGallery()) instead of requesting a fresh width: 200
+        // transform. Two wins: (1) 1200px is one of upload.js's pre-generated
+        // `eager` sizes, unlike 200px, which Cloudinary has to transform on
+        // the fly the first time anyone requests it - a cold-cache delay on
+        // top of the network round trip; (2) since it's the exact same URL
+        // the grid thumbnail already used, the browser's HTTP cache almost
+        // always already has it from when that image rendered in the main
+        // gallery, so this often costs nothing at all. Falls back to
+        // building the width:1200 URL directly if the other container's own
+        // <img> isn't there for some reason. Also dropped loading="lazy" -
+        // these 9 thumbnails are always already on-screen the instant the
+        // panel shows, so lazy-loading only adds an intersection-check
+        // delay with no scroll-deferral benefit to gain from it.
+        thumbImg.src = sourceImg ? sourceImg.src : cloudinaryDisplayUrl(otherContainer.dataset.url, { width: 1200 });
         thumbImg.alt = sourceImg ? sourceImg.alt : "";
-        thumbImg.loading = "lazy";
         thumbImg.decoding = "async";
         thumb.appendChild(thumbImg);
         thumb.addEventListener("click", (e) => {
@@ -4875,10 +4969,17 @@ downloadLink.addEventListener("click", function(e) {
       enlargeImg.style.height = "auto";
     }
 
-    // Position the modal container to position elements from the top
-    enlargeModal.style.justifyContent = "flex-start";
-    enlargeModal.style.paddingTop = `${verticalPadding}px`;
-    enlargeModal.style.paddingBottom = `${verticalPadding}px`;
+    // Deliberately left at justify-content: center / no padding (as set when
+    // the modal was opened, above) rather than switching to flex-start with
+    // a fixed top/bottom padding here. verticalPadding above only sizes the
+    // image (via availableHeight) so there's always room left for the tags
+    // row underneath without overflowing the viewport - it no longer
+    // becomes literal CSS padding. A width-limited (short/wide) image is
+    // shorter than availableHeight, so under flex-start + fixed padding the
+    // unused space collected entirely below the content (equal to
+    // verticalPadding at the top, everything else at the bottom); centering
+    // the whole column instead means the leftover space always splits
+    // evenly above and below, for any image shape.
 
     // Display tags below the image. The resolution readout sits in the same
     // row and shows regardless of whether there are any tags, so the row
