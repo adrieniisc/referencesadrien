@@ -1146,6 +1146,62 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     folder names and the color auto-tagger's words) - if a commonly-used tag has no synonyms/
     translations yet, that's expected (not a bug) until `SYNONYM_MAP`/`TRANSLATION_MAP` are extended
     for it.
+  - **Synonym tags forced permanently on, "Synonym Tags: On/Off" toggle removed (2026-08-01)** -
+    reported as "synonyms arent applyed/on when booting the page and i need in admin mode to turn
+    them off and on... Make sure they are forced." Root cause: `synonymTagsEnabled` defaulted to
+    `true` in code, but was persisted to (and re-read from) `localStorage` on every page load -
+    a stray `"false"` written there at some earlier point (an admin test-toggle) silently
+    overrode that default forever after, on that one browser, with nothing on screen indicating
+    synonyms were suppressed - the only way to notice was opening the sidebar and seeing the
+    button already say "Off", and the only fix was toggling it, which only ever fixed *that one
+    browser's* stored value, not the underlying design. A per-browser flag was never a good fit
+    for something meant to always be on - `synonymTagsEnabled` is now a hardcoded `const true`,
+    the `localStorage` read/write is gone, and the `synonymTagsToggleBtn` sidebar button (plus its
+    `updateSynonymTagsToggleBtn()`/click-handler wiring) was removed outright rather than left as
+    dead UI. Every call site that already checked `synonymTagsEnabled` (search matching,
+    the lightbox tag merge) is untouched - it's a `const` now, but the conditional expressions
+    reading it didn't need to change. Verified via Playwright: seeding a real `"false"` into
+    `localStorage` *before* the page loads (reproducing the exact stuck-off scenario) still leaves
+    `synonymTagsEnabled === true` after load, and `#synonymTagsToggleBtn` no longer exists in the
+    DOM.
+  - **Multi-word search (2026-08-01, explicit request: "allow for multiple search words matching...
+    wood statue... steel tools")** - `performSearch()` used to test the *entire* typed string as one
+    literal substring against each image's keywords/name/category/translated/synonym text, so a
+    two-word query like "wood statue" almost never matched anything, even for an image tagged both
+    "wood" and "statue" - tags are comma-separated single words, not phrases, so that exact
+    multi-word run essentially never occurs verbatim in the haystack. Now splits the typed value on
+    whitespace and requires *every* word to appear somewhere in the image's combined haystack (AND
+    across words, OR across fields per word, same substring matching as before per word) - word
+    order doesn't matter ("statue wood" matches the same images as "wood statue"), and each word can
+    come from a different field (one from `keywords`, another from `data-category`). Verified via
+    Playwright with three synthetic images ("wood, statue", "wood, chair", "steel, tools"): "wood
+    statue" matches only the first, "steel tools" matches only the third, and a three-word query
+    ("wood chair statue") that no single image satisfies in full correctly matches nothing - not a
+    superset of "wood" alone.
+  - **Dominant-color detector: yellow/mustard photos were coming back "brown" (2026-08-01)** -
+    reported plainly as "lots of yellow dominant pics are stored in brown, fix that." Root cause,
+    found by hand-computing HSL for real reference colors rather than guessing at thresholds again
+    (the lesson every prior round of this saga already learned the hard way): the brown carve-out
+    in `nameColorFromRgb()` caught any hue in `[15, 50)` with lightness `< 0.45` - but the plain,
+    no-carve-out hue classification a few lines below already draws the orange/yellow boundary at
+    `45` (`h < 45` -> orange, else -> yellow), so the brown carve-out's `50` upper bound reached 5
+    degrees *past* that line into hue territory that would otherwise be yellow, not orange -
+    meaning any sufficiently dark, saturated yellow/gold/mustard pixel (hue 45-50 - confirmed with
+    `rgb(160,130,10)`, a real dark mustard color, at h=48/l=0.33) got diverted to "brown" before it
+    ever reached the yellow check. Fixed by narrowing the carve-out's upper bound from 50 to 45,
+    matching where the plain classification itself already splits orange from yellow - this only
+    changes what the carve-out *catches*, not how it decides once a hue is actually in its range, so
+    genuine dark oranges/browns still inside the narrower 15-45 band (saddle brown at h=25, dark
+    goldenrod at h=43) are completely unaffected. Verified by hand-computing HSL for five real
+    reference colors and confirming against the updated function: dark mustard now correctly returns
+    "yellow" (was "brown"), while saddle brown, dark goldenrod, chocolate, and gold all return the
+    same result as before. Existing images already mistagged "brown" need **Re-tag Colors** run
+    again to pick up this corrected boundary - it isn't automatic. Same sandbox caveat as every
+    other round of this saga: no live Cloudinary access here, so this is verified against real
+    *reference* colors' HSL math, not a live re-tag against the actual reported photos - if another
+    color still comes back wrong after this, get the real `[color detect]` console line for it first
+    (see the `debugLabel` mechanism a few entries above) rather than tuning these boundaries blind
+    again.
   - **Translation search missing "tools"/"planes" - not actually a synonym/translation coupling
     bug (2026-08-01)** - reported as "translation only works for synonyms it seems... i write
     'outil' and i dont get anything for tools... searching 'avions' i dont get planes results."
