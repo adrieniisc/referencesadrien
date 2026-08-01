@@ -3544,6 +3544,18 @@
       creature: ["créature", "kreatur", "creatura", "生物", "生物"],
       angle: ["angle", "winkel", "angolo", "角度", "角"],
       construction: ["construction", "baustelle", "costruzione", "建筑", "建設"],
+      // Both singular and plural stored as separate keys (2026-08-01) since
+      // this map only ever matches an image's *exact* typed keyword - if a
+      // tag is "tools" but only "tool" had an entry, an image tagged
+      // "tools" would still get no translation at all. Storing the plural
+      // form's translation also happens to cover a singular search term for
+      // free (performSearch()'s own `translatedKeywords.includes(searchTerm)`
+      // check matches "outil" against a stored "outils" as a substring), but
+      // that's incidental - the real fix is having both keys exist.
+      tool: ["outil", "werkzeug", "attrezzo", "工具", "道具"],
+      tools: ["outils", "werkzeuge", "attrezzi", "工具", "道具"],
+      plane: ["avion", "flugzeug", "aereo", "飞机", "飛行機"],
+      planes: ["avions", "flugzeuge", "aerei", "飞机", "飛行機"],
     };
 
     // "Synonym Tags: On/Off" (persisted to localStorage) - see the block

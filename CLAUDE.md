@@ -1146,6 +1146,32 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     folder names and the color auto-tagger's words) - if a commonly-used tag has no synonyms/
     translations yet, that's expected (not a bug) until `SYNONYM_MAP`/`TRANSLATION_MAP` are extended
     for it.
+  - **Translation search missing "tools"/"planes" - not actually a synonym/translation coupling
+    bug (2026-08-01)** - reported as "translation only works for synonyms it seems... i write
+    'outil' and i dont get anything for tools... searching 'avions' i dont get planes results."
+    `computeSynonymTags()` and `computeTranslatedTags()` are two entirely independent lookups
+    against two separate maps (`SYNONYM_MAP`/`TRANSLATION_MAP`) - neither depends on the other -
+    so there's no actual coupling to fix; the real cause was simpler and more literal: `tool(s)`
+    and `plane(s)` were never keys in `TRANSLATION_MAP` *at all*, closed-vocabulary style, same as
+    any other untracked word (see the block comment above `SYNONYM_MAP` - "a tag that isn't a key
+    in either map below simply gets no synonyms/translations"). Added both singular and plural as
+    separate keys for each (`tool`/`tools`, `plane`/`planes`) - this map only ever matches an
+    image's *exact* typed keyword, so if the real admin-typed tag is the plural form ("tools") but
+    only the singular had an entry, that image would still get no translation at all; adding both
+    covers either tagging convention without having to know which one is actually in use.
+    Storing the plural French form for each also happens to satisfy a singular search term for free
+    (performSearch()'s `translatedKeywords.includes(searchTerm)` matches "outil" as a substring of
+    a stored "outils"), but that's incidental, not the actual fix - the real fix is the keys
+    existing at all. No `SYNONYM_MAP` entries were added for these (not requested, and per the
+    existing "not all tags get a synonym" design this isn't required for translation to work).
+    Existing images already tagged "tools"/"planes" need an admin to click **Re-tag Synonyms** to
+    backfill `translatedKeywords` from this new map data - it already recomputes both fields
+    together for every loaded image, so no separate mechanism was needed; only *new* uploads and
+    Edit Tags saves pick this up automatically going forward. Confirmed via the same
+    Playwright-against-the-real-page approach as prior synonym/translation work:
+    `computeTranslatedTags('tools')` now returns a string containing `outils`, and a plain
+    substring check confirms `outil` and `avion` (the singular French search terms actually typed)
+    both match the stored plural translations for `tools`/`planes` respectively.
   - **Uploads were silently failing to publish entirely, fixed 2026-08-01 - a genuine production
     bug, caught from a real console log the owner pasted in.** Every upload was actually reaching
     Cloudinary fine (`console.log`'d "File uploaded successfully, URL: ..."), then immediately
