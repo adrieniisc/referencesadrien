@@ -1029,6 +1029,107 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   live Cloudinary (same sandbox limitation as everything else touching it in this repo); the
   `tests/upload.test.js` assertions (`public_id` contains the filename, isn't just the filename)
   still hold.
+- **Sidebar frost strip no longer tears itself down on every relayout (2026-08-01)** — reported as
+  "reflections jump in a weird way" while scrolling. `buildSidebarFrostStrip()` used to gate its
+  whole rebuild (new `<div>`/`<img>` per tile, `strip.innerHTML = ""` first) behind "has the
+  first-column docId list changed since last time", skipping the rebuild entirely otherwise - which
+  sounds like the right optimization, but `layoutGallery()` (and so this) reruns on *every*
+  lazy-loaded thumbnail's own `load` event while scrolling, not just filter/search/add/delete, and
+  each of those can shift row heights (a real aspect ratio replacing the 1.5 fallback) without
+  changing *which* images are first-column. Net effect: most calls skipped the position update too
+  (it lived inside the same gated block), so tiles silently drifted out of sync with the gallery
+  until some later call's membership actually did change, at which point the full rebuild snapped
+  everything to its correct position at once and reset every tile's `<img>` (fresh fetch, opacity
+  back to 0 to fade in again) even for images that hadn't changed - that combined snap+refade is
+  what read as a "jump." Fixed by decoupling the two: positions are now recomputed on *every* call
+  (cheap - just inline style writes), while tile identity is preserved via a `docId`/`url`-keyed
+  `Map` (`frostTilesByKey`) - a tile that's still a first-column image keeps its actual DOM node
+  (and thus its already-loaded `<img>` and faded-in opacity), only tiles that actually stop/start
+  being first-column get removed/created. Verified with a Playwright + hand-rolled Firestore stub
+  (12 synthetic images): calling `buildSidebarFrostStrip()` twice back-to-back with unchanged
+  membership keeps the exact same `<img>` node references and `.loaded` state; hiding one
+  first-column image and rebuilding removes only that image's tile while an unrelated row's tile
+  keeps its node identity (the freed row-slot gets backfilled by whatever sibling the gallery's own
+  flex-wrap reflows into it, which is correct, expected justified-gallery behavior, not a bug in
+  this fix).
+- **Lightbox content is vertically centered again, not top-anchored (2026-08-01)** — reported as
+  unequal top/bottom margins around the enlarged image (and, since it shares the same outer
+  centering, the "Similar" panel). `enlargeImage()`'s `onload` handler was overriding the modal's
+  `justify-content: center` (set when the modal opens) to `flex-start` plus a fixed 20px top/bottom
+  padding once the image's own size was known. That padding was only ever meant to *size* the image
+  (leave room under it for the tags row without overflowing the viewport, via `availableHeight`) -
+  but it got applied a second time as literal CSS padding on top of that. A width-limited (short/
+  wide) image renders shorter than `availableHeight`, so under `flex-start` the unused leftover
+  space all collected below the content (just the fixed 20px above, everything else below); a
+  height-limited (tall) image happened to look fine since it was sized to fill `availableHeight`
+  almost exactly either way. Fixed by simply not re-overriding `justify-content`/padding in the
+  `onload` handler - centering the whole column as a unit means leftover space always splits evenly
+  above and below, for any image shape, the same reasoning already used for centering
+  `.enlarge-main-row` horizontally. Verified via Playwright (synthetic wide/short and tall/narrow
+  images): top/bottom gaps measured equal (195px/195px and 17px/17px respectively) in both branches.
+- **Lightbox tags are no longer truncated, and stay centered while wrapping (2026-08-01)** —
+  `.enlarged-tags` had `white-space: nowrap; text-overflow: ellipsis`, cutting off a long keyword
+  list instead of showing all of it (explicit request: "always show all tags"). Changed to
+  `white-space: normal; word-break: break-word` so a long tag list wraps onto more lines instead of
+  being cut off, with `border-radius` switched from a 999px pill to `var(--radius-lg)` since a full
+  pill radius only reads right on a single line. `.enlarged-tags-container`'s existing
+  row-centered-as-a-unit layout (from the 2026-07-31 rework) already keeps the tags+resolution pair
+  centered under the image regardless of width, and continues to do so once the tags pill grows
+  taller from wrapping - verified via Playwright with a 25-tag keyword string: full text present,
+  wrapped to 3 lines, and the tags pill's horizontal center still landed exactly on the image's
+  (and its column's) own center.
+- **Tag chip input dedupes exact-match tags (2026-08-01)** — `initTagChipInput()`'s `commitPending()`
+  already deduped case-insensitively when a tag was typed then Enter/comma/blur-committed, but two
+  paths around it didn't: `setTags(csv)` loaded a csv string (e.g. an image's existing keywords)
+  into chips verbatim, so a literal duplicate already sitting in Firestore stayed duplicated, and
+  `getValue()` concatenated whatever text was still sitting uncommitted in the input field onto the
+  committed chip list without checking it against them first - so clicking Save immediately after
+  typing a tag that already had a chip (without the field ever blurring) let an exact duplicate
+  through. Both now route through one shared case-insensitive `dedupeTags()` helper (first
+  occurrence's casing wins). This is the single shared implementation `initTagChipInput()` backs
+  every tag field with (Add Image, Publish Queue, Edit Tags), so the fix applies everywhere tags are
+  entered, not just one modal.
+- **Search bar magnifying-glass icon was invisible - real cause found via pixel sampling, not CSS
+  inspection (2026-08-01)** — reported as "can't see the search icon," despite `getComputedStyle()`
+  reporting it at full white/`opacity:1` the whole time (which is exactly why earlier passes assumed
+  it was already fine - this is the same trap the CLAUDE.md history above has hit before: computed
+  styles or DOM assertions aren't proof of what's actually on screen). Confirmed with a headless
+  Chromium screenshot sampled pixel-by-pixel (`pngjs`): the icon rendered as near-black, not white.
+  Root cause, isolated with a ~60-line standalone repro: `#mainImageSearch` (the `<input>`) has its
+  own `backdrop-filter: blur(10px)`. Even though the input is `position: static`, `backdrop-filter`
+  (like `filter`/`transform`/`opacity<1`) makes it establish a stacking context of its own, and a
+  `z-index: auto` stacking context still paints in the same "z-index: 0" bucket as this absolutely-
+  positioned, `z-index: auto` icon - within that bucket, later DOM order paints on top. The input
+  comes after the icon in the markup, so the input (and its blur) was painting over the icon instead
+  of the reverse. Fixed with `z-index: 1` on `.search-bar-icon`, which moves it to the next bucket up
+  - always painted after (on top of) any `z-index: 0` stacking context regardless of DOM order.
+  Confirmed fixed by re-sampling pixels (dark ~24/255 before, 255/255 after) in both the isolated
+  repro and the real page. If another icon/overlay sitting next to a `backdrop-filter` element ever
+  looks "washed out" or dim despite correct-looking computed styles, this exact stacking interaction
+  is the first thing to check - and check with actual rendered pixels, not just computed style
+  values, since those can (and here did) disagree.
+- **Similar-panel thumbnails reuse the gallery's own cached thumbnail URL (2026-08-01)** — reported
+  as loading "relatively slowly." Each of the 9 thumbnails was requesting a fresh
+  `cloudinaryDisplayUrl(url, {width:200})` - not one of `upload.js`'s pre-generated `eager` sizes
+  (1200px/1920px), so Cloudinary has to transform it on the fly the first time anyone asks for that
+  exact size, on top of the network round trip. The main gallery grid already requested
+  `cloudinaryDisplayUrl(url, {width:1200})` for the same image (an eager, pre-generated size) when it
+  first rendered as a thumbnail - reusing that exact URL (via the other container's own `<img>.src`,
+  already resolved) means Cloudinary never has to cold-transform a new size, and since it's the
+  *same* URL as before, the browser's own HTTP cache usually already has it, sometimes making the
+  "fetch" free. Also dropped `loading="lazy"` on these - they're always already on-screen the instant
+  the panel shows, so lazy-loading only adds an intersection-check delay with nothing to defer.
+  Falls back to a fresh width:1200 request only if the source container's own `<img>` is somehow
+  missing. Not benchmarked against a real Cloudinary CDN (same sandbox limitation as everything else
+  touching Cloudinary in this repo) - the reasoning follows the same eager-transform-cache-miss
+  pattern already documented elsewhere in this file for the main lightbox image.
+- **Folder names brighter, sidebar background darker (2026-08-01, explicit requests)** — `.folder-
+  list > li` and `ul.subfolder-list li`'s base (non-selected, non-hover) text color changed from
+  `--text-muted` (#96969f) to `--text` (#ededf0); `.folder-count` deliberately left on `--text-faint`
+  so the name still reads as primary and the count as secondary. `.sidebar`'s frosted background
+  darkened from `rgba(26,26,30,0.82)` to `rgba(16,16,19,0.88)` (closer to `--bg` than
+  `--bg-elevated`, which is what that literal rgba matched) - the floating color/size panels that
+  share the same original rgba value were deliberately left untouched, this was sidebar-only.
 - **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
   filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
   Access is controlled by real Firestore security rules now — see "Admin access" below and
