@@ -374,15 +374,17 @@
      .sidebar-frost-art's reflection to read through underneath. */
   background-color: rgba(16,16,19,0.88);
   border-right: 1px solid var(--border-color);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* 2026-08-01: doubled from blur(20px) at explicit request - the frosted
+     look was too subtle against .sidebar-frost-art's reflection underneath. */
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
   box-shadow: var(--shadow-md);
   position: relative;
   color: var(--text);
   z-index: 1100;
   height: 100%;
 }
-@supports not (backdrop-filter: blur(20px)) {
+@supports not (backdrop-filter: blur(40px)) {
   .sidebar { background-color: var(--bg); }
 }
 
@@ -685,6 +687,29 @@
       color: var(--success);
       border-color: transparent;
       font-weight: 600;
+      position: relative;
+    }
+    /* Pending-submissions count (2026-08-01) - only ever populated/shown
+       while signed in as admin (see the auth.onAuthStateChanged-scoped
+       Firestore listener in the script), since a public visitor has no
+       Firestore read access to the submissions collection anyway. Hidden
+       (display:none) whenever the count is 0, so an admin with nothing
+       pending sees the plain button, same as before this existed. */
+    .review-submissions-badge {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.1rem;
+      height: 1.1rem;
+      padding: 0 0.3rem;
+      margin-left: 0.4rem;
+      border-radius: 999px;
+      background: var(--success);
+      color: #0c1a12;
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 1;
+      vertical-align: middle;
     }
     /* Thin separator */
     .separator {
@@ -1900,7 +1925,12 @@
    text ("1920 × 1080"), so the tags pill (below) is the one that gives up
    space and ellipsizes if the row doesn't fit within the container's
    max-width. */
-.enlarged-resolution {
+/* .enlarged-filesize (2026-08-01) shares this exact treatment - "just like
+   the resolution pill add a size pill". Both are short, fixed-format text,
+   so both stay flex-shrink: 0; the tags pill next to them is still the one
+   that gives up space. */
+.enlarged-resolution,
+.enlarged-filesize {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -2943,7 +2973,7 @@
                flagging incoming work (pending public submissions) rather
                than being a gallery-editing tool like the ones below it. -->
           <div class="admin-review-section">
-            <button id="reviewSubmissionsBtn" class="review-btn">Review Submissions</button>
+            <button id="reviewSubmissionsBtn" class="review-btn">Review Submissions<span id="reviewSubmissionsBadge" class="review-submissions-badge"></span></button>
           </div>
           <hr class="separator">
           <div class="admin-top-buttons">
@@ -2959,6 +2989,8 @@
             <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
             <button id="findDuplicatesBtn">Find Duplicates</button>
             <button id="retagColorsBtn">Re-tag Colors</button>
+            <button id="retagSynonymsBtn">Re-tag Synonyms</button>
+            <button id="synonymTagsToggleBtn">Synonym Tags: On</button>
           </div>
           <hr class="separator">
          <div class="sidebar-admin-section">
@@ -3033,6 +3065,7 @@
       <div class="enlarged-tags-container">
         <div class="enlarged-tags" id="enlargedTags"></div>
         <span class="enlarged-resolution" id="enlargedResolution"></span>
+        <span class="enlarged-filesize" id="enlargedFileSize"></span>
       </div>
     </div>
     <!-- "Similar images" panel - populated by renderSimilarImages(); hidden
@@ -3281,6 +3314,9 @@
     // folder path, so it's kept out of `folders`/Firestore and handled as a
     // special case anywhere filtering branches on the folder path shape.
     const NEW_THIS_WEEK_FILTER = "__new_this_week__";
+    // Sentinel option value for folderSelect's "+ Create New Folder…" entry
+    // (see renderFolders()/the change listener near poolConfirmBtn below).
+    const CREATE_NEW_FOLDER_VALUE = "__create_new_folder__";
     // Active color-dot selection (see the floating color filter panel) -
     // null means no color filter. ANDed on top of whatever folder/search
     // filtering is currently showing, in both filterImages() and
@@ -3355,6 +3391,175 @@
       if (panel) panel.style.display = visibleSwatches.length ? "" : "none";
     }
 
+    /********************************************************
+     * Synonym & translated tags (2026-08-01)
+     *
+     * Same "closed vocabulary, no AI/ML" approach this file already uses
+     * for color detection and the (later removed) material filter - see
+     * the Cloud Vision/MobileNet removal note in CLAUDE.md - rather than a
+     * generative thesaurus/translation API. A tag that isn't a key in
+     * either map below simply gets no synonyms/translations, the same way
+     * an untagged image gets no color dot.
+     *
+     * Synonym tags: up to 2 per matched keyword, computed once at publish
+     * time (see completeUpload()/Review Submissions' "Add") and stored
+     * alongside the image's own `keywords` field as a *separate* Firestore
+     * field (`synonymKeywords`) and dataset attribute
+     * (data-synonym-keywords) - never merged into `keywords` itself, which
+     * is why they show up in the lightbox's tag list (enlargeImage() merges
+     * them in for display only) but never in Edit Tags or the upload dock,
+     * both of which read/write the plain `keywords` field directly.
+     * `synonymTagsEnabled` (persisted to localStorage, toggled via the
+     * sidebar's "Synonym Tags: On/Off" admin button) gates both of those
+     * uses at once - turning it off removes synonyms from the lightbox tag
+     * list *and* from search matching (see performSearch()), not just one
+     * or the other.
+     *
+     * Translated tags: fr/de/it/zh/ja translations of the same vocabulary,
+     * always computed and always included in search matching (no on/off
+     * switch - "so people searching in these languages/keyboards get the
+     * same results"), but never rendered anywhere, including the lightbox -
+     * they exist purely to widen what a search term can match.
+     ********************************************************/
+    const SYNONYM_MAP = {
+      wood: ["timber", "lumber"],
+      metal: ["steel", "iron"],
+      stone: ["rock", "boulder"],
+      rock: ["stone", "boulder"],
+      concrete: ["cement", "masonry"],
+      brick: ["masonry", "block"],
+      fabric: ["cloth", "textile"],
+      glass: ["crystal", "pane"],
+      ceramic: ["porcelain", "tile"],
+      tile: ["ceramic", "slab"],
+      cobblestone: ["pavers", "setts"],
+      ground: ["terrain", "floor"],
+      floor: ["ground", "flooring"],
+      wall: ["surface", "facade"],
+      paint: ["coating", "finish"],
+      rust: ["corrosion", "oxidation"],
+      rusty: ["corroded", "oxidized"],
+      old: ["aged", "weathered"],
+      new: ["fresh", "modern"],
+      worn: ["weathered", "distressed"],
+      cracked: ["fractured", "split"],
+      rough: ["coarse", "textured"],
+      smooth: ["polished", "even"],
+      black: ["dark", "ebony"],
+      white: ["pale", "ivory"],
+      gray: ["grey", "ashen"],
+      grey: ["gray", "ashen"],
+      brown: ["tan", "umber"],
+      beige: ["cream", "sand"],
+      red: ["crimson", "scarlet"],
+      orange: ["amber", "rust"],
+      yellow: ["gold", "amber"],
+      green: ["olive", "sage"],
+      cyan: ["teal", "turquoise"],
+      blue: ["azure", "navy"],
+      purple: ["violet", "lilac"],
+      pink: ["rose", "magenta"],
+      creature: ["monster", "beast"],
+      angle: ["corner", "edge"],
+      construction: ["building", "structure"],
+    };
+
+    // [French, German, Italian, Chinese, Japanese] per entry, same order
+    // every time.
+    const TRANSLATION_MAP = {
+      wood: ["bois", "holz", "legno", "木材", "木材"],
+      metal: ["métal", "metall", "metallo", "金属", "金属"],
+      stone: ["pierre", "stein", "pietra", "石头", "石"],
+      rock: ["roche", "fels", "roccia", "岩石", "岩"],
+      concrete: ["béton", "beton", "cemento", "混凝土", "コンクリート"],
+      brick: ["brique", "ziegel", "mattone", "砖", "レンガ"],
+      fabric: ["tissu", "stoff", "tessuto", "布料", "布"],
+      glass: ["verre", "glas", "vetro", "玻璃", "ガラス"],
+      ceramic: ["céramique", "keramik", "ceramica", "陶瓷", "陶器"],
+      tile: ["carreau", "fliese", "piastrella", "瓷砖", "タイル"],
+      cobblestone: ["pavé", "kopfsteinpflaster", "ciottolato", "鹅卵石", "石畳"],
+      ground: ["sol", "boden", "terreno", "地面", "地面"],
+      floor: ["sol", "boden", "pavimento", "地板", "床"],
+      wall: ["mur", "wand", "muro", "墙", "壁"],
+      paint: ["peinture", "farbe", "vernice", "油漆", "ペンキ"],
+      rust: ["rouille", "rost", "ruggine", "铁锈", "錆"],
+      rusty: ["rouillé", "rostig", "arrugginito", "生锈的", "錆びた"],
+      old: ["vieux", "alt", "vecchio", "旧", "古い"],
+      new: ["nouveau", "neu", "nuovo", "新", "新しい"],
+      worn: ["usé", "abgenutzt", "consumato", "磨损", "使い古された"],
+      cracked: ["fissuré", "rissig", "incrinato", "开裂", "ひび割れた"],
+      rough: ["rugueux", "rau", "ruvido", "粗糙", "粗い"],
+      smooth: ["lisse", "glatt", "liscio", "光滑", "滑らかな"],
+      black: ["noir", "schwarz", "nero", "黑色", "黒"],
+      white: ["blanc", "weiß", "bianco", "白色", "白"],
+      gray: ["gris", "grau", "grigio", "灰色", "灰色"],
+      grey: ["gris", "grau", "grigio", "灰色", "灰色"],
+      brown: ["marron", "braun", "marrone", "棕色", "茶色"],
+      beige: ["beige", "beige", "beige", "米色", "ベージュ"],
+      red: ["rouge", "rot", "rosso", "红色", "赤"],
+      orange: ["orange", "orange", "arancione", "橙色", "オレンジ"],
+      yellow: ["jaune", "gelb", "giallo", "黄色", "黄色"],
+      green: ["vert", "grün", "verde", "绿色", "緑"],
+      cyan: ["cyan", "cyan", "ciano", "青色", "シアン"],
+      blue: ["bleu", "blau", "blu", "蓝色", "青"],
+      purple: ["violet", "lila", "viola", "紫色", "紫"],
+      pink: ["rose", "rosa", "rosa", "粉色", "ピンク"],
+      creature: ["créature", "kreatur", "creatura", "生物", "生物"],
+      angle: ["angle", "winkel", "angolo", "角度", "角"],
+      construction: ["construction", "baustelle", "costruzione", "建筑", "建設"],
+    };
+
+    // "Synonym Tags: On/Off" (persisted to localStorage) - see the block
+    // comment above for exactly what this gates.
+    let synonymTagsEnabled = true;
+    try {
+      const storedSynonymPref = localStorage.getItem("synonymTagsEnabled");
+      if (storedSynonymPref !== null) synonymTagsEnabled = storedSynonymPref === "true";
+    } catch (error) {
+      console.warn("Could not read synonym tags preference:", error);
+    }
+
+    function normalizeTagList(keywordsCsv) {
+      return (keywordsCsv || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
+    }
+
+    // Up to 2 synonyms per matched keyword, comma-joined, deduped
+    // case-insensitively against both the original tags and each other -
+    // e.g. "wood, old" -> "timber, lumber, aged, weathered".
+    function computeSynonymTags(keywordsCsv) {
+      const words = normalizeTagList(keywordsCsv);
+      const originalSet = new Set(words);
+      const seen = new Set();
+      const result = [];
+      words.forEach(word => {
+        (SYNONYM_MAP[word] || []).forEach(syn => {
+          const normalized = syn.toLowerCase();
+          if (originalSet.has(normalized) || seen.has(normalized)) return;
+          seen.add(normalized);
+          result.push(syn);
+        });
+      });
+      return result.join(", ");
+    }
+
+    // All 5 language translations for every matched keyword, comma-joined,
+    // deduped against each other (not against the original tags - a
+    // translation is expected to read differently from the English word it
+    // came from, so there's no overlap to guard against the way there is
+    // for synonyms).
+    function computeTranslatedTags(keywordsCsv) {
+      const words = normalizeTagList(keywordsCsv);
+      const seen = new Set();
+      const result = [];
+      words.forEach(word => {
+        (TRANSLATION_MAP[word] || []).forEach(translated => {
+          if (seen.has(translated)) return;
+          seen.add(translated);
+          result.push(translated);
+        });
+      });
+      return result.join(", ");
+    }
 
     // Purely decorative: a blurred reflection of the gallery images sitting
     // directly next to the sidebar, behind its frosted glass, so the glass
@@ -3704,6 +3909,8 @@
     const closeDuplicatesModalBtn = document.getElementById("closeDuplicatesModalBtn");
     const duplicatesList = document.getElementById("duplicatesList");
     const retagColorsBtn = document.getElementById("retagColorsBtn");
+    const retagSynonymsBtn = document.getElementById("retagSynonymsBtn");
+    const synonymTagsToggleBtn = document.getElementById("synonymTagsToggleBtn");
 
     // Delete Image elements
     const deleteImageBtn = document.getElementById("deleteImageBtn");
@@ -3847,6 +4054,46 @@
       });
     });
 
+    // Pending-submissions count badge on Review Submissions (2026-08-01) -
+    // "when entering admin mode ONLY" is implemented by only ever attaching
+    // this Firestore listener while signed in (and detaching it immediately
+    // on sign-out) rather than by a one-off count check, since it also has
+    // to reflect submissions that arrive *while* the admin is already
+    // signed in and browsing, not just whatever was pending at sign-in
+    // time. A live onSnapshot listener also means Dismiss/Add don't need
+    // their own manual "refresh the badge" calls - any change to the
+    // `submissions` collection (new doc from a visitor, or a doc removed by
+    // Dismiss) updates it on its own. Declared *before* the
+    // auth.onAuthStateChanged() call below (not just before its own use) -
+    // some auth backends/stubs invoke that callback synchronously,
+    // immediately upon registration, for whatever session state is already
+    // known, rather than deferring it to a microtask - a `let` referenced
+    // that early would still be in its temporal dead zone if declared
+    // afterward.
+    let submissionsBadgeUnsubscribe = null;
+    function updateReviewSubmissionsBadge(count) {
+      const badge = document.getElementById("reviewSubmissionsBadge");
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? "99+" : String(count);
+        badge.style.display = "inline-flex";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+    function setSubmissionsBadgeWatching(isSignedIn) {
+      if (isSignedIn) {
+        if (submissionsBadgeUnsubscribe) return;
+        submissionsBadgeUnsubscribe = db.collection("submissions").onSnapshot(
+          snapshot => updateReviewSubmissionsBadge(snapshot.size),
+          error => console.error("Error watching pending submissions count:", error)
+        );
+      } else {
+        if (submissionsBadgeUnsubscribe) { submissionsBadgeUnsubscribe(); submissionsBadgeUnsubscribe = null; }
+        updateReviewSubmissionsBadge(0);
+      }
+    }
+
     // The single source of truth for whether admin controls show - fires
     // once immediately with whatever session Firebase already has (e.g.
     // still signed in from a previous visit), then again on every sign-in/
@@ -3857,6 +4104,7 @@
       separators.forEach(separator => { separator.style.display = isSignedIn ? "block" : "none"; });
       adminAccessBtn.textContent = isSignedIn ? "SIGN OUT" : "Admin Log In";
       adminAccessBtn.style.display = "block";
+      setSubmissionsBadgeWatching(isSignedIn);
     });
 
     /********************************************************
@@ -4012,8 +4260,18 @@
     // folder (or Metal/<subfolder>), on top of images anywhere else that
     // were explicitly tagged "metal".
     const category = (imgContainer.getAttribute("data-category") || "").toLowerCase();
+    // Translated tags (2026-08-01) are always part of the search haystack -
+    // "hidden" only means they never render anywhere, not that they're
+    // gated behind the synonym on/off switch. Synonym tags are gated by
+    // that switch (synonymTagsEnabled) so turning it off removes them from
+    // search results too, not just from the lightbox tag list - see
+    // computeSynonymTags()/computeTranslatedTags() for how these are
+    // derived.
+    const translatedKeywords = (imgContainer.dataset.translatedKeywords || "").toLowerCase();
+    const synonymKeywords = synonymTagsEnabled ? (imgContainer.dataset.synonymKeywords || "").toLowerCase() : "";
 
-    const matchesSearch = imgName.includes(searchTerm) || keywords.includes(searchTerm) || category.includes(searchTerm);
+    const matchesSearch = imgName.includes(searchTerm) || keywords.includes(searchTerm) || category.includes(searchTerm)
+      || translatedKeywords.includes(searchTerm) || synonymKeywords.includes(searchTerm);
     imgContainer.classList.toggle("hidden", !(matchesSearch && imageMatchesColorFilter(imgContainer)));
   });
   scheduleLayout();
@@ -4690,12 +4948,18 @@ contributorsModal.addEventListener("click", (e) => {
       }
     }
 
-    // Every upload is rescaled to a max of ~1.5MB, regardless of source size -
-    // there's no reason to keep a 20MB camera original around when Cloudinary
-    // serves it back down to 1200/1920px for display anyway. Separately (and
+    // Every upload is rescaled to fit an 850KB-1MB target band (2026-08-01,
+    // retargeted from a flat ~1.5MB cap - "compress all future images with
+    // the least quality loss possible between 850kb and 1mb") - there's no
+    // reason to keep a 20MB camera original around when Cloudinary serves
+    // it back down to 1200/1920px for display anyway. Separately (and
     // independent of size), HEIC/HEIF always gets converted to JPEG too, since
     // Netlify's upload function can't reliably accept raw HEIC bytes at all
     // ("Unexpected end of form") - don't gate that path behind the size check.
+    // An already-small original (under maxBytes) is left alone rather than
+    // padded up toward minBytes - there's no way to add quality back once
+    // it's gone, so re-encoding a file that's already small would only ever
+    // be a pure loss with nothing to show for it.
     //
     // To lose as little visible quality as possible for a given target size,
     // quality is reduced first at the image's original resolution (see
@@ -4703,7 +4967,7 @@ contributorsModal.addEventListener("click", (e) => {
     // target does resolution actually shrink, since a huge photo stepped down
     // to a more reasonable size at decent quality looks better than the same
     // photo at full resolution crushed to a very low quality.
-    async function compressImageIfNeeded(file, maxBytes = 1.5 * 1024 * 1024) {
+    async function compressImageIfNeeded(file, maxBytes = 1 * 1024 * 1024, minBytes = 850 * 1024) {
       const isHeic = await isHeicFile(file);
       if (!isHeic && file.size <= maxBytes) return file;
 
@@ -4721,7 +4985,7 @@ contributorsModal.addEventListener("click", (e) => {
           canvas = await decodeToCanvas(pngBlob);
         }
 
-        const result = await encodeCanvasUnderSize(canvas, maxBytes);
+        const result = await encodeCanvasUnderSize(canvas, maxBytes, minBytes);
         const blob = result && result.blob;
 
         // For non-HEIC files this re-encode is purely a size optimization, so
@@ -4747,21 +5011,51 @@ contributorsModal.addEventListener("click", (e) => {
     // still isn't enough. Gives up and returns the smallest/lowest-quality
     // attempt made if MIN_DIMENSION would be crossed, rather than degrading
     // the image indefinitely.
-    async function encodeCanvasUnderSize(canvas, maxBytes) {
+    //
+    // minBytes (2026-08-01) is a soft floor, not a hard one - the coarse
+    // 0.08-per-step quality sweep can jump straight from "too big" to
+    // "under minBytes" in a single step, especially since the target band
+    // is narrow (150KB wide). When that happens, a second, finer sweep
+    // (FINE_QUALITY_STEP) searches just that one coarse gap for a higher
+    // quality that still fits under maxBytes - the highest such quality is
+    // always the best available result (less quality loss than the coarse
+    // step found), whether or not it actually clears minBytes. There's no
+    // guarantee every image has *some* quality that lands inside the band -
+    // JPEG size vs. quality isn't that predictable - so this narrows the
+    // gap as far as it reasonably can rather than promising an exact fit.
+    async function encodeCanvasUnderSize(canvas, maxBytes, minBytes = 0) {
       const MIN_QUALITY = 0.5;
-      const QUALITY_STEP = 0.08;
+      const COARSE_QUALITY_STEP = 0.08;
+      const FINE_QUALITY_STEP = 0.01;
       const SCALE_STEP = 0.85;
       const MIN_DIMENSION = 800;
+
+      const encodeAt = (targetCanvas, quality) =>
+        new Promise(resolve => targetCanvas.toBlob(resolve, 'image/jpeg', quality))
+          .then(blob => blob ? { blob, quality, width: targetCanvas.width, height: targetCanvas.height } : null);
 
       let workingCanvas = canvas;
 
       while (true) {
         let smallestAtThisSize = null;
-        for (let quality = 0.92; quality >= MIN_QUALITY; quality -= QUALITY_STEP) {
-          const blob = await new Promise(resolve => workingCanvas.toBlob(resolve, 'image/jpeg', quality));
-          if (!blob) break;
-          smallestAtThisSize = { blob, quality, width: workingCanvas.width, height: workingCanvas.height };
-          if (blob.size <= maxBytes) return smallestAtThisSize;
+        let previousQuality = null;
+        for (let quality = 0.92; quality >= MIN_QUALITY; quality -= COARSE_QUALITY_STEP) {
+          const attempt = await encodeAt(workingCanvas, quality);
+          if (!attempt) break;
+          smallestAtThisSize = attempt;
+          if (attempt.blob.size <= maxBytes) {
+            if (attempt.blob.size >= minBytes || previousQuality === null) return attempt;
+            // Undershot minBytes on this coarse step - previousQuality (the
+            // step just above) was still over maxBytes, so search that one
+            // coarse gap in finer increments for a higher quality that's
+            // still under maxBytes.
+            for (let fq = previousQuality - FINE_QUALITY_STEP; fq > quality; fq -= FINE_QUALITY_STEP) {
+              const fineAttempt = await encodeAt(workingCanvas, fq);
+              if (fineAttempt && fineAttempt.blob.size <= maxBytes) return fineAttempt;
+            }
+            return attempt;
+          }
+          previousQuality = quality;
         }
 
         const nextWidth = Math.round(workingCanvas.width * SCALE_STEP);
@@ -4891,7 +5185,16 @@ contributorsModal.addEventListener("click", (e) => {
       }
     }
 
-    async function saveImageToFirebase(url, folder, keywords, filename) {
+    // `extra` (2026-08-01) bundles the fields that don't come from the
+    // admin's own typed input: fileSize (bytes of the file actually
+    // uploaded, post-compression - unknown/omitted for images published via
+    // Review Submissions' "Add", which never had a local File on this
+    // device to measure), and synonymKeywords/translatedKeywords (see the
+    // "Synonym & translated tags" block comment above) - kept as separate
+    // fields rather than merged into `keywords` itself, since Edit Tags and
+    // the upload dock both read/write `keywords` directly and shouldn't
+    // show or round-trip auto-generated tags the admin never typed.
+    async function saveImageToFirebase(url, folder, keywords, filename, extra = {}) {
       try {
         const docRef = await db.collection('images').add({
           url: url,
@@ -4899,7 +5202,10 @@ contributorsModal.addEventListener("click", (e) => {
           keywords: keywords || '',
           filename: filename || 'image',
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          addTime: Date.now()
+          addTime: Date.now(),
+          fileSize: extra.fileSize || null,
+          synonymKeywords: extra.synonymKeywords || '',
+          translatedKeywords: extra.translatedKeywords || ''
         });
         console.log('Image saved to Firestore:', url);
         return docRef.id;
@@ -4921,7 +5227,12 @@ contributorsModal.addEventListener("click", (e) => {
             imageData.keywords || '',
             imageData.filename || 'image',
             imageData.addTime || Date.now(),
-            doc.id
+            doc.id,
+            {
+              fileSize: imageData.fileSize || null,
+              synonymKeywords: imageData.synonymKeywords || '',
+              translatedKeywords: imageData.translatedKeywords || ''
+            }
           );
         });
         console.log('Images loaded from Firestore');
@@ -4967,13 +5278,22 @@ contributorsModal.addEventListener("click", (e) => {
     /********************************************************
      * UI Functions
      ********************************************************/
-    function addImageToGallery(url, folder, keywords, filename, addTime, docId) {
+    function addImageToGallery(url, folder, keywords, filename, addTime, docId, extra = {}) {
       const container = document.createElement('div');
       container.classList.add('image-container');
       container.setAttribute('data-category', folder);
       container.setAttribute('data-keywords', keywords);
       if (docId) container.dataset.docId = docId;
       container.setAttribute('data-add-time', addTime);
+      // See saveImageToFirebase()'s own `extra` comment - these never
+      // render as visible tags (synonymKeywords only shows in the lightbox,
+      // conditionally, via enlargeImage()'s own merge; translatedKeywords
+      // never shows anywhere), they're read directly off the dataset by
+      // performSearch() and enlargeImage() instead of going through
+      // data-keywords.
+      if (extra.fileSize) container.dataset.fileSize = extra.fileSize;
+      container.dataset.synonymKeywords = extra.synonymKeywords || '';
+      container.dataset.translatedKeywords = extra.translatedKeywords || '';
       // The <img> tag's src is rewritten to a resized Cloudinary display URL
       // (see cloudinaryDisplayUrl() below), which no longer matches the
       // original url stored in Firestore. Keep the original around so
@@ -5130,6 +5450,16 @@ downloadLink.addEventListener("click", function(e) {
         hideAllSubfolders();
         currentFolderFilter = NEW_THIS_WEEK_FILTER;
         filterImages(NEW_THIS_WEEK_FILTER);
+        // Every other folder view keeps whatever order the gallery is
+        // already in (random by default - see sortGallery("random") at
+        // init) since order doesn't mean anything there. "New This Week" is
+        // explicitly about recency, so unlike every other folder click this
+        // one also reorders the gallery itself (recent addTime first) -
+        // sortGallery("recent") re-appends *all* children (not just the
+        // visible ones), so this ordering persists if the admin later
+        // switches to another folder, which is harmless since those views
+        // don't care about order.
+        sortGallery("recent");
       });
       folderList.appendChild(newThisWeekItem);
 
@@ -5213,6 +5543,19 @@ downloadLink.addEventListener("click", function(e) {
           });
         }
       });
+
+      // "Add folder in upload if not exist" (2026-08-01) - a sentinel option
+      // at the bottom of the wizard's own folder select, so a new category
+      // can be created without leaving the Add Image modal to use the
+      // separate Add Folder modal first. Only on folderSelect (step 2's
+      // "assign a folder to this selection" picker) - parentFolderSelect
+      // (used *inside* the Add Folder modal itself) and moveDestinationSelect
+      // (Move Images) aren't in scope for this. See folderSelect's own
+      // change listener below for what picking it does.
+      const createFolderOpt = document.createElement("option");
+      createFolderOpt.value = CREATE_NEW_FOLDER_VALUE;
+      createFolderOpt.textContent = "+ Create New Folder…";
+      folderSelect.appendChild(createFolderOpt);
 
       parents.forEach(parent => {
         const parentOpt = document.createElement("option");
@@ -5371,6 +5714,75 @@ downloadLink.addEventListener("click", function(e) {
     /********************************************************
      * Delete Image Functions
      ********************************************************/
+    // Same click-and-drag multi-select behavior as the upload wizard's pool
+    // grid (see wireSelectPoolTile()/poolDragState) - "same click hold drag
+    // behaviour to select images in any admin mode" (2026-08-01), extended
+    // to the gallery's own Delete/Move/Edit Tags select-then-act modes.
+    // mousedown (not click) both toggles the pressed container and starts a
+    // drag: whichever direction that toggle went (select or deselect) is
+    // then applied to every other container the pointer passes over while
+    // the button stays down, via mouseenter - so a plain click is just a
+    // zero-distance drag, same as the pool tiles. One shared drag state
+    // works for all three modes since they're mutually exclusive by
+    // construction (turning one on turns the other two off, see each
+    // toggle*Mode() below) - only one bulkDragState.setSelected can ever be
+    // "live" at a time regardless.
+    let bulkDragState = null;
+    function setBulkDragState(state) {
+      bulkDragState = state;
+      document.body.classList.toggle("pool-drag-active", !!state);
+    }
+    // Bound once, globally - the same lesson this file already learned from
+    // the pool tiles, the lightbox download button, and the old upload-dock
+    // minimize button: a listener re-attached from inside a function that
+    // runs repeatedly either never fires or piles up duplicates. Ending a
+    // drag doesn't depend on which container the mouse is over, so a single
+    // document-level mouseup covers every case, including releasing outside
+    // any container entirely.
+    document.addEventListener("mouseup", () => setBulkDragState(null));
+
+    // Builds the mousedown/mouseenter pair for one bulk-select mode.
+    // isSelectedFn/setSelectedFn are the mode's own "is this container
+    // selected" / "select or deselect this container" primitives (each mode
+    // keeps its own selected-class + array, unchanged - only how a
+    // container's selection gets toggled changes here). isModeActiveFn lets
+    // the same bound handlers stay attached across a mode being toggled off
+    // and back on later (see each toggle*Mode() below, which now only adds/
+    // removes these listeners once, on the container's own lifetime) rather
+    // than being rewired every time.
+    function makeBulkSelectHandlers(isSelectedFn, setSelectedFn, isModeActiveFn) {
+      function onMouseDown(e) {
+        if (!isModeActiveFn()) return;
+        if (e.button !== 0) return;
+        // The download button already stops its own click from bubbling to
+        // enlarge/select; mousedown fires before that, so it needs its own
+        // guard here or pressing it would also start a drag-select.
+        if (e.target.closest && e.target.closest(".download-btn")) return;
+        e.preventDefault();
+        const container = e.currentTarget;
+        const nowSelected = !isSelectedFn(container);
+        setSelectedFn(container, nowSelected);
+        setBulkDragState({ mode: nowSelected ? "select" : "deselect", isSelectedFn, setSelectedFn });
+      }
+      function onMouseEnter(e) {
+        if (!bulkDragState || bulkDragState.setSelectedFn !== setSelectedFn) return;
+        const container = e.currentTarget;
+        const shouldSelect = bulkDragState.mode === "select";
+        if (isSelectedFn(container) !== shouldSelect) setSelectedFn(container, shouldSelect);
+      }
+      return { onMouseDown, onMouseEnter };
+    }
+
+    function isImageSelectedForDelete(container) { return container.classList.contains("selected"); }
+    function setImageSelectedForDelete(container, selected) {
+      container.classList.toggle("selected", selected);
+      const index = selectedImages.indexOf(container);
+      if (selected && index === -1) selectedImages.push(container);
+      if (!selected && index !== -1) selectedImages.splice(index, 1);
+      updateSelectedCount();
+    }
+    const deleteSelectHandlers = makeBulkSelectHandlers(isImageSelectedForDelete, setImageSelectedForDelete, () => isDeleteMode);
+
     function toggleDeleteMode() {
       isDeleteMode = !isDeleteMode;
 
@@ -5380,7 +5792,8 @@ downloadLink.addEventListener("click", function(e) {
         const allImages = document.querySelectorAll(".image-container");
         allImages.forEach(container => {
           container.classList.add("selectable");
-          container.addEventListener("click", toggleImageSelection);
+          container.addEventListener("mousedown", deleteSelectHandlers.onMouseDown);
+          container.addEventListener("mouseenter", deleteSelectHandlers.onMouseEnter);
         });
         deleteControls.classList.add("active");
         updateSelectedCount();
@@ -5389,27 +5802,12 @@ downloadLink.addEventListener("click", function(e) {
         allImages.forEach(container => {
           container.classList.remove("selectable");
           container.classList.remove("selected");
-          container.removeEventListener("click", toggleImageSelection);
+          container.removeEventListener("mousedown", deleteSelectHandlers.onMouseDown);
+          container.removeEventListener("mouseenter", deleteSelectHandlers.onMouseEnter);
         });
         deleteControls.classList.remove("active");
         selectedImages = [];
       }
-    }
-
-    function toggleImageSelection(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const container = e.currentTarget;
-      if (!isDeleteMode) return;
-      if (container.classList.contains("selected")) {
-        container.classList.remove("selected");
-        const index = selectedImages.findIndex(img => img === container);
-        if (index !== -1) { selectedImages.splice(index, 1); }
-      } else {
-        container.classList.add("selected");
-        selectedImages.push(container);
-      }
-      updateSelectedCount();
     }
 
     function updateSelectedCount() {
@@ -5460,6 +5858,16 @@ downloadLink.addEventListener("click", function(e) {
     /********************************************************
      * Move Image Functions
      ********************************************************/
+    function isImageSelectedForMove(container) { return container.classList.contains("move-selected"); }
+    function setImageSelectedForMove(container, selected) {
+      container.classList.toggle("move-selected", selected);
+      const index = selectedImagesForMove.indexOf(container);
+      if (selected && index === -1) selectedImagesForMove.push(container);
+      if (!selected && index !== -1) selectedImagesForMove.splice(index, 1);
+      updateMoveSelectedCount();
+    }
+    const moveSelectHandlers = makeBulkSelectHandlers(isImageSelectedForMove, setImageSelectedForMove, () => isMoveMode);
+
     function toggleMoveMode() {
       isMoveMode = !isMoveMode;
 
@@ -5469,7 +5877,8 @@ downloadLink.addEventListener("click", function(e) {
         const allImages = document.querySelectorAll(".image-container");
         allImages.forEach(container => {
           container.classList.add("move-selectable");
-          container.addEventListener("click", toggleImageMoveSelection);
+          container.addEventListener("mousedown", moveSelectHandlers.onMouseDown);
+          container.addEventListener("mouseenter", moveSelectHandlers.onMouseEnter);
         });
         moveControls.classList.add("active");
         updateMoveSelectedCount();
@@ -5478,27 +5887,12 @@ downloadLink.addEventListener("click", function(e) {
         allImages.forEach(container => {
           container.classList.remove("move-selectable");
           container.classList.remove("move-selected");
-          container.removeEventListener("click", toggleImageMoveSelection);
+          container.removeEventListener("mousedown", moveSelectHandlers.onMouseDown);
+          container.removeEventListener("mouseenter", moveSelectHandlers.onMouseEnter);
         });
         moveControls.classList.remove("active");
         selectedImagesForMove = [];
       }
-    }
-
-    function toggleImageMoveSelection(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const container = e.currentTarget;
-      if (!isMoveMode) return;
-      if (container.classList.contains("move-selected")) {
-        container.classList.remove("move-selected");
-        const index = selectedImagesForMove.findIndex(img => img === container);
-        if (index !== -1) { selectedImagesForMove.splice(index, 1); }
-      } else {
-        container.classList.add("move-selected");
-        selectedImagesForMove.push(container);
-      }
-      updateMoveSelectedCount();
     }
 
     function updateMoveSelectedCount() {
@@ -5571,6 +5965,16 @@ downloadLink.addEventListener("click", function(e) {
     /********************************************************
      * Edit Tags Functions
      ********************************************************/
+    function isImageSelectedForTagEdit(container) { return container.classList.contains("tag-selected"); }
+    function setImageSelectedForTagEdit(container, selected) {
+      container.classList.toggle("tag-selected", selected);
+      const index = selectedImagesForTagEdit.indexOf(container);
+      if (selected && index === -1) selectedImagesForTagEdit.push(container);
+      if (!selected && index !== -1) selectedImagesForTagEdit.splice(index, 1);
+      updateTagEditSelectedCount();
+    }
+    const tagEditSelectHandlers = makeBulkSelectHandlers(isImageSelectedForTagEdit, setImageSelectedForTagEdit, () => isTagEditMode);
+
     function toggleTagEditMode() {
       isTagEditMode = !isTagEditMode;
 
@@ -5580,7 +5984,8 @@ downloadLink.addEventListener("click", function(e) {
         const allImages = document.querySelectorAll(".image-container");
         allImages.forEach(container => {
           container.classList.add("tag-selectable");
-          container.addEventListener("click", toggleImageTagEditSelection);
+          container.addEventListener("mousedown", tagEditSelectHandlers.onMouseDown);
+          container.addEventListener("mouseenter", tagEditSelectHandlers.onMouseEnter);
         });
         tagEditControls.classList.add("active");
         updateTagEditSelectedCount();
@@ -5589,27 +5994,12 @@ downloadLink.addEventListener("click", function(e) {
         allImages.forEach(container => {
           container.classList.remove("tag-selectable");
           container.classList.remove("tag-selected");
-          container.removeEventListener("click", toggleImageTagEditSelection);
+          container.removeEventListener("mousedown", tagEditSelectHandlers.onMouseDown);
+          container.removeEventListener("mouseenter", tagEditSelectHandlers.onMouseEnter);
         });
         tagEditControls.classList.remove("active");
         selectedImagesForTagEdit = [];
       }
-    }
-
-    function toggleImageTagEditSelection(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const container = e.currentTarget;
-      if (!isTagEditMode) return;
-      if (container.classList.contains("tag-selected")) {
-        container.classList.remove("tag-selected");
-        const index = selectedImagesForTagEdit.findIndex(img => img === container);
-        if (index !== -1) { selectedImagesForTagEdit.splice(index, 1); }
-      } else {
-        container.classList.add("tag-selected");
-        selectedImagesForTagEdit.push(container);
-      }
-      updateTagEditSelectedCount();
     }
 
     function updateTagEditSelectedCount() {
@@ -5890,6 +6280,19 @@ downloadLink.addEventListener("click", function(e) {
       panel.style.display = "flex";
     }
 
+  // Formats a byte count as the same kind of short, fixed-format text the
+  // resolution pill already shows ("842 KB", "1.2 MB") - used only for the
+  // lightbox's size pill. Unknown/zero sizes (e.g. an image published via
+  // Review Submissions' "Add", which has no local File to measure - see
+  // saveImageToFirebase()'s fileSize param) are handled by the caller
+  // leaving the pill empty rather than by this function, same as the
+  // resolution pill already leaves itself blank until it has real data.
+  function formatFileSize(bytes) {
+    if (!bytes || bytes <= 0) return "";
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
   function enlargeImage(url, filename, keywords = "", container = null) {
   currentEnlargedContainer = container;
   const enlargeModal = document.getElementById("enlargeImageModal");
@@ -5898,6 +6301,7 @@ downloadLink.addEventListener("click", function(e) {
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
   const resolutionElement = document.getElementById("enlargedResolution");
+  const fileSizeElement = document.getElementById("enlargedFileSize");
   const similarPanelEl = document.getElementById("enlargeSimilarPanel");
   const imageColumn = document.querySelector(".enlarge-image-column");
 
@@ -6026,6 +6430,12 @@ downloadLink.addEventListener("click", function(e) {
     // practice is most uploads given compressImageIfNeeded()'s 1.5MB
     // target. Download still fetches the true original regardless.
     resolutionElement.textContent = `${imgWidth} × ${imgHeight}`;
+    // File size of what was actually uploaded (post-compression), read from
+    // the container's own data-file-size - see saveImageToFirebase()'s
+    // fileSize param. Left blank (formatFileSize() returns "") for images
+    // with no known size, e.g. published via Review Submissions' "Add",
+    // which never had a local File on this device to measure.
+    fileSizeElement.textContent = formatFileSize(container ? parseInt(container.dataset.fileSize, 10) : 0);
     // Must run after the width/height branch above (needs enlargeImg's
     // final rendered box).
     positionEnlargedTags();
@@ -6085,11 +6495,21 @@ downloadLink.addEventListener("click", function(e) {
   enlargeImg.style.width = "";
   enlargeImg.style.height = "";
   resolutionElement.textContent = "";
+  fileSizeElement.textContent = "";
   enlargeSpinner.classList.add("active");
   enlargeModal.style.justifyContent = "center";
   enlargeModal.style.paddingTop = "0";
   enlargeModal.style.paddingBottom = "0";
   enlargeModal.style.display = "flex";
+
+  // Synonym tags (2026-08-01) are merged into the *displayed* tag list only
+  // here - "visible in the list when maxed image but not in edit tags or
+  // upload dock" - `keywords` itself (what Edit Tags/upload dock read/
+  // write) is left untouched. Gated by synonymTagsEnabled so the admin's
+  // on/off switch actually hides them, not just stops generating new ones.
+  const lightboxKeywords = (synonymTagsEnabled && container && container.dataset.synonymKeywords)
+    ? mergeTagStrings(keywords, container.dataset.synonymKeywords)
+    : keywords;
 
   // enlargeImg's own load/error events (read via naturalWidth/naturalHeight,
   // which - unlike its width/height IDL attributes - report true intrinsic
@@ -6106,15 +6526,20 @@ downloadLink.addEventListener("click", function(e) {
     enlargeSpinner.classList.remove("active");
     enlargeImg.classList.add("loaded");
     renderSimilarImages(container);
-    // No natural dimensions to report on a failed load, so just the tags
-    // (if any) - re-show the row so it isn't left hidden indefinitely.
+    // No natural dimensions to report on a failed load (resolution comes
+    // from the decoded image itself), so that pill stays blank - but the
+    // tags and file size are both already known independent of whether the
+    // image actually decoded (file size comes from Firestore/the upload
+    // step, not from the image load), so both still show, same as tags
+    // already did before this pill existed.
     if (keywords && keywords.trim() !== "") {
-      tagsElement.textContent = keywords;
+      tagsElement.textContent = lightboxKeywords;
       tagsElement.style.display = "inline-flex";
     } else {
       tagsElement.style.display = "none";
     }
     resolutionElement.textContent = "";
+    fileSizeElement.textContent = formatFileSize(container ? parseInt(container.dataset.fileSize, 10) : 0);
     tagsElement.parentElement.style.display = "flex";
     positionEnlargedTags();
   };
@@ -6127,7 +6552,7 @@ downloadLink.addEventListener("click", function(e) {
     // itself now shows whenever we have a loaded image - only the tags pill
     // inside it toggles on keyword presence.
     if (keywords && keywords.trim() !== "") {
-      tagsElement.textContent = keywords;
+      tagsElement.textContent = lightboxKeywords;
       tagsElement.style.display = "inline-flex";
     } else {
       tagsElement.style.display = "none";
@@ -6380,61 +6805,104 @@ function closeEnlargeModal() {
     // covers every case, including releasing outside any tile entirely.
     document.addEventListener("mouseup", () => setPoolDragState(null));
 
+    // Tiles are reused by pool item id across calls instead of wiped and
+    // rebuilt from scratch every time (2026-08-01, "optimize images in
+    // upload (lags with many images)") - same fix, same reasoning, as
+    // buildSidebarFrostStrip()'s own identity-reuse pass: every tile's <img>
+    // points at an already-created object URL, but assigning that same URL
+    // to a *brand-new* <img> element still forces the browser to decode it
+    // again, and this ran on every single add/remove/confirm, for every
+    // item in the pool, in *both* the step 1 and step 2 views at once. With
+    // a large pool that decode cost was being paid again and again on every
+    // change instead of only for the items that actually changed, which is
+    // what read as lag.
+    let poolPreviewTilesById = new Map();
+    let poolGridTilesById = new Map();
+
     function renderPoolViews() {
       // Step 1: view-only confirmation of what's been added so far.
-      poolPreviewList.innerHTML = "";
       poolEmptyStep1.style.display = uploadPool.length === 0 ? "block" : "none";
       fileInputHint.textContent = uploadPool.length === 0 ? "No images added yet"
         : (uploadPool.length === 1 ? "1 image added" : `${uploadPool.length} images added`);
+      const nextPreviewTiles = new Map();
+      const previewFragment = document.createDocumentFragment();
       uploadPool.forEach(item => {
-        const tile = document.createElement("div");
-        tile.className = "file-preview-item";
-        const thumb = document.createElement("img");
-        thumb.src = item.url;
-        thumb.alt = item.file.name;
-        thumb.draggable = false;
-        const label = document.createElement("span");
-        label.textContent = item.file.name;
-        label.title = item.file.name;
-        const removeBtn = document.createElement("button");
-        removeBtn.type = "button";
-        removeBtn.className = "pool-tile-remove";
-        removeBtn.title = "Remove";
-        removeBtn.textContent = "×";
-        removeBtn.addEventListener("click", () => discardPoolItem(item.id));
-        tile.appendChild(thumb);
-        tile.appendChild(removeBtn);
-        tile.appendChild(label);
-        poolPreviewList.appendChild(tile);
+        let tile = poolPreviewTilesById.get(item.id);
+        if (!tile) {
+          tile = document.createElement("div");
+          tile.className = "file-preview-item";
+          const thumb = document.createElement("img");
+          thumb.src = item.url;
+          thumb.alt = item.file.name;
+          thumb.draggable = false;
+          const label = document.createElement("span");
+          label.textContent = item.file.name;
+          label.title = item.file.name;
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "pool-tile-remove";
+          removeBtn.title = "Remove";
+          removeBtn.textContent = "×";
+          removeBtn.addEventListener("click", () => discardPoolItem(item.id));
+          tile.appendChild(thumb);
+          tile.appendChild(removeBtn);
+          tile.appendChild(label);
+        }
+        // appendChild on a node already in the document moves it (not a
+        // clone), so a reused tile's <img> is never reloaded/redecoded -
+        // this both reorders tiles to match uploadPool and stages
+        // brand-new ones for insertion below.
+        nextPreviewTiles.set(item.id, tile);
+        previewFragment.appendChild(tile);
       });
+      poolPreviewTilesById = nextPreviewTiles;
+      // Whatever's left in poolPreviewList at this point is a tile for an
+      // item no longer in uploadPool (every still-current tile was already
+      // moved into previewFragment above) - clearing before appending drops
+      // exactly those, nothing else.
+      poolPreviewList.innerHTML = "";
+      poolPreviewList.appendChild(previewFragment);
 
-      // Step 2: the same pool, as a selectable grid.
-      selectPoolGrid.innerHTML = "";
+      // Step 2: the same pool, as a selectable grid - same reuse-by-identity
+      // approach. The "selected" class is still recomputed unconditionally
+      // on every tile (reused or new) each call, since Select All/Clear
+      // Selection change poolSelection without touching the DOM themselves.
       selectPoolEmpty.style.display = uploadPool.length === 0 ? "block" : "none";
+      const nextGridTiles = new Map();
+      const gridFragment = document.createDocumentFragment();
       uploadPool.forEach(item => {
-        const tile = document.createElement("div");
-        tile.className = "wizard-pool-tile" + (poolSelection.has(item.id) ? " selected" : "");
-        const thumb = document.createElement("img");
-        thumb.src = item.url;
-        thumb.alt = item.file.name;
-        thumb.draggable = false;
-        const check = document.createElement("div");
-        check.className = "wizard-pool-tile-check";
-        const removeBtn = document.createElement("button");
-        removeBtn.type = "button";
-        removeBtn.className = "pool-tile-remove";
-        removeBtn.title = "Remove";
-        removeBtn.textContent = "×";
-        // Own mousedown must not also start a drag-select on the tile
-        // underneath it.
-        removeBtn.addEventListener("mousedown", (e) => e.stopPropagation());
-        removeBtn.addEventListener("click", (e) => { e.stopPropagation(); discardPoolItem(item.id); });
-        tile.appendChild(thumb);
-        tile.appendChild(check);
-        tile.appendChild(removeBtn);
-        wireSelectPoolTile(tile, item.id);
-        selectPoolGrid.appendChild(tile);
+        let tile = poolGridTilesById.get(item.id);
+        if (!tile) {
+          tile = document.createElement("div");
+          tile.className = "wizard-pool-tile";
+          const thumb = document.createElement("img");
+          thumb.src = item.url;
+          thumb.alt = item.file.name;
+          thumb.draggable = false;
+          const check = document.createElement("div");
+          check.className = "wizard-pool-tile-check";
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "pool-tile-remove";
+          removeBtn.title = "Remove";
+          removeBtn.textContent = "×";
+          // Own mousedown must not also start a drag-select on the tile
+          // underneath it.
+          removeBtn.addEventListener("mousedown", (e) => e.stopPropagation());
+          removeBtn.addEventListener("click", (e) => { e.stopPropagation(); discardPoolItem(item.id); });
+          tile.appendChild(thumb);
+          tile.appendChild(check);
+          tile.appendChild(removeBtn);
+          wireSelectPoolTile(tile, item.id);
+        }
+        tile.classList.toggle("selected", poolSelection.has(item.id));
+        nextGridTiles.set(item.id, tile);
+        gridFragment.appendChild(tile);
       });
+      poolGridTilesById = nextGridTiles;
+      selectPoolGrid.innerHTML = "";
+      selectPoolGrid.appendChild(gridFragment);
+
       updatePoolSelectionUI();
     }
 
@@ -6470,6 +6938,43 @@ function closeEnlargeModal() {
     fileInput.addEventListener("change", () => {
       addFilesToPool(fileInput.files);
       fileInput.value = "";
+    });
+
+    // Tracks folderSelect's own last real (non-sentinel) selection, so
+    // canceling/dismissing the "+ Create New Folder…" prompt below can
+    // revert to whatever was actually selected before, rather than falling
+    // back to the select's first option regardless of prior state.
+    let lastFolderSelectValue = folderSelect.value;
+    folderSelect.addEventListener("change", () => {
+      if (folderSelect.value !== CREATE_NEW_FOLDER_VALUE) lastFolderSelectValue = folderSelect.value;
+    });
+
+    // "+ Create New Folder…" (2026-08-01) - see its own option-creation
+    // comment in renderFolders(). Prompts for a name right here instead of
+    // requiring the admin to close this modal and use the separate Add
+    // Folder modal first. "Parent/Child" creates a subfolder, same path
+    // convention buildFolderStructure() already expects everywhere else.
+    // renderFolders() rebuilds folderSelect from scratch (wiping whatever
+    // was selected), so the newly created folder is explicitly reselected
+    // afterward rather than left to fall back to whatever option happens to
+    // render first.
+    folderSelect.addEventListener("change", () => {
+      if (folderSelect.value !== CREATE_NEW_FOLDER_VALUE) return;
+      const previousValue = lastFolderSelectValue;
+      const name = prompt('New folder name (use "Parent/Child" for a subfolder):');
+      const folderPath = (name || "").trim();
+      if (!folderPath) { folderSelect.value = previousValue; return; }
+      if (folders.includes(folderPath)) {
+        alert("This folder already exists.");
+        folderSelect.value = folderPath;
+        lastFolderSelectValue = folderPath;
+        return;
+      }
+      folders.push(folderPath);
+      saveFolderToFirebase(folderPath);
+      renderFolders();
+      folderSelect.value = folderPath;
+      lastFolderSelectValue = folderPath;
     });
 
     // Rename Folder Modal handling
@@ -6717,6 +7222,67 @@ function closeEnlargeModal() {
     }
     retagColorsBtn?.addEventListener("click", reevaluateAllImageColors);
 
+    // Re-tag Synonyms (2026-08-01): backfills synonymKeywords/
+    // translatedKeywords for every currently-loaded image from its current
+    // `keywords` - "for each upload and previous uploads" - the same
+    // one-time, explicit, admin-triggered bulk-rewrite shape as Re-tag
+    // Colors above (images published before this feature existed have
+    // neither field yet; images whose keywords were edited afterward via
+    // Edit Tags may have gone stale). Unlike Re-tag Colors this has no
+    // per-image network fetch - computeSynonymTags()/computeTranslatedTags()
+    // are pure local lookups against a closed vocabulary - so the only
+    // per-image cost is a Firestore write, and only for images whose
+    // computed values actually changed.
+    async function reevaluateAllSynonymTags() {
+      const containers = Array.from(document.querySelectorAll(".image-container"));
+      if (containers.length === 0) { alert("No images to re-tag."); return; }
+      if (!confirm(`Recompute synonym and translated tags for all ${containers.length} image(s) from their current keywords?`)) return;
+
+      const originalLabel = retagSynonymsBtn.textContent;
+      retagSynonymsBtn.disabled = true;
+      let changed = 0, failed = 0;
+
+      for (let i = 0; i < containers.length; i++) {
+        const container = containers[i];
+        retagSynonymsBtn.textContent = `Re-tagging… ${i}/${containers.length}`;
+        const keywords = container.getAttribute("data-keywords") || "";
+        const synonymKeywords = computeSynonymTags(keywords);
+        const translatedKeywords = computeTranslatedTags(keywords);
+        if (synonymKeywords === (container.dataset.synonymKeywords || "") &&
+            translatedKeywords === (container.dataset.translatedKeywords || "")) continue;
+        try {
+          const imageId = await getImageDocId(container);
+          if (imageId) {
+            await db.collection('images').doc(imageId).update({ synonymKeywords, translatedKeywords });
+            container.dataset.synonymKeywords = synonymKeywords;
+            container.dataset.translatedKeywords = translatedKeywords;
+            changed++;
+          }
+        } catch (error) {
+          console.error(`Could not re-tag synonyms for ${container.dataset.url}:`, error);
+          failed++;
+        }
+      }
+
+      retagSynonymsBtn.disabled = false;
+      retagSynonymsBtn.textContent = originalLabel;
+      alert(`Re-tagged synonyms/translations for ${containers.length} image(s): ${changed} changed${failed ? `, ${failed} failed` : ""}.`);
+    }
+    retagSynonymsBtn?.addEventListener("click", reevaluateAllSynonymTags);
+
+    // "Synonym Tags: On/Off" switch - see the block comment near
+    // SYNONYM_MAP for exactly what synonymTagsEnabled gates.
+    function updateSynonymTagsToggleBtn() {
+      if (synonymTagsToggleBtn) synonymTagsToggleBtn.textContent = `Synonym Tags: ${synonymTagsEnabled ? "On" : "Off"}`;
+    }
+    synonymTagsToggleBtn?.addEventListener("click", () => {
+      synonymTagsEnabled = !synonymTagsEnabled;
+      try { localStorage.setItem("synonymTagsEnabled", String(synonymTagsEnabled)); }
+      catch (error) { console.warn("Could not persist synonym tags preference:", error); }
+      updateSynonymTagsToggleBtn();
+    });
+    updateSynonymTagsToggleBtn();
+
     /********************************************************
      * Review Submissions
      * Admin-only view of what's landed in the 'submissions' collection via
@@ -6804,8 +7370,13 @@ function closeEnlargeModal() {
               // sampled from the Cloudinary URL directly.
               const colorTag = await detectDominantColorTagFromUrl(url);
               const keywords = colorTag || "";
-              const docId = await saveImageToFirebase(url, folder, keywords, "submission-image");
-              addImageToGallery(url, folder, keywords, "submission-image", Date.now(), docId);
+              // No local File exists for a submitted image (see the comment
+              // above), so fileSize stays unknown here - the lightbox's size
+              // pill just stays blank for these, same as it does for any
+              // image with no known fileSize.
+              const extra = { synonymKeywords: computeSynonymTags(keywords), translatedKeywords: computeTranslatedTags(keywords) };
+              const docId = await saveImageToFirebase(url, folder, keywords, "submission-image", extra);
+              addImageToGallery(url, folder, keywords, "submission-image", Date.now(), docId, extra);
               updateFolderCounts();
               renderColorFilterDots();
               addBtn.textContent = "Added";
@@ -7176,19 +7747,31 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
   // tag, if detection succeeded), so it's live the moment the upload
   // finishes. completeUpload() manages this stage's own progress/error UI.
   const finalKeywords = colorTag ? mergeTagStrings(keywords, colorTag) : keywords;
-  await completeUpload(imageUrl, folderValue, finalKeywords, file.name, uploadItemId)
+  // uploadFile.size is the byte size of what actually went to Cloudinary
+  // (post-compressImageIfNeeded), which is what the lightbox's size pill
+  // should show - not the original file's size before compression.
+  await completeUpload(imageUrl, folderValue, finalKeywords, file.name, uploadItemId, uploadFile.size)
     .catch(error => console.error(`Error completing upload for ${file.name}:`, error));
 }
 
 // Saves an already-uploaded (Cloudinary) image to Firestore and the gallery.
-async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName, uploadItemId) {
+async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName, uploadItemId, fileSize) {
   try {
+    // Synonym/translated tags (2026-08-01) are derived from the final tag
+    // list (typed keywords + auto color tag) - see the "Synonym & translated
+    // tags" block comment near SYNONYM_MAP for why these are computed here,
+    // always, regardless of synonymTagsEnabled (that flag only gates their
+    // *use* - display and search - not whether they're generated/stored).
+    const synonymKeywords = computeSynonymTags(combinedKeywords);
+    const translatedKeywords = computeTranslatedTags(combinedKeywords);
+    const extra = { fileSize, synonymKeywords, translatedKeywords };
+
     // Save to Firebase
-    const docId = await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, fileName);
+    const docId = await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, fileName, extra);
     console.log(`Image saved to Firebase`);
 
     // Add to gallery
-    addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now(), docId);
+    addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now(), docId, extra);
     updateFolderCounts();
     renderColorFilterDots();
     console.log(`Image added to gallery`);

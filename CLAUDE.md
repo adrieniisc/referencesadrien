@@ -1014,6 +1014,138 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     tiles' real `w_200,q_50` fetch latency has never been measured against the actual CDN (the
     harness serves data URIs) - if pop-in is reported again, that transform's size/priority is the
     first knob to turn, not the mechanism.
+  - **2026-08-01 batch: folder creation in the upload wizard, drag-select everywhere, faster pool
+    rendering, synonym/translation tags, New This Week sort, sidebar blur, retargeted compression,
+    a size pill, and a submissions badge** - ten separate requests landed together; documenting as
+    one batch since several touch the same code.
+    - **"+ Create New Folder…"** in the wizard's step 2 folder select (`CREATE_NEW_FOLDER_VALUE`
+      sentinel option, appended by `renderFolders()`) - picking it `prompt()`s for a name (accepts
+      "Parent/Child" for a subfolder, same convention `buildFolderStructure()` already expects),
+      creates it via the same `folders.push()`/`saveFolderToFirebase()`/`renderFolders()` sequence
+      `addFolder()` already used, and reselects the new folder afterward (renderFolders() rebuilds
+      the `<select>` from scratch, wiping whatever was selected) - `lastFolderSelectValue` tracks
+      the select's last real selection so canceling the prompt reverts to it instead of falling back
+      to whatever option renders first. Scoped to just `folderSelect` (the wizard) - not
+      `parentFolderSelect` (used *inside* the Add Folder modal itself) or `moveDestinationSelect`
+      (Move Images).
+    - **Click-and-drag multi-select extended to Delete/Move/Edit Tags** - previously only the
+      upload wizard's pool grid (step 2) supported this; the gallery's own three select-then-act
+      modes were click-only. `makeBulkSelectHandlers(isSelectedFn, setSelectedFn, isModeActiveFn)`
+      is the shared mousedown/mouseenter pair (mousedown toggles + starts a drag, recording which
+      direction - select or deselect - to apply to whatever container the pointer passes over next
+      via mouseenter; a plain click is just a zero-distance drag), generalized from
+      `wireSelectPoolTile()`'s own pattern. One shared `bulkDragState` (+ one document-level
+      `mouseup` to end it, bound once - same "bind drag-lifecycle listeners globally" lesson this
+      file already learned from the pool tiles, the lightbox download button, and the old upload-
+      dock minimize button) covers all three modes safely since they're mutually exclusive by
+      construction. Each mode still keeps its own selected-class + array (`selectedImages`/
+      `selectedImagesForMove`/`selectedImagesForTagEdit`) - only *how* a container's selection
+      toggles changed, not the state shape anything downstream (delete/move/Edit Tags save) reads.
+      `onMouseDown` skips containers under a `.download-btn` (mousedown fires before the download
+      link's own click-time `stopPropagation()`, which would otherwise not be enough to stop a drag
+      from starting on it).
+    - **Upload pool rendering no longer wipes and rebuilds on every change** - `renderPoolViews()`
+      (step 1's view-only list and step 2's interactive grid) used to `innerHTML = ""` + recreate
+      every tile's `<img>` against its already-created object URL on every add/remove/confirm.
+      Assigning the same object URL to a *new* `<img>` still forces a redecode, and with a large
+      pool that cost was paid again on every single change, not just for the images that actually
+      changed - this is what "lags with many images" was. Fixed with the same identity-reuse
+      pattern `buildSidebarFrostStrip()` already established for the sidebar reflection: tiles are
+      now keyed by pool item id in `poolPreviewTilesById`/`poolGridTilesById`, `appendChild`ed into
+      a fragment (which *moves* an already-existing tile rather than cloning it), and only truly
+      stale tiles (their pool item no longer exists) get cleared. Verified via Playwright that a
+      tile's `<img>` node identity survives a later unrelated pool addition.
+    - **Synonym & translated tags** (`SYNONYM_MAP`/`TRANSLATION_MAP`, computeSynonymTags()/
+      computeTranslatedTags()`) - same "closed vocabulary, no AI/ML" approach this file already
+      uses for color detection and the (removed) material filter, not a generative thesaurus/
+      translation API - a tag with no entry in either map just gets nothing, same as an untagged
+      image gets no color dot. **Synonyms**: up to 2 per matched keyword, stored in a *separate*
+      Firestore field/dataset attribute (`synonymKeywords`/`data-synonym-keywords`) rather than
+      merged into `keywords` itself - this is why they show up in the lightbox tag list
+      (`enlargeImage()` merges them into what it displays, never into `keywords`) but never in Edit
+      Tags or the upload dock, both of which read/write `keywords` directly. Gated by
+      `synonymTagsEnabled` (persisted to `localStorage`, toggled via the sidebar's "Synonym Tags:
+      On/Off" admin button, next to Re-tag Colors) - turning it off removes synonyms from *both* the
+      lightbox tag list and search matching (`performSearch()`), not just one. **Translations**:
+      fr/de/it/zh/ja per matched keyword, stored the same way (`translatedKeywords`) but never
+      rendered anywhere and not gated by any switch - always included in search matching ("so
+      people searching in these languages/keyboards get the same results"). Both are computed and
+      stored unconditionally at publish time (`completeUpload()`, Review Submissions' "Add") -
+      `synonymTagsEnabled` only gates *use*, not generation, so flipping it back on doesn't require
+      recomputing anything already stored. **Re-tag Synonyms** (next to Re-tag Colors) backfills
+      both fields for every already-published image from its current `keywords` - "for each upload
+      and previous uploads" - same one-time, explicit, admin-triggered bulk-rewrite shape as Re-tag
+      Colors, but with no per-image network fetch (both compute functions are pure local lookups),
+      so the only per-image cost is a Firestore write, skipped entirely for images whose computed
+      values didn't change. Verified end-to-end via Playwright (stubbed Firestore): a "wood, old"
+      image's lightbox tags render as "wood, old, timber, lumber, aged, weathered", and toggling the
+      switch flips the button label correctly.
+      **Real bug found and fixed by that same Playwright run, worth knowing before touching this
+      area again**: `submissionsBadgeUnsubscribe` (see the badge entry below) was originally
+      declared with `let` *after* the `auth.onAuthStateChanged(...)` call that references it. A
+      stubbed auth backend that invokes its callback synchronously (rather than deferring to a
+      microtask the way the real Firebase SDK typically does) hit that `let` while still in its
+      temporal dead zone, throwing on page load and blocking the entire gallery from rendering.
+      Fixed by moving the declaration and its two helper functions above the
+      `onAuthStateChanged()` call - not just above their own first *use*, but above the point where
+      an eagerly-firing callback could reach them at all. Low risk against the real Firebase SDK
+      (genuinely synchronous initial callbacks are unusual there), but cheap to make robust against
+      regardless rather than lean on that assumption.
+    - **"New This Week" now sorts recent-first** - clicking it in the sidebar was already filtering
+      to the current week's window (`getCurrentWeekWindowStart()`), but display order still followed
+      whatever the gallery's general order happened to be (random by default - the manual sort menu
+      was removed 2026-07-31). Its click handler now also calls `sortGallery("recent")` right after
+      `filterImages(NEW_THIS_WEEK_FILTER)` - reorders *all* gallery children (not just the visible
+      ones) by `addTime` descending, which persists if the admin later switches to another folder
+      view, harmless since those don't care about order.
+    - **Sidebar blur doubled** - `.sidebar`'s `backdrop-filter`/`-webkit-backdrop-filter` went
+      `blur(20px)` → `blur(40px)` (explicit request), including its `@supports not (...)` fallback
+      selector value. The floating color/size filter panels' own blur was left untouched - scoped to
+      the sidebar only.
+    - **Compression retargeted to an 850KB-1MB band** (was a flat ~1.5MB cap) -
+      `compressImageIfNeeded(file, maxBytes = 1MB, minBytes = 850KB)`. The existing quality-sweep-
+      then-shrink algorithm in `encodeCanvasUnderSize()` already picked the *highest* quality that
+      still fit under the cap (least quality loss for a given ceiling), so retargeting `maxBytes`
+      alone gets most of the way there; the addition is a second, finer-grained quality sweep
+      (`FINE_QUALITY_STEP = 0.01`, vs. the coarse loop's `0.08`) that only runs when the coarse
+      0.08-per-step sweep jumps straight from "too big" to "under 850KB" in one step (a real risk
+      given how narrow - 150KB wide - the target band is) - it searches just that one coarse gap for
+      a higher quality that's still under 1MB, which is always a better result than the coarse step
+      alone found, whether or not it actually clears 850KB. This is a soft floor, not a hard one -
+      JPEG size vs. quality isn't predictable enough to guarantee every image has *some* quality that
+      lands inside a 150KB-wide band, so this narrows the gap as far as it reasonably can rather than
+      promising an exact fit. An already-small original (at or under 1MB) is left alone rather than
+      padded up toward 850KB - there's no way to add quality back once it's gone, so re-encoding an
+      already-small file would be a pure loss with nothing gained.
+    - **Lightbox size pill** (`#enlargedFileSize`, styled identically to `#enlargedResolution` via a
+      shared `.enlarged-resolution, .enlarged-filesize` CSS rule) shows the *uploaded* (post-
+      `compressImageIfNeeded()`) file's byte size, read from `container.dataset.fileSize` - which
+      traces back to `uploadFile.size` at the point `processUpload()` calls `completeUpload()`, saved
+      to Firestore as a new `fileSize` field alongside `keywords`/`folder`/etc. Blank for any image
+      with no known size - notably every image published via Review Submissions' "Add", which was
+      never a local `File` on this device to measure (fetched from a Cloudinary URL instead, same
+      reasoning `detectDominantColorTagFromUrl()` vs. `detectDominantColorTag()` already documents).
+      Unlike the resolution pill, file size doesn't depend on the image actually decoding
+      successfully, so - caught by the same Playwright run, a real gap in the first version of this
+      - it's shown in `enlargeImg.onerror` too, not just `onload`.
+    - **Review Submissions pending-count badge** (`#reviewSubmissionsBadge`) - "when entering admin
+      mode ONLY" is implemented by only ever attaching a `db.collection('submissions').onSnapshot()`
+      listener while `auth.onAuthStateChanged` reports a signed-in user, detached immediately on
+      sign-out (`setSubmissionsBadgeWatching()`) - a live listener rather than a one-off count check
+      since it also has to reflect submissions that arrive *while* the admin is already signed in
+      and browsing, and it means Dismiss/Add don't need their own manual "refresh the badge" calls -
+      any change to the collection updates it on its own. Hidden (`display: none`) whenever the
+      count is 0.
+    **Sandbox caveat applying to all of the above**: no live Cloudinary/Firebase access here, so
+    none of it has been exercised against real network latency, a real admin account, or real
+    uploaded photos - verified instead via the same Playwright + hand-rolled Firestore/Auth stub
+    pattern this file's Testing section documents (drag-select across all three gallery modes,
+    folder creation via the sentinel option, the synonym merge/toggle, the size pill including the
+    onerror path, and the pool tile identity-reuse fix all specifically exercised this way). The
+    synonym/translation vocabulary is intentionally small and curated (matching this gallery's own
+    folder names and the color auto-tagger's words) - if a commonly-used tag has no synonyms/
+    translations yet, that's expected (not a bug) until `SYNONYM_MAP`/`TRANSLATION_MAP` are extended
+    for it.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
