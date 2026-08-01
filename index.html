@@ -45,8 +45,11 @@
       /* Bigger, softer, lower-opacity than --shadow-md - a "subtle large"
          shadow (2026-08-01, explicit request) meant to lift the floating
          size/color filter panels further off the gallery behind them
-         without reading as a hard/dark edge. */
-      --shadow-float: 0 28px 70px rgba(0,0,0,0.35);
+         without reading as a hard/dark edge. Strengthened same day, second
+         request - bigger spread and higher opacity than the original
+         values (28px/70px/0.35), still softer than --shadow-md's own tight
+         hard-edged shadow. */
+      --shadow-float: 0 34px 92px rgba(0,0,0,0.48);
       --gallery-gap: 6px;
       --row-height: 240px; /* default gallery size = M */
       --sidebar-width: 270px;
@@ -330,13 +333,18 @@
 .sidebar-frost-strip {
   position: absolute;
   top: 0;
-  left: -30%;
+  /* Shifted right relative to its old -30%/160% centering (2026-08-01,
+     explicit request) - less bleed kept on the left than the right, so
+     the visible crop of each tile leans toward the sidebar's right edge
+     instead of sitting dead-center. Width unchanged - still wide enough
+     that the blur's own soft edges fall outside the clipped viewport
+     (.sidebar-frost-art's overflow: hidden) on both sides. */
+  left: -20%;
   width: 160%;
-  /* Blurred enough to read as frosted glass rather than a second gallery,
-     but not so far that it turns back into the shapeless colour wash the
-     previous version was. Opacity/saturation are held down so the folder
-     list on top of it stays legible. */
-  filter: blur(24px) saturate(1.2);
+  /* Blurred more than the previous 24px (2026-08-01, explicit request) -
+     reads as softer/more frosted. Saturation and opacity untouched so the
+     folder list on top of it stays legible. */
+  filter: blur(34px) saturate(1.2);
   opacity: 0.45;
   will-change: transform;
 }
@@ -352,6 +360,15 @@
   object-fit: cover;
   display: block;
   opacity: 0;
+  /* Scaled up a bit past its tile's own box (2026-08-01, explicit request:
+     "scale the reflections a bit more") - zooms each reflected photo in
+     slightly instead of just widening the strip's container, which - being
+     blurred to mush anyway - wouldn't have read as "bigger" on its own.
+     transform is safe to set here in the stylesheet: JS only ever writes
+     inline top/height on .sidebar-frost-tile itself and inline transform
+     on .sidebar-frost-strip (the scroll-sync translateY), never anything
+     on this img, so there's no inline style fighting this rule. */
+  transform: scale(1.18);
   transition: opacity 0.4s ease;
 }
 .sidebar-frost-tile img.loaded { opacity: 1; }
@@ -385,7 +402,13 @@
       padding-bottom: 0.6rem;
       margin-bottom: 0.6rem;
       border-bottom: 1px solid var(--border-color);
-      font-size: 1.3rem;
+      /* Bumped from 1.3rem (2026-08-01, explicit request) - still comfortably
+         clears --sidebar-width's 270px base minus .sidebar-scroll's 0.8rem
+         padding on each side. The two responsive tiers below were bumped by
+         a proportional amount so the size hierarchy (base > 640px > 420px)
+         is preserved rather than the narrow tiers suddenly reading small
+         next to a much bigger base. */
+      font-size: 1.75rem;
       font-weight: 700;
       letter-spacing: 0.01em;
       color: var(--text);
@@ -869,20 +892,72 @@
       color: var(--text-faint);
       margin: -0.4rem 0 0.6rem;
     }
-    .file-preview-list {
+    /* Add Image modal widened + reorganized into two columns (2026-08-01,
+       explicit request: "too small and clunky for big uploads" - the old
+       400px single column meant a 40-image batch's preview thumbnails and
+       a multi-category publish queue both had to squeeze into the same
+       narrow, short scrolling lists one after another). More than 2x the
+       base .modal-content's 400px. 900px still comfortably clears the
+       270px sidebar even at a 1400px-wide viewport - same reasoning
+       .submissions-review-content's own 840px cap documents - with extra
+       room to spare since this modal's grid needs it more than that one
+       did. */
+    .image-modal-content {
+      max-width: 900px;
+    }
+    .image-modal-grid {
+      display: grid;
+      /* Fixed-width form column, flexible preview/queue column - the form
+         fields (file input, folder, keywords) don't benefit from growing
+         past a normal input's comfortable width, so extra space goes to
+         the side that actually needs it for organizing a big batch. */
+      grid-template-columns: 300px 1fr;
+      gap: 0 1.8rem;
+      align-items: start;
+    }
+    .image-modal-form, .image-modal-preview {
+      min-width: 0;
+    }
+    .image-modal-preview-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-faint);
+      margin: 0.5rem 0 0.5rem;
+    }
+    .image-modal-actions {
+      margin-top: 0.8rem;
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 0.5rem;
+    }
+    /* Below the form column's own comfortable width, stack instead of
+       squeezing both columns - matches the point .submissions-review-
+       content's responsive tiers already use similar reasoning for. */
+    @media (max-width: 760px) {
+      .image-modal-content { max-width: 480px; }
+      .image-modal-grid { grid-template-columns: 1fr; gap: 0; }
+      .image-modal-preview { margin-top: 0.4rem; }
+    }
+    /* Grid instead of the old wrapped flex row (2026-08-01) - a big batch's
+       thumbnails now organize into columns/rows instead of one long
+       horizontally-wrapping strip, and get roughly double the previous
+       160px viewing height to go with it. */
+    .file-preview-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+      gap: 10px;
       margin: 0 0 0.6rem;
-      max-height: 160px;
+      max-height: 320px;
       overflow-y: auto;
     }
     .file-preview-item {
-      width: 64px;
+      width: auto;
     }
     .file-preview-item img {
-      width: 64px;
-      height: 64px;
+      width: 100%;
+      aspect-ratio: 1;
       object-fit: cover;
       border-radius: 6px;
       display: block;
@@ -922,11 +997,14 @@
       color: var(--accent);
       margin-bottom: 0.5rem;
     }
+    /* Grid instead of a single stacked column (2026-08-01) - several queued
+       categories now organize side by side instead of one under another,
+       with roughly double the previous 140px viewing height. */
     .upload-queue-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-height: 140px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+      max-height: 280px;
       overflow-y: auto;
     }
     .upload-queue-item {
@@ -1103,6 +1181,13 @@
       padding: 0.6rem 0.7rem;
       margin-bottom: 1.2rem;
     }
+    /* Move Destination modal's "Move" button (2026-08-01, explicit request)
+       - same reasoning as #saveEditTagsBtn above: keeps this operation's
+       color consistent from the sidebar's "Move Images" trigger through
+       .move-controls' own "Select Destination" button (both move-accent
+       already) into this modal's actual confirm action, instead of it
+       falling through to .modal-content button's generic accent orange. */
+    #confirmMoveDestinationBtn { background-color: var(--move-accent); color: white; }
 
     /* --------------------------------------------------
        Edit Tags Feature
@@ -1156,6 +1241,14 @@
       cursor: pointer;
     }
     .tag-edit-controls button.cancel { background-color: rgba(255,255,255,0.12); color: var(--text); }
+    /* Edit Tags modal's "Save All" (2026-08-01, explicit request) - was
+       falling through to .modal-content button's generic accent orange,
+       which broke the color chain this operation otherwise keeps: the
+       sidebar's "Edit Tags" trigger (tag-soft/tag-accent) -> this same
+       bottom confirm bar's own "Edit Tags" button (solid tag-accent,
+       above) -> the modal's own confirm action. An ID selector here beats
+       .modal-content button's class selector regardless of source order. */
+    #saveEditTagsBtn { background-color: var(--tag-accent); color: white; }
 
     /* --------------------------------------------------
        Enlarge Image Modal (Lightbox)
@@ -1654,7 +1747,11 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-    #mainImageSearch::placeholder { color: var(--text-faint); }
+    /* Transparent, not removed (2026-08-01) - .search-placeholder-fade below
+       now shows this text visually (with a crossfade native placeholders
+       can't do), but the attribute stays as the accessible/no-JS fallback,
+       so it can't render its own copy underneath the overlay's. */
+    #mainImageSearch::placeholder { color: transparent; }
     #mainImageSearch:focus {
   outline: none;
   border-color: var(--border-strong);
@@ -1663,6 +1760,32 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
+
+/* Crossfading placeholder overlay (2026-08-01, explicit "esthetic change"
+   request) - cycles between "Search images..." and the gallery's real
+   folder names, faded in/out by rotateSearchPlaceholder() in the script
+   below rather than jumping. Positioned to land exactly where the native
+   placeholder text would (left offset matches #mainImageSearch's own
+   left padding), and given the same z-index:1 fix #search-bar-icon
+   already needed - #mainImageSearch's backdrop-filter makes it its own
+   stacking context, so anything meant to show "inside" it needs a
+   positive z-index to paint above that context regardless of DOM order. */
+.search-placeholder-fade {
+  position: absolute;
+  left: 44px;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  z-index: 1;
+}
+.search-placeholder-fade.search-placeholder-hidden { opacity: 0; }
 
 
 
@@ -1720,7 +1843,12 @@
   right: 0;
   margin: 0 auto;
   width: auto;
-  max-width: min(1100px, calc(100% - 40px));
+  /* Widened from 1100px (2026-08-01, "twice bigger... too small and clunky
+     for big uploads") - combined with .upload-dock-content switching from a
+     single stacked column to a multi-column grid (below), a large batch's
+     per-file rows now actually spread out instead of all competing for one
+     narrow column's height. */
+  max-width: min(1500px, calc(100% - 40px));
   background-color: rgba(26,26,30,0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -1836,28 +1964,37 @@
 
 /* Collapsed by default (max-height:0, no padding) so the header's
    aggregate bar is the only thing shown until "expanded" is toggled on -
-   see toggleUploadDockDetails() in script below. */
+   see toggleUploadDockDetails() in script below. Switched from a single
+   stacked column of full-width rows to a responsive grid of cards
+   (2026-08-01, "at least twice bigger... find a logic and easy to
+   navigate and organize layout" - a 40-file batch used to be one long,
+   narrow, slowly-scrolling list). max-height nearly doubled (360px ->
+   640px) on top of that, so a big batch both organizes into columns and
+   gets more room to show them in. */
 .upload-dock-content {
   max-height: 0;
   overflow-y: auto;
   padding: 0 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px 16px;
+  align-content: start;
   transition: max-height 0.25s ease, padding 0.25s ease;
 }
 
 .upload-dock.expanded .upload-dock-content {
-  max-height: 360px;
-  padding: 12px 18px;
+  max-height: 640px;
+  padding: 14px 18px;
 }
 
+/* Each file is now a self-contained card (background/border/radius)
+   instead of a full-width row separated by a bottom border, since cards
+   no longer share one continuous column to divide up. */
 .upload-dock-item {
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.upload-dock-item:last-child {
-  margin-bottom: 0;
-  border-bottom: none;
+  background-color: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
 }
 
 .upload-dock-item-info {
@@ -1942,6 +2079,7 @@
   .submit-reference-btn { top: 76px; right: 130px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
   .search-bar-icon { left: 12px; width: 16px; height: 16px; }
+  .search-placeholder-fade { left: 38px; font-size: 0.85rem; }
   .main-content { padding-top: 128px; }
 }
 
@@ -1953,12 +2091,13 @@
 @media (max-width: 640px) {
   :root { --sidebar-width: 200px; }
   .sidebar { padding: 0.6rem; }
-  .sidebar-brand { font-size: 1.1rem; }
+  .sidebar-brand { font-size: 1.35rem; }
   .top-search-bar { padding: 8px 12px; padding-left: 0.6rem; gap: 0.6rem; }
   .about-btn { top: 64px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .submit-reference-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
   .search-bar-icon { left: 12px; width: 16px; height: 16px; }
+  .search-placeholder-fade { left: 38px; font-size: 0.85rem; }
   .main-content { padding-left: 0.6rem; padding-right: 0.6rem; padding-top: 112px; }
   .floating-controls-row { right: 12px; bottom: 12px; gap: 6px; }
   .size-icon-container { gap: 4px; }
@@ -1974,7 +2113,7 @@
    drop it here any more. */
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; }
-  .sidebar-brand { font-size: 1rem; }
+  .sidebar-brand { font-size: 1.15rem; }
   .top-search-bar { padding: 8px 10px; padding-left: 0.6rem; }
   .about-btn { top: 58px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
   .submit-reference-btn { top: 58px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
@@ -2141,6 +2280,18 @@
   width: 100%;
   font-size: 0.8rem;
   padding: 6px 8px;
+  /* Matches the "Review Submissions" sidebar trigger's own green
+     (2026-08-01, explicit request) instead of falling through to
+     .modal-content button's generic accent orange - this "Add" button is
+     that same operation's actual confirm action. --success is a light,
+     high-lightness green (fails WCAG contrast against white text - the
+     white-on-solid-color pattern .move-controls/.tag-edit-controls use for
+     their own darker accent colors doesn't hold up here), so this pairs it
+     with dark text instead, matching how .modal-content button's own
+     default accent orange already pairs a light background with dark
+     (#17120c) text. */
+  background-color: var(--success);
+  color: #0f2413;
 }
 .submission-image-item button:disabled {
   opacity: 0.6;
@@ -2168,6 +2319,15 @@
         <path d="M20 20l-3.6-3.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
       <input type="search" id="mainImageSearch" placeholder="Search images...">
+      <!-- Purely decorative crossfading placeholder (2026-08-01, explicit
+           "esthetic change" request) - a real <input placeholder> can't be
+           CSS-transitioned, so this overlay sits on top of it instead and
+           fades between "Search images..." and the actual folder names,
+           cycled by rotateSearchPlaceholder() in the script below. The
+           input's own placeholder attribute is left as the a11y/no-JS
+           fallback and just visually hidden via #mainImageSearch::placeholder
+           (see CSS) rather than removed. -->
+      <span class="search-placeholder-fade" id="searchPlaceholderFade" aria-hidden="true">Search images...</span>
     </div>
   </div>
 
@@ -2388,36 +2548,48 @@
       </div>
     </div>
   </div>
-  <!-- MODAL: Add Image -->
+  <!-- MODAL: Add Image (2026-08-01: widened + split into a two-column
+       layout - see .image-modal-content/.image-modal-grid CSS for why. The
+       element ids/behavior below are unchanged from the old single-column
+       version, only their grouping into .image-modal-form/.image-modal-preview
+       moved. -->
   <div class="modal-backdrop" id="imageModal">
-    <div class="modal-content">
+    <div class="modal-content image-modal-content">
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
       <h3>Add Image</h3>
 
-      <label for="fileInput">Select Image(s):</label>
-      <input type="file" id="fileInput" accept="image/*" multiple>
-      <div id="fileInputHint" class="modal-hint">No file selected</div>
-      <div id="filePreviewList" class="file-preview-list"></div>
+      <div class="image-modal-grid">
+        <div class="image-modal-form">
+          <label for="fileInput">Select Image(s):</label>
+          <input type="file" id="fileInput" accept="image/*" multiple>
+          <div id="fileInputHint" class="modal-hint">No file selected</div>
 
-      <label for="folderSelect">Location:</label>
-      <select id="folderSelect"></select>
+          <label for="folderSelect">Location:</label>
+          <select id="folderSelect"></select>
 
-      <label for="imageKeywords">Keywords (optional):</label>
-      <input type="text" id="imageKeywords" placeholder="e.g., red, green">
-      <div class="modal-hint">Goes live immediately - no review step.</div>
+          <label for="imageKeywords">Keywords (optional):</label>
+          <input type="text" id="imageKeywords" placeholder="e.g., red, green">
+          <div class="modal-hint">Goes live immediately - no review step.</div>
 
-      <div id="publishQueuePanel" class="publish-queue-panel">
-        <div class="publish-queue-panel-label">Queued — not published yet</div>
-        <div id="uploadQueueList" class="upload-queue-list"></div>
-        <div id="publishQueueBar" class="publish-queue-bar">
-          <span id="publishQueueSummary"></span>
-          <button id="publishQueueBtn">Publish All</button>
+          <div class="image-modal-actions">
+            <button id="confirmAddImageBtn">Add</button>
+            <button id="queueAddImageBtn">Add to Queue</button>
+          </div>
         </div>
-      </div>
 
-      <div style="margin-top:0.8rem;">
-        <button id="confirmAddImageBtn">Add</button>
-        <button id="queueAddImageBtn">Add to Queue</button>
+        <div class="image-modal-preview">
+          <div class="image-modal-preview-label">Selected images</div>
+          <div id="filePreviewList" class="file-preview-list"></div>
+
+          <div id="publishQueuePanel" class="publish-queue-panel">
+            <div class="publish-queue-panel-label">Queued — not published yet</div>
+            <div id="uploadQueueList" class="upload-queue-list"></div>
+            <div id="publishQueueBar" class="publish-queue-bar">
+              <span id="publishQueueSummary"></span>
+              <button id="publishQueueBtn">Publish All</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3153,6 +3325,48 @@
 }
 
     mainImageSearch.addEventListener("input", performSearch);
+
+    // Purely cosmetic (2026-08-01, explicit "esthetic change" request):
+    // cycles the search bar's overlay placeholder (see .search-placeholder-
+    // fade) between "Search images..." and the gallery's real top-level
+    // folder names, crossfading between them instead of a static string. A
+    // native <input placeholder> can't be CSS-transitioned, hence the
+    // separate overlay span this drives instead of mainImageSearch.placeholder
+    // directly. Folder names are read live from the sidebar DOM on every
+    // tick rather than cached, so this never goes stale after Add/Rename/
+    // Delete Folder - no separate list to keep in sync.
+    const searchPlaceholderFade = document.getElementById("searchPlaceholderFade");
+    let searchPlaceholderIndex = 0;
+    function getSearchPlaceholderOptions() {
+      const folderNames = [...document.querySelectorAll("#folderList > li:not(.all):not(.new-this-week) > .folder-label > .folder-name")]
+        .map(el => el.textContent.trim())
+        .filter(Boolean);
+      return ["images...", ...folderNames.map(name => `${name}...`)];
+    }
+    function rotateSearchPlaceholder() {
+      if (!searchPlaceholderFade) return;
+      // Don't fight real user input/focus - a native placeholder wouldn't
+      // show under those conditions either.
+      if (document.activeElement === mainImageSearch || mainImageSearch.value) return;
+      const options = getSearchPlaceholderOptions();
+      if (options.length === 0) return;
+      searchPlaceholderFade.classList.add("search-placeholder-hidden");
+      setTimeout(() => {
+        searchPlaceholderIndex = (searchPlaceholderIndex + 1) % options.length;
+        searchPlaceholderFade.textContent = `Search ${options[searchPlaceholderIndex]}`;
+        searchPlaceholderFade.classList.remove("search-placeholder-hidden");
+      }, 350);
+    }
+    setInterval(rotateSearchPlaceholder, 3200);
+    mainImageSearch.addEventListener("input", () => {
+      searchPlaceholderFade?.classList.toggle("search-placeholder-hidden", !!mainImageSearch.value);
+    });
+    mainImageSearch.addEventListener("focus", () => {
+      searchPlaceholderFade?.classList.add("search-placeholder-hidden");
+    });
+    mainImageSearch.addEventListener("blur", () => {
+      searchPlaceholderFade?.classList.toggle("search-placeholder-hidden", !!mainImageSearch.value);
+    });
 
     // Brand text acts as a "home" link - back to the All category with
     // every active filter (search text, color) cleared, same as a fresh
