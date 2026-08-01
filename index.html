@@ -160,18 +160,21 @@
   color: var(--text);
 }
 
-/* Submit Reference Button CSS - sits on the same row as About, just to its
-   left, with matching visual weight so it doesn't read as an accidental
-   floating fragment. Same box model as .about-btn, different `right`.
-   Solid white (2026-07-31, was the same dark pill as About) so it reads
-   as the more prominent of the two - it's the one action here that
-   writes something back (a submission), About is just informational. */
+/* Submit Reference Button CSS - the outermost (leftmost) of the three
+   header buttons (2026-08-01: swapped with Contributors, which now sits
+   between this and About), matching visual weight so it doesn't read as
+   an accidental floating fragment. Same box model as .about-btn, different
+   `right`. Solid white (2026-07-31, was the same dark pill as About) so it
+   reads as the more prominent of the three - it's the one action here that
+   writes something back (a submission), About/Contributors are both just
+   informational. */
 .submit-reference-btn {
   position: absolute;
   top: 15px;
-  /* About's right (10px) + About's width (120px) + the 10px gap between
-     the two buttons - see the comment on .about-btn's `right`. */
-  right: 140px;
+  /* Contributors' right (140px) + Contributors' width (140px) + the 10px
+     gap the header buttons keep between each other - see the comment on
+     .about-btn's `right`. */
+  right: 290px;
   background-color: #ffffff;
   color: #17120c;
   border: none;
@@ -199,18 +202,19 @@
 }
 
 /* Contributors Button CSS (2026-08-01, explicit request: "make a bit of
-   space and add a contributors button with the submit and about buttons") -
-   sits to Submit's left, one more step out from the viewport edge, same
-   box model/visual weight as .about-btn (dark pill, muted text) since this
-   is informational like About rather than an action like Submit. Its own
-   `right` is Submit's right (140px) + Submit's width (120px) + the same
-   10px gap the other two buttons already keep between each other - see
+   space and add a contributors button with the submit and about buttons";
+   repositioned 2026-08-01 later the same day, swapped with Submit - now
+   sits between Submit and About instead of outermost) - same box model/
+   visual weight as .about-btn (dark pill, muted text) since this is
+   informational like About rather than an action like Submit. Its own
+   `right` is About's right (10px) + About's width (120px) + the same 10px
+   gap the other two buttons already keep between each other - see
    .top-search-bar's padding-right below for why that value has to grow
    alongside this. */
 .contributors-btn {
   position: absolute;
   top: 15px;
-  right: 270px;
+  right: 140px;
   background-color: rgba(15, 15, 17, 0.82);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
@@ -242,15 +246,18 @@
   color: var(--text);
 }
 
-/* Updated About Modal with blur effect */
-#aboutModal {
+/* Updated About/Submit/Contributors Modals with blur effect - all three
+   header buttons (2026-08-01: Submit and Contributors get the same
+   background blur About already had, instead of just the flat
+   .modal-backdrop tint) */
+#aboutModal, #submitReferenceModal, #contributorsModal {
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
 }
 
 /* Fallback for browsers that don't support backdrop-filter */
 @supports not (backdrop-filter: blur(15px)) {
-  #aboutModal {
+  #aboutModal, #submitReferenceModal, #contributorsModal {
     background: rgba(0,0,0,0.9);
   }
 }
@@ -1030,17 +1037,23 @@
        where the modal drops to a plain fixed-width dialog unrelated to the
        sidebar's own width. */
     #imageModal { padding-left: var(--sidebar-width); }
+    /* Widened further + tightened margins (2026-08-01, second pass - "still
+       not convinced... bigger page") - was calc(100vw - sidebar - 80px)
+       capped at 1400px/70vh-or-700px; margins tightened from 80px to 40px
+       and the caps raised so the modal reads as filling the gallery area
+       rather than floating a visible strip of it, on top of the still-live
+       three-step wizard rework below. */
     .image-modal-content {
-      width: calc(100vw - var(--sidebar-width) - 80px);
-      max-width: 1400px;
-      max-height: calc(100vh - 80px);
+      width: calc(100vw - var(--sidebar-width) - 40px);
+      max-width: 1600px;
+      max-height: calc(100vh - 40px);
       /* A real minimum, not just a cap (2026-08-01) - without this, a
          short step (step 2's plain folder/tags fields, or step 3's summary)
          let the whole modal shrink-wrap down to a small dialog again,
          undoing the "way bigger" request the moment content was light.
          min() so it still backs off gracefully on a short viewport instead
          of overflowing it. */
-      min-height: min(70vh, 700px);
+      min-height: min(82vh, 820px);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -1105,29 +1118,21 @@
       background: var(--border-color);
       min-width: 20px;
     }
-    .image-modal-grid {
-      display: grid;
-      /* Fixed-width form/wizard column, flexible preview/queue column - the
-         form fields (dropzone, folder, keywords) don't benefit from growing
-         past a comfortable reading width, so the extra space this bigger
-         modal has goes to the side that actually needs it for organizing a
-         big batch. `stretch` (the grid default, set explicitly here) rather
-         than the old `start` - now that .image-modal-content has a real
-         min-height, stretching both columns to that same tall row height is
-         what lets the step 1 dropzone (flex: 1, below) actually fill it
-         instead of sitting shrink-wrapped near the top with dead space
-         beneath it. */
-      grid-template-columns: 380px 1fr;
-      gap: 0 2rem;
-      align-items: stretch;
+    /* Single full-width column (2026-08-01, second wizard pass - replaces
+       the old 380px-form / flexible-preview two-column .image-modal-grid).
+       Each step now needs the modal's *entire* width rather than a narrow
+       form column plus a side preview: step 1's pool preview, step 2's
+       click-and-drag selection grid, and step 3's queue review all read
+       better wide than squeezed into 380px with a side column next to
+       them. .wizard-panels takes over the "flex:1, min-height:0 column
+       that stretches to the modal's own height" role .image-modal-form
+       used to have, so the active panel inside it can still fill the
+       modal (see .wizard-panel.active below). */
+    .wizard-panels {
       flex: 1;
       min-height: 0;
-    }
-    .image-modal-form, .image-modal-preview {
-      min-width: 0;
       display: flex;
       flex-direction: column;
-      min-height: 0;
     }
     .image-modal-preview-label {
       font-size: 0.72rem;
@@ -1137,23 +1142,12 @@
       color: var(--text-faint);
       margin: 0.5rem 0 0.5rem;
     }
-    .image-modal-actions {
-      margin-top: 0.8rem;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    /* Below the form column's own comfortable width, stack instead of
-       squeezing both columns - matches the point .submissions-review-
-       content's responsive tiers already use similar reasoning for. */
     @media (max-width: 900px) {
       /* Back to plain full-viewport centering (see #imageModal's own
          comment above) - below this tier the modal is just a normal
          fixed-width dialog, not sized/positioned against the sidebar. */
       #imageModal { padding-left: 0; }
       .image-modal-content { width: calc(100vw - 60px); max-width: 640px; min-height: 0; }
-      .image-modal-grid { grid-template-columns: 1fr; gap: 0; }
-      .image-modal-preview { margin-top: 0.4rem; }
       .wizard-step-label { display: none; }
     }
     /* Step 1: drag & drop zone - a big, obviously clickable/droppable
@@ -1206,37 +1200,24 @@
       pointer-events: none;
     }
     .wizard-panel { display: none; }
-    /* flex column (2026-08-01), not just `block` - .image-modal-form is
-       itself a flex column now (see .image-modal-form, .image-modal-preview
-       above), and only a flex-item active panel can pass `flex: 1` down to
-       its own children (step 1's dropzone) to actually fill the stretched
-       column's height. Step 2/3's plain form fields/summary don't need that
-       stretch themselves - they just top-align within it, which is normal
-       for a form panel of varying height inside a fixed-height frame. */
+    /* flex column (2026-08-01), not just `block` - .wizard-panels is
+       itself a flex column now (see .wizard-panels above), and only a
+       flex-item active panel can pass `flex: 1` down to its own children
+       (step 1's dropzone, step 2's pool grid) to actually fill the
+       stretched column's height. */
     .wizard-panel.active {
       display: flex;
       flex-direction: column;
       flex: 1;
       min-height: 0;
     }
-    .wizard-review-summary {
-      background-color: var(--bg-sunken);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 0.8rem 1rem;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      line-height: 1.6;
-      margin-bottom: 0.8rem;
-    }
-    .wizard-review-summary strong { color: var(--text); }
     .wizard-nav {
-      /* auto (2026-08-01, was a flat 1.2rem) - .image-modal-form is a flex
-         column now, so this pushes itself to the bottom of that column
-         regardless of how tall the active panel above it ends up being,
-         keeping Back/Next anchored at the same spot across all three steps
-         instead of drifting up/down with each panel's own content height. */
-      margin-top: auto;
+      /* .wizard-panels is a flex column, so this pushes itself to the
+         bottom of that column regardless of how tall the active panel
+         above it ends up being, keeping Back/Next anchored at the same
+         spot across all three steps instead of drifting up/down with each
+         panel's own content height. */
+      margin-top: 0.8rem;
       padding-top: 0.8rem;
       border-top: 1px solid var(--border-color);
       display: flex;
@@ -1262,27 +1243,29 @@
       margin-left: auto;
     }
     .wizard-nav-btn-primary:hover { opacity: 0.88; color: #17120c; }
-    /* Grid instead of the old wrapped flex row (2026-08-01) - a big batch's
-       thumbnails now organize into columns/rows instead of one long
-       horizontally-wrapping strip. Bigger tiles and a viewport-relative
-       max-height (2026-08-01, wizard rework) since the modal itself is now
-       viewport-sized instead of a fixed 900px. */
+    /* Step 1's "images added so far" preview grid - view-only (no
+       selection), just confirmation of what's gone into the working pool
+       (see uploadPool in the script) across however many drop/browse
+       actions the admin has done on this step. Grid instead of a wrapped
+       flex row so a big batch organizes into columns/rows instead of one
+       long horizontally-wrapping strip. */
     .file-preview-list {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
       gap: 10px;
       margin: 0 0 0.6rem;
-      /* flex: 1 (2026-08-01) - .image-modal-preview is a flex column now,
-         so this grows to fill its leftover height (up to max-height below)
-         instead of sitting shrink-wrapped to just its thumbnail rows with
-         empty space beneath it - the same "actually fill the big modal"
-         reasoning as the step 1 dropzone's own flex: 1. */
+      /* flex: 1 - .wizard-panel.active is a flex column, so this grows to
+         fill its leftover height (up to max-height below) instead of
+         sitting shrink-wrapped to just its thumbnail rows with empty space
+         beneath it - the same "actually fill the big modal" reasoning as
+         the step 1 dropzone's own flex: 1. */
       flex: 1;
       max-height: 42vh;
       overflow-y: auto;
     }
     .file-preview-item {
       width: auto;
+      position: relative;
     }
     .file-preview-item img {
       width: 100%;
@@ -1291,6 +1274,8 @@
       border-radius: 6px;
       display: block;
       border: 1px solid var(--border-color);
+      -webkit-user-drag: none;
+      user-select: none;
     }
     .file-preview-item span {
       display: block;
@@ -1302,7 +1287,31 @@
       margin-top: 2px;
       text-align: center;
     }
-    .file-preview-empty, .publish-queue-empty {
+    /* Shared "remove this pool image" button - used both on step 1's
+       view-only preview tiles and step 2's selectable pool tiles below, so
+       a mistaken add can be discarded from the working pool entirely
+       (rather than having to select it in step 2 just to leave it
+       untagged/unpublished). */
+    .pool-tile-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      border: none;
+      font-size: 0.95rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+    .pool-tile-remove:hover { background: var(--danger); }
+    .file-preview-empty, .publish-queue-empty, .wizard-pool-empty {
       padding: 0.8rem 1rem;
       border: 1px dashed var(--border-color);
       border-radius: var(--radius-md);
@@ -1311,17 +1320,118 @@
       line-height: 1.5;
       margin-bottom: 0.6rem;
     }
+    /* Step 2: the working pool rendered as a selectable grid - click a tile,
+       or press-and-drag across several, to select/deselect them (see
+       wireSelectPoolTile() in the script), then assign a folder + tags
+       below and confirm to move the selection into the publish queue. */
+    .wizard-pool-toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 0.6rem;
+      flex-shrink: 0;
+    }
+    .wizard-pool-toolbar span {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-right: auto;
+    }
+    .wizard-pool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 10px;
+      flex: 1;
+      min-height: 120px;
+      overflow-y: auto;
+      padding: 2px;
+      margin-bottom: 0.8rem;
+      align-content: start;
+    }
+    .wizard-pool-tile {
+      position: relative;
+      cursor: pointer;
+      border-radius: 6px;
+      /* Dedicated to the selection ring, not shared with any hover border -
+         a 2px transparent border reserves the same box size whether or not
+         a tile is selected, so selecting one doesn't nudge its neighbors. */
+      border: 2px solid transparent;
+      transition: border-color 0.1s ease;
+    }
+    .wizard-pool-tile img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 4px;
+      display: block;
+      -webkit-user-drag: none;
+      user-select: none;
+    }
+    .wizard-pool-tile.selected { border-color: var(--accent); }
+    .wizard-pool-tile.selected img { opacity: 0.82; }
+    .wizard-pool-tile-check {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      background: rgba(0, 0, 0, 0.35);
+      transition: background-color 0.1s ease, border-color 0.1s ease;
+    }
+    .wizard-pool-tile.selected .wizard-pool-tile-check {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .wizard-pool-tile.selected .wizard-pool-tile-check::after {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 2px;
+      width: 5px;
+      height: 9px;
+      border: solid #17120c;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    /* Set on <body> for the duration of a press-and-drag selection (see
+       setPoolDragState() in the script) so dragging across tiles doesn't
+       also drag-select the page's own text along the way. */
+    .pool-drag-active { user-select: none; }
+    .wizard-pool-confirm-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem;
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+    .wizard-pool-confirm-bar select,
+    .wizard-pool-confirm-bar input[type="text"] {
+      flex: 1;
+      min-width: 160px;
+      margin: 0;
+    }
+    .wizard-pool-confirm-bar button {
+      margin: 0;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    #poolConfirmBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
     /* Add Image modal: queued (not-yet-uploaded) batches, each one a
-       files+folder+tags selection staged so several categories can be
-       uploaded in one go instead of reopening this modal per category. Now
-       a permanent, always-visible side-column section (2026-08-01, wizard
-       rework) rather than a panel that only appears once something's
-       queued - the step panels no longer have their own preview column to
-       share this space with, and .publish-queue-empty above fills the gap
-       with an explanatory placeholder while nothing's queued, so this side
-       of the modal never looks broken/blank on a fresh open. Still wrapped
-       in a tinted panel once active, so the staging area reads as clearly
-       separate from the instant-publish controls in the wizard column. */
+       files+folder+tags selection staged in step 2 so several categories
+       can be uploaded in one go instead of reopening this modal per
+       category. Step 3's own full-width panel (2026-08-01, second wizard
+       rework) rather than a permanent side column - .publish-queue-empty
+       above fills the gap with an explanatory placeholder while nothing's
+       queued yet, so this step never looks broken/blank the first time
+       it's reached. Still wrapped in a tinted panel once active, so the
+       staged batches read as clearly separate from the rest of the modal. */
     .publish-queue-panel {
       display: none;
       padding: 10px 12px 12px;
@@ -1330,28 +1440,50 @@
       border-radius: var(--radius-md);
     }
     .publish-queue-panel.active { display: block; }
-    /* Grid instead of a single stacked column (2026-08-01) - several queued
-       categories now organize side by side instead of one under another,
-       with a viewport-relative max-height (was a fixed 280px) now that the
-       modal itself is viewport-sized. */
+    /* Grid of queued batches, each one a card with its own thumbnail strip
+       (2026-08-01, second wizard pass - "queue review with easy to read/see
+       images with folder and tags") instead of a single line of text, so a
+       batch can actually be recognized/checked at a glance before
+       publishing rather than just trusted by its file count. */
     .upload-queue-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 8px;
-      max-height: 34vh;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 10px;
+      max-height: 50vh;
       overflow-y: auto;
     }
     .upload-queue-item {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      flex-direction: column;
+      gap: 6px;
       background: var(--bg-sunken);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
-      padding: 6px 10px;
+      padding: 8px 10px 10px;
       font-size: 0.82rem;
       color: var(--text-muted);
+    }
+    .upload-queue-item-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .upload-queue-item-label strong { color: var(--text); }
+    .upload-queue-item-tags {
+      display: block;
+      color: var(--text-faint);
+      font-size: 0.78rem;
+      margin-top: 2px;
+    }
+    /* Reuses .batch-review-thumb/.batch-review-thumbs-strip (Edit Tags
+       modal's own thumbnail strip classes - see their definition) rather
+       than inventing another thumbnail treatment for the same "small
+       square image previews in a wrapped row" shape. */
+    .upload-queue-item .batch-review-thumbs-strip {
+      max-height: none;
+      overflow: visible;
+      margin-bottom: 0;
     }
     .upload-queue-item-remove {
       background: none;
@@ -1375,19 +1507,6 @@
     .publish-queue-bar span {
       font-size: 0.82rem;
       color: var(--text-muted);
-    }
-    /* "Add to Queue" is a secondary/staging action, visually distinct from
-       the primary solid-accent "Publish Now" (instant upload) button next
-       to it - two equal-weight solid buttons made the two very different
-       actions (upload now vs. stage for later) look interchangeable. */
-    #queueAddImageBtn {
-      background-color: transparent;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-    }
-    #queueAddImageBtn:hover {
-      background-color: var(--accent-soft);
-      opacity: 1;
     }
     .modal-content .close-modal-btn {
       background: none;
@@ -2431,8 +2550,8 @@
   :root { --sidebar-width: 230px; --header-height: 64.16px; }
   .top-search-bar { padding-right: 24px; }
   .about-btn { top: 76px; right: 20px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .submit-reference-btn { top: 76px; right: 130px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .contributors-btn { top: 76px; right: 240px; width: 110px; padding: 8px 6px; font-size: 0.8rem; }
+  .contributors-btn { top: 76px; right: 130px; width: 110px; padding: 8px 6px; font-size: 0.8rem; }
+  .submit-reference-btn { top: 76px; right: 260px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
   .search-bar-icon { left: 12px; width: 16px; height: 16px; }
   .search-placeholder-fade { left: 38px; font-size: 0.85rem; }
@@ -2457,14 +2576,14 @@
   .sidebar-brand { font-size: 1.35rem; height: calc(var(--header-height) - 1.4rem); }
   .top-search-bar { padding: 8px 12px; padding-left: 0.6rem; gap: 0.6rem; }
   .about-btn { top: 64px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .submit-reference-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
-  /* Dropped to its own row below About/Submit, same reasoning as the
+  .contributors-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
+  /* Dropped to its own row below About/Contributors, same reasoning as the
      <=420px tier's own override (see its comment) - checked across this
      entire tier's width range (421-640px) via a headless sweep, and even
-     at the widest end of it, squeezing all three across one row put
-     Contributors' left edge under the sidebar at everything below ~516px,
+     at the widest end of it, squeezing all three across one row put the
+     outer button's left edge under the sidebar at everything below ~516px,
      not just at the narrowest phone widths. */
-  .contributors-btn { top: 106px; right: 16px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
+  .submit-reference-btn { top: 106px; right: 16px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
   .search-bar-icon { left: 12px; width: 16px; height: 16px; }
   .search-placeholder-fade { left: 38px; font-size: 0.85rem; }
@@ -2488,18 +2607,18 @@
   .sidebar-brand { font-size: 1.15rem; height: calc(var(--header-height) - 1.4rem); }
   .top-search-bar { padding: 8px 10px; padding-left: 0.6rem; }
   .about-btn { top: 58px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
-  .submit-reference-btn { top: 58px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
-  /* Dropped to its own row below About/Submit (2026-08-01), rather than
-     squeezed into the same row - at this tier the sidebar alone (140px)
-     plus About+Submit's own combined footprint (180px) already leaves only
-     60px of the 380px reference width for a third button, nowhere near
-     enough for "Contributors" at any legible size. Confirmed via a
-     headless render: keeping it on the shared row at a shrunk width still
-     had its left edge landing under the 140px sidebar, where its clicks
-     would have been swallowed the same way the z-index fix above this file
-     exists to prevent for modals. Right-aligned to match About's own right
-     edge since it's now the only button on its row. */
-  .contributors-btn { top: 106px; right: 12px; width: 78px; padding: 6px 8px; font-size: 0.78rem; }
+  .contributors-btn { top: 58px; width: 78px; right: 102px; padding: 6px 8px; font-size: 0.78rem; }
+  /* Dropped to its own row below About/Contributors (2026-08-01), rather
+     than squeezed into the same row - at this tier the sidebar alone
+     (140px) plus About+Contributors' own combined footprint (180px)
+     already leaves only 60px of the 380px reference width for a third
+     button, nowhere near enough for "Submit" at any legible size. Confirmed
+     via a headless render: keeping it on the shared row at a shrunk width
+     still had its left edge landing under the 140px sidebar, where its
+     clicks would have been swallowed the same way the z-index fix above
+     this file exists to prevent for modals. Right-aligned to match About's
+     own right edge since it's now the only button on its row. */
+  .submit-reference-btn { top: 106px; right: 12px; width: 78px; padding: 6px 8px; font-size: 0.78rem; }
   .main-content { padding-top: 154px; }
 }
 
@@ -2692,9 +2811,9 @@
 </head>
 <body>
 
+    <button id="submitReferenceBtn" class="submit-reference-btn">Submit</button>
     <button id="contributorsBtn" class="contributors-btn">Contributors</button>
     <button id="aboutBtn" class="about-btn">About</button>
-    <button id="submitReferenceBtn" class="submit-reference-btn">Submit</button>
 
   <div class="top-search-bar">
     <div class="main-search-container">
@@ -2945,15 +3064,20 @@
       </div>
     </div>
   </div>
-  <!-- MODAL: Add Image (2026-08-01: rebuilt as a large step-by-step wizard,
-       see .image-modal-content/.wizard-* CSS for the sizing and step-panel
-       mechanics. Every element id below is unchanged from the old
-       two-column layout (fileInput, folderSelect, imageKeywords,
-       confirmAddImageBtn, queueAddImageBtn, publishQueueBtn, etc.) - only
-       regrouped into three step panels plus a persistent side column, so
-       none of the existing upload/queue JS needed to change to work with
-       this markup, only the new step-navigation JS (setWizardStep() and
-       friends) was added on top. -->
+  <!-- MODAL: Add Image (2026-08-01, rebuilt a second time the same day -
+       "still not convinced" - into a pool-then-sort-then-publish flow: step
+       1 dumps every file the admin wants to deal with into a single working
+       pool regardless of what folder/tags they'll eventually get; step 2
+       repeatedly click/drag-selects a subset of that pool, assigns it a
+       folder+tags, and confirms it into the publish queue (repeat until the
+       pool's empty); step 3 reviews the queue - real thumbnails, not just
+       text - then publishes everything at once. publishQueueBtn/
+       uploadQueueList/renderUploadQueue()/startUploadBatch() are unchanged
+       from the previous version; folderSelect/imageKeywords keep their ids
+       too (still populated by renderFolders()/initTagChipInput()) but now
+       apply only to the currently-selected pool subset in step 2, not to
+       "everything picked in step 1" the way they used to. See the
+       .wizard-pool-*/.wizard-panels CSS for the layout mechanics. -->
   <div class="modal-backdrop" id="imageModal">
     <div class="modal-content image-modal-content">
       <button class="close-modal-btn" id="closeImageModalBtn">&times;</button>
@@ -2962,12 +3086,12 @@
       <div class="wizard-steps-indicator" id="wizardStepsIndicator">
         <div class="wizard-step-pill" data-step="1">
           <span class="wizard-step-num">1</span>
-          <span class="wizard-step-label">Select Images</span>
+          <span class="wizard-step-label">Add Images</span>
         </div>
         <div class="wizard-step-connector"></div>
         <div class="wizard-step-pill" data-step="2">
           <span class="wizard-step-num">2</span>
-          <span class="wizard-step-label">Folder &amp; Tags</span>
+          <span class="wizard-step-label">Sort &amp; Tag</span>
         </div>
         <div class="wizard-step-connector"></div>
         <div class="wizard-step-pill" data-step="3">
@@ -2976,50 +3100,41 @@
         </div>
       </div>
 
-      <div class="image-modal-grid">
-        <div class="image-modal-form">
-          <div class="wizard-panel" data-panel="1">
-            <label for="fileInput" class="wizard-dropzone" id="fileDropzone">
-              <svg class="wizard-dropzone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <div class="wizard-dropzone-text">Drag &amp; drop images here, or click to browse</div>
-              <input type="file" id="fileInput" accept="image/*" multiple>
-            </label>
-            <div id="fileInputHint" class="modal-hint">No file selected</div>
+      <div class="wizard-panels">
+        <div class="wizard-panel" data-panel="1">
+          <label for="fileInput" class="wizard-dropzone" id="fileDropzone">
+            <svg class="wizard-dropzone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="wizard-dropzone-text">Drag &amp; drop any images here, or click to browse - mix as many folders/categories as you like, you'll sort them in the next step</div>
+            <input type="file" id="fileInput" accept="image/*" multiple>
+          </label>
+          <div id="fileInputHint" class="modal-hint">No images added yet</div>
+          <div class="image-modal-preview-label">Images added</div>
+          <div id="poolEmptyStep1" class="file-preview-empty">Nothing added yet - use the dropzone above.</div>
+          <div id="poolPreviewList" class="file-preview-list"></div>
+        </div>
+
+        <div class="wizard-panel" data-panel="2">
+          <div class="wizard-pool-toolbar">
+            <span id="poolSelectionCount">0 selected</span>
+            <button type="button" id="poolSelectAllBtn" class="wizard-nav-btn">Select All</button>
+            <button type="button" id="poolClearSelectionBtn" class="wizard-nav-btn">Clear Selection</button>
           </div>
-
-          <div class="wizard-panel" data-panel="2">
-            <label for="folderSelect">Location:</label>
-            <select id="folderSelect"></select>
-
-            <label for="imageKeywords">Keywords (optional):</label>
-            <input type="text" id="imageKeywords" placeholder="e.g., red, green">
-            <div class="modal-hint">Goes live immediately - no review step.</div>
-          </div>
-
-          <div class="wizard-panel" data-panel="3">
-            <div class="wizard-review-summary" id="wizardReviewSummary"></div>
-            <div class="image-modal-actions">
-              <button id="confirmAddImageBtn">Publish Now</button>
-              <button id="queueAddImageBtn">Add to Queue</button>
-            </div>
-          </div>
-
-          <div class="wizard-nav">
-            <button type="button" id="wizardBackBtn" class="wizard-nav-btn">&larr; Back</button>
-            <button type="button" id="wizardNextBtn" class="wizard-nav-btn wizard-nav-btn-primary">Next &rarr;</button>
+          <div class="modal-hint">Click an image, or click-and-drag across several, to select them - then pick a folder and tags below and hit Confirm. Repeat until every image is sorted.</div>
+          <div id="selectPoolEmpty" class="wizard-pool-empty">Every added image has been sorted - continue to Step 3 to review the queue, or go back to Step 1 to add more.</div>
+          <div id="selectPoolGrid" class="wizard-pool-grid"></div>
+          <div class="wizard-pool-confirm-bar">
+            <select id="folderSelect" aria-label="Folder for selected images"></select>
+            <input type="text" id="imageKeywords" placeholder="Tags (optional) - e.g., red, green" aria-label="Tags for selected images">
+            <button type="button" id="poolConfirmBtn" disabled>Confirm &amp; Queue Selected</button>
           </div>
         </div>
 
-        <div class="image-modal-preview">
-          <div class="image-modal-preview-label">Selected images</div>
-          <div id="filePreviewEmpty" class="file-preview-empty">No images selected yet - use the dropzone on the left.</div>
-          <div id="filePreviewList" class="file-preview-list"></div>
-
+        <div class="wizard-panel" data-panel="3">
           <div class="image-modal-preview-label">Queued — not published yet</div>
-          <div id="publishQueueEmpty" class="publish-queue-empty">Batches you add via "Add to Queue" will show up here - stage several folder/tag combinations, then publish them all at once.</div>
+          <div id="publishQueueEmpty" class="publish-queue-empty">Nothing queued yet - go back to Step 2 and confirm a selection to stage it here.</div>
           <div id="publishQueuePanel" class="publish-queue-panel">
             <div id="uploadQueueList" class="upload-queue-list"></div>
             <div id="publishQueueBar" class="publish-queue-bar">
@@ -3027,6 +3142,11 @@
               <button id="publishQueueBtn">Publish All</button>
             </div>
           </div>
+        </div>
+
+        <div class="wizard-nav">
+          <button type="button" id="wizardBackBtn" class="wizard-nav-btn">&larr; Back</button>
+          <button type="button" id="wizardNextBtn" class="wizard-nav-btn wizard-nav-btn-primary">Next &rarr;</button>
         </div>
       </div>
     </div>
@@ -3099,8 +3219,8 @@
          which is what was causing "save password?" prompts with a
          category name offered as the username while publishing images. -->
     <form id="adminLoginForm" autocomplete="off">
-      <label for="adminEmailInput">Email:</label>
-      <input type="email" id="adminEmailInput" placeholder="you@example.com" autocomplete="off" readonly>
+      <label for="adminEmailInput">Username:</label>
+      <input type="email" id="adminEmailInput" placeholder="Username" autocomplete="off" readonly>
       <label for="adminPasswordInput">Password:</label>
       <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="off" readonly>
       <div id="adminLoginError" class="modal-hint" style="display:none;"></div>
@@ -3450,8 +3570,24 @@
     // tags (mismatched) - see saveEditedTags().
     let editTagsAllMatched = true;
     // Publish queue: files+folder+keywords batches staged in the Add Image
-    // modal but not yet uploaded - see queueAddImageBtn/publishQueueBtn.
+    // modal but not yet uploaded - see renderUploadQueue()/publishQueueBtn.
+    // Each batch is confirmed out of uploadPool below (step 2), not staged
+    // directly from a raw file selection any more.
     let uploadQueue = [];
+    // The step 1/2 working pool: every image the admin has added this modal
+    // session that hasn't been sorted into a queued batch yet (see
+    // addFilesToPool()/renderPoolViews() further down). Each entry is
+    // { id, file, url } - url is an object URL for the thumbnail, revoked
+    // when the entry leaves the pool (confirmed into the queue or
+    // discarded) so a long admin session doesn't leak blob URLs.
+    let uploadPool = [];
+    let poolIdCounter = 0;
+    // ids (from uploadPool entries) currently selected in step 2's grid.
+    let poolSelection = new Set();
+    // Set while a press-and-drag selection is in progress in step 2's pool
+    // grid - { mode: "select" | "deselect" }, decided by whichever way the
+    // tile the drag started on just flipped. null when no drag is active.
+    let poolDragState = null;
 
     // DOM Elements
     const folderList = document.getElementById("folderList");
@@ -3461,39 +3597,27 @@
 
     const imageModal = document.getElementById("imageModal");
     const closeImageModalBtn = document.getElementById("closeImageModalBtn");
-    const confirmAddImageBtn = document.getElementById("confirmAddImageBtn");
-    const queueAddImageBtn = document.getElementById("queueAddImageBtn");
     const fileInput = document.getElementById("fileInput");
     const folderSelect = document.getElementById("folderSelect");
     const imageKeywords = document.getElementById("imageKeywords");
     initTagChipInput(imageKeywords);
 
-    // Add Image modal step wizard (2026-08-01) - three panels
-    // (Select Images / Folder & Tags / Review & Publish) shown one at a
-    // time instead of all at once, now that the modal itself is much
-    // bigger and has the room to walk through the upload in stages instead
-    // of cramming every field onto one screen. wizardFurthestStep tracks
-    // the deepest step reached so far in this modal session, so a step
-    // pill can be clicked to jump back to any already-visited step without
-    // also allowing a jump *ahead* to a step that hasn't been reached (and
-    // so hasn't been validated) yet.
+    // Add Image modal step wizard (2026-08-01, rebuilt a second time the
+    // same day into a pool/sort/review flow - see the modal's own HTML
+    // comment) - three panels (Add Images / Sort & Tag / Review & Publish)
+    // shown one at a time instead of all at once, now that the modal itself
+    // is much bigger and has the room to walk through the upload in stages
+    // instead of cramming every field onto one screen. wizardFurthestStep
+    // tracks the deepest step reached so far in this modal session, so a
+    // step pill can be clicked to jump back to any already-visited step
+    // without also allowing a jump *ahead* to a step that hasn't been
+    // reached (and so hasn't been validated) yet.
     const wizardPanels = document.querySelectorAll(".wizard-panel");
     const wizardStepPills = document.querySelectorAll(".wizard-step-pill");
     const wizardBackBtn = document.getElementById("wizardBackBtn");
     const wizardNextBtn = document.getElementById("wizardNextBtn");
-    const wizardReviewSummary = document.getElementById("wizardReviewSummary");
     let wizardStep = 1;
     let wizardFurthestStep = 1;
-
-    function updateWizardReviewSummary() {
-      const files = Array.from(fileInput.files || []);
-      const folderOption = folderSelect.options[folderSelect.selectedIndex];
-      const folderLabel = folderOption ? folderOption.textContent.trim().replace(/^—\s*/, "") : (folderSelect.value || "all");
-      const tags = imageKeywords.tagChipsAPI.getValue();
-      const fileWord = files.length === 1 ? "image" : "images";
-      wizardReviewSummary.innerHTML = `<strong>${files.length}</strong> ${fileWord} &rarr; <strong>${folderLabel}</strong>` +
-        (tags ? ` (tags: ${tags})` : "");
-    }
 
     function setWizardStep(step) {
       wizardStep = step;
@@ -3508,11 +3632,11 @@
         pill.classList.toggle("reachable", pillStep !== step && pillStep <= wizardFurthestStep);
       });
       // No previous step to go back to from step 1; step 3's own Publish
-      // Now/Add to Queue buttons replace "Next" as the way forward, so it
-      // has nothing to advance to either.
+      // All (inside the queue panel) replaces "Next" as the way forward, so
+      // it has nothing to advance to either.
       wizardBackBtn.style.visibility = step === 1 ? "hidden" : "visible";
       wizardNextBtn.style.display = step === 3 ? "none" : "";
-      if (step === 3) updateWizardReviewSummary();
+      if (step === 3) renderUploadQueue();
     }
 
     wizardStepPills.forEach(pill => {
@@ -3523,9 +3647,15 @@
     });
 
     wizardNextBtn.addEventListener("click", () => {
-      if (wizardStep === 1 && (!fileInput.files || fileInput.files.length === 0)) {
-        alert("Please select at least one image file first.");
-        return;
+      if (wizardStep === 1) {
+        if (uploadPool.length === 0) {
+          alert("Please add at least one image first.");
+          return;
+        }
+      } else if (wizardStep === 2 && uploadPool.length > 0) {
+        const word = uploadPool.length === 1 ? "image hasn't" : "images haven't";
+        const proceed = confirm(`${uploadPool.length} ${word} been sorted into a folder yet and won't be published. Continue to Review anyway?`);
+        if (!proceed) return;
       }
       setWizardStep(Math.min(wizardStep + 1, 3));
     });
@@ -3535,9 +3665,7 @@
     });
 
     // Drag & drop onto the step 1 dropzone, on top of its plain
-    // <label for="fileInput"> click-to-browse behavior. fileInput.files is
-    // normally read-only, but assignable from a real FileList like the
-    // one a drop event's DataTransfer carries.
+    // <label for="fileInput"> click-to-browse behavior.
     const fileDropzone = document.getElementById("fileDropzone");
     ["dragenter", "dragover"].forEach(evt => {
       fileDropzone.addEventListener(evt, (e) => {
@@ -3553,10 +3681,7 @@
     });
     fileDropzone.addEventListener("drop", (e) => {
       const dropped = e.dataTransfer && e.dataTransfer.files;
-      if (dropped && dropped.length > 0) {
-        fileInput.files = dropped;
-        updateFilePreview();
-      }
+      if (dropped && dropped.length > 0) addFilesToPool(dropped);
     });
     // Neither the wizard panels nor the step pills hardcode an initial
     // .active state in the HTML - this sets it once at script init so the
@@ -3912,11 +4037,19 @@
     const searchPlaceholderFade = document.getElementById("searchPlaceholderFade");
     const searchPlaceholderText = document.getElementById("searchPlaceholderText");
     let searchPlaceholderIndex = 0;
+    // Only real folders/subfolders cycle through here (2026-08-01: dropped
+    // the generic "images..." phrase entirely) - "All" and "New This Week"
+    // are excluded (they're virtual categories, not real folders), and
+    // every name types out in capital letters. `#folderList li:not(.all)
+    // :not(.new-this-week) > .folder-label > .folder-name` matches both a
+    // top-level folder's own name span and a subfolder's (both share the
+    // same li > .folder-label > .folder-name structure - see
+    // renderFolders()), so subfolders are included automatically.
     function getSearchPlaceholderOptions() {
-      const folderNames = [...document.querySelectorAll("#folderList > li:not(.all):not(.new-this-week) > .folder-label > .folder-name")]
+      const folderNames = [...document.querySelectorAll("#folderList li:not(.all):not(.new-this-week) > .folder-label > .folder-name")]
         .map(el => el.textContent.trim())
         .filter(Boolean);
-      return ["images...", ...folderNames.map(name => `${name}...`)];
+      return folderNames.map(name => `${name.toUpperCase()}...`);
     }
     // Don't fight real user input/focus - a native placeholder wouldn't
     // show under those conditions either. Every tick below checks this and,
@@ -6148,11 +6281,17 @@ function closeEnlargeModal() {
     // Image Modal handling
     // Actual upload progress is tracked in the upload dock (uploads continue
     // in the background after this modal closes), so closing here never
-    // needs to warn about work in progress.
+    // needs to warn about work in progress. uploadPool/uploadQueue are both
+    // deliberately left alone here, same reasoning the Publish Queue
+    // feature already established for uploadQueue - accidentally dismissing
+    // the modal mid-batch shouldn't lose images that have already been
+    // added or already sorted into the queue. Only the transient, not-yet-
+    // confirmed step 2 selection/fields are cleared.
     function resetImageModal() {
       fileInput.value = "";
       imageKeywords.tagChipsAPI.setTags("");
-      updateFilePreview();
+      poolSelection.clear();
+      renderPoolViews();
       wizardFurthestStep = 1;
       setWizardStep(1);
     }
@@ -6164,36 +6303,174 @@ function closeEnlargeModal() {
 
     imageModal.addEventListener("click", (e) => { if(e.target === imageModal) imageModal.classList.remove("active"); });
 
-    // Show a thumbnail + count for the selected file(s) instead of relying
-    // on the browser's terse native "n files selected" text
+    // Step 1/2 working pool (2026-08-01) - every image added this modal
+    // session lives in uploadPool until step 2 confirms a selected subset
+    // into uploadQueue. Rendered into two places from the same array:
+    // #poolPreviewList (step 1, view-only, just confirms what's been added)
+    // and #selectPoolGrid (step 2, interactive - click/drag to select).
     const fileInputHint = document.getElementById("fileInputHint");
-    const filePreviewList = document.getElementById("filePreviewList");
-    const filePreviewEmpty = document.getElementById("filePreviewEmpty");
-    function updateFilePreview() {
-      filePreviewList.innerHTML = "";
-      const files = Array.from(fileInput.files || []);
-      filePreviewEmpty.style.display = files.length === 0 ? "block" : "none";
-      if (files.length === 0) {
-        fileInputHint.textContent = "No file selected";
-        return;
-      }
-      fileInputHint.textContent = files.length === 1 ? "1 image selected" : `${files.length} images selected`;
+    const poolPreviewList = document.getElementById("poolPreviewList");
+    const poolEmptyStep1 = document.getElementById("poolEmptyStep1");
+    const selectPoolGrid = document.getElementById("selectPoolGrid");
+    const selectPoolEmpty = document.getElementById("selectPoolEmpty");
+    const poolSelectionCountEl = document.getElementById("poolSelectionCount");
+    const poolSelectAllBtn = document.getElementById("poolSelectAllBtn");
+    const poolClearSelectionBtn = document.getElementById("poolClearSelectionBtn");
+    const poolConfirmBtn = document.getElementById("poolConfirmBtn");
+
+    function addFilesToPool(fileList) {
+      const files = Array.from(fileList || []).filter(f => !f.type || f.type.startsWith("image/"));
       files.forEach(file => {
-        const item = document.createElement("div");
-        item.className = "file-preview-item";
-        const thumb = document.createElement("img");
-        thumb.src = URL.createObjectURL(file);
-        thumb.onload = () => URL.revokeObjectURL(thumb.src);
-        thumb.alt = file.name;
-        const label = document.createElement("span");
-        label.textContent = file.name;
-        label.title = file.name;
-        item.appendChild(thumb);
-        item.appendChild(label);
-        filePreviewList.appendChild(item);
+        uploadPool.push({ id: `pool-${poolIdCounter++}`, file, url: URL.createObjectURL(file) });
+      });
+      renderPoolViews();
+    }
+
+    // Removes one image from the working pool entirely (before it's ever
+    // been sorted into a batch) - available from both the step 1 and step 2
+    // tiles, so a mistaken add can be discarded without having to select it
+    // in step 2 just to leave it untagged.
+    function discardPoolItem(id) {
+      const idx = uploadPool.findIndex(item => item.id === id);
+      if (idx === -1) return;
+      URL.revokeObjectURL(uploadPool[idx].url);
+      uploadPool.splice(idx, 1);
+      poolSelection.delete(id);
+      renderPoolViews();
+    }
+
+    function updatePoolSelectionUI() {
+      poolSelectionCountEl.textContent = poolSelection.size === 1 ? "1 selected" : `${poolSelection.size} selected`;
+      poolConfirmBtn.disabled = poolSelection.size === 0;
+    }
+
+    // Toggling happens on mousedown (not click) so the same handler doubles
+    // as the start of a press-and-drag selection: mousedown flips this tile
+    // and records which direction (select/deselect) the drag should apply
+    // to whatever tiles the pointer passes over next, via mouseenter below.
+    function wireSelectPoolTile(tile, id) {
+      tile.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        const nowSelected = !poolSelection.has(id);
+        if (nowSelected) poolSelection.add(id); else poolSelection.delete(id);
+        tile.classList.toggle("selected", nowSelected);
+        setPoolDragState({ mode: nowSelected ? "select" : "deselect" });
+        updatePoolSelectionUI();
+      });
+      tile.addEventListener("mouseenter", () => {
+        if (!poolDragState) return;
+        const shouldSelect = poolDragState.mode === "select";
+        if (shouldSelect) poolSelection.add(id); else poolSelection.delete(id);
+        tile.classList.toggle("selected", shouldSelect);
+        updatePoolSelectionUI();
       });
     }
-    fileInput.addEventListener("change", updateFilePreview);
+
+    function setPoolDragState(state) {
+      poolDragState = state;
+      document.body.classList.toggle("pool-drag-active", !!state);
+    }
+    // Bound once, globally (not inside renderPoolViews()) - the same lesson
+    // this file already learned from the lightbox download button and the
+    // old upload-dock minimize button: a listener that only gets attached
+    // from inside a function that re-runs a lot either never fires (wrong
+    // DOM timing) or piles up duplicates. Ending a drag doesn't depend on
+    // which tile the mouse is over, so a single document-level mouseup
+    // covers every case, including releasing outside any tile entirely.
+    document.addEventListener("mouseup", () => setPoolDragState(null));
+
+    function renderPoolViews() {
+      // Step 1: view-only confirmation of what's been added so far.
+      poolPreviewList.innerHTML = "";
+      poolEmptyStep1.style.display = uploadPool.length === 0 ? "block" : "none";
+      fileInputHint.textContent = uploadPool.length === 0 ? "No images added yet"
+        : (uploadPool.length === 1 ? "1 image added" : `${uploadPool.length} images added`);
+      uploadPool.forEach(item => {
+        const tile = document.createElement("div");
+        tile.className = "file-preview-item";
+        const thumb = document.createElement("img");
+        thumb.src = item.url;
+        thumb.alt = item.file.name;
+        thumb.draggable = false;
+        const label = document.createElement("span");
+        label.textContent = item.file.name;
+        label.title = item.file.name;
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "pool-tile-remove";
+        removeBtn.title = "Remove";
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", () => discardPoolItem(item.id));
+        tile.appendChild(thumb);
+        tile.appendChild(removeBtn);
+        tile.appendChild(label);
+        poolPreviewList.appendChild(tile);
+      });
+
+      // Step 2: the same pool, as a selectable grid.
+      selectPoolGrid.innerHTML = "";
+      selectPoolEmpty.style.display = uploadPool.length === 0 ? "block" : "none";
+      uploadPool.forEach(item => {
+        const tile = document.createElement("div");
+        tile.className = "wizard-pool-tile" + (poolSelection.has(item.id) ? " selected" : "");
+        const thumb = document.createElement("img");
+        thumb.src = item.url;
+        thumb.alt = item.file.name;
+        thumb.draggable = false;
+        const check = document.createElement("div");
+        check.className = "wizard-pool-tile-check";
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "pool-tile-remove";
+        removeBtn.title = "Remove";
+        removeBtn.textContent = "×";
+        // Own mousedown must not also start a drag-select on the tile
+        // underneath it.
+        removeBtn.addEventListener("mousedown", (e) => e.stopPropagation());
+        removeBtn.addEventListener("click", (e) => { e.stopPropagation(); discardPoolItem(item.id); });
+        tile.appendChild(thumb);
+        tile.appendChild(check);
+        tile.appendChild(removeBtn);
+        wireSelectPoolTile(tile, item.id);
+        selectPoolGrid.appendChild(tile);
+      });
+      updatePoolSelectionUI();
+    }
+
+    poolSelectAllBtn.addEventListener("click", () => {
+      poolSelection = new Set(uploadPool.map(item => item.id));
+      renderPoolViews();
+    });
+    poolClearSelectionBtn.addEventListener("click", () => {
+      poolSelection.clear();
+      renderPoolViews();
+    });
+
+    // Confirms the current step 2 selection into the publish queue as its
+    // own batch (files + this folder + these tags), then removes those
+    // images from the working pool - "the selected images disappear in the
+    // queue" - so the same select/tag/confirm cycle can repeat for whatever
+    // remains in the pool.
+    poolConfirmBtn.addEventListener("click", () => {
+      const selectedItems = uploadPool.filter(item => poolSelection.has(item.id));
+      if (selectedItems.length === 0) return;
+      const folderValue = folderSelect.value || 'all';
+      const keywords = imageKeywords.tagChipsAPI.getValue().toLowerCase();
+      uploadQueue.push({ files: selectedItems.map(item => item.file), folderValue, keywords });
+      const confirmedIds = new Set(selectedItems.map(item => item.id));
+      selectedItems.forEach(item => URL.revokeObjectURL(item.url));
+      uploadPool = uploadPool.filter(item => !confirmedIds.has(item.id));
+      poolSelection.clear();
+      imageKeywords.tagChipsAPI.setTags("");
+      renderPoolViews();
+      renderUploadQueue();
+    });
+
+    fileInput.addEventListener("change", () => {
+      addFilesToPool(fileInput.files);
+      fileInput.value = "";
+    });
 
     // Rename Folder Modal handling
     renameFolderBtn.addEventListener("click", () => {
@@ -6620,68 +6897,22 @@ function closeEnlargeModal() {
     newFolderAdminBtn.addEventListener("click", () => { folderModal.classList.add("active"); });
     addImageAdminBtn.addEventListener("click", () => {
       imageModal.classList.add("active");
-      // Always open on step 1 - a previous session's file selection (if
-      // any - e.g. the modal was dismissed via the backdrop, which doesn't
-      // call resetImageModal()) is left alone, but the wizard itself
-      // always starts predictably from the top.
+      // Always open on step 1 - a previous session's pool/queue (if any -
+      // e.g. the modal was dismissed via the backdrop, which doesn't clear
+      // either - see resetImageModal()) is left alone, but the wizard
+      // itself always starts predictably from the top.
       wizardFurthestStep = 1;
       setWizardStep(1);
     });
 
-    // Confirm Add Image button - uploads this batch immediately.
-  confirmAddImageBtn.addEventListener("click", async () => {
-  // Copy into a plain array: fileInput.files is a live FileList, and
-  // resetting fileInput.value below would otherwise empty it retroactively.
-  const files = Array.from(fileInput.files);
-
-  if (!files || files.length === 0) {
-    alert("Please select at least one image file first.");
-    return;
-  }
-
-  // Check if admin mode is active - the Firestore security rules are the
-  // real enforcement, this is just a friendlier client-side message.
-  const isAdminMode = !!auth.currentUser;
-  if (!isAdminMode) {
-    alert("You need admin access to upload files.");
-    return;
-  }
-
-  const folderValue = folderSelect.value || 'all';
-  const keywords = imageKeywords.tagChipsAPI.getValue().toLowerCase();
-
-  startUploadBatch(files, folderValue, keywords);
-
-  // Close the modal - we don't need to wait for uploads to complete
-  imageModal.classList.remove("active");
-  resetImageModal();
-});
-
-    // Stages the current selection (files + folder + keywords) into the
-    // publish queue instead of uploading it right away, so several
-    // categories can be lined up in one modal session - see
-    // publishQueueBtn below, which uploads everything queued at once.
-    queueAddImageBtn.addEventListener("click", () => {
-      const files = Array.from(fileInput.files);
-      if (!files || files.length === 0) {
-        alert("Please select at least one image file first.");
-        return;
-      }
-      const folderValue = folderSelect.value || 'all';
-      const keywords = imageKeywords.tagChipsAPI.getValue().toLowerCase();
-
-      uploadQueue.push({ files, folderValue, keywords });
-      fileInput.value = "";
-      imageKeywords.tagChipsAPI.setTags("");
-      updateFilePreview();
-      renderUploadQueue();
-      // Back to step 1 to stage the next category, same reasoning as
-      // addImageAdminBtn's own reset - the current selection was just
-      // cleared, so there's nothing left to review on steps 2/3 anyway.
-      wizardFurthestStep = 1;
-      setWizardStep(1);
-    });
-
+    // Renders the publish queue as a grid of batch cards - a thumbnail
+    // strip (so a batch can be recognized at a glance, not just trusted by
+    // file count) plus its folder and tags, and a remove button for the
+    // whole batch. Thumbnails are generated fresh from each batch's File
+    // objects here rather than reusing the pool tiles' own object URLs,
+    // since those were already revoked when the batch was confirmed out of
+    // the pool (see poolConfirmBtn above) - object URLs are cheap to
+    // recreate and this only re-runs when the queue itself changes.
     function renderUploadQueue() {
       const panel = document.getElementById("publishQueuePanel");
       const list = document.getElementById("uploadQueueList");
@@ -6689,13 +6920,23 @@ function closeEnlargeModal() {
       const summary = document.getElementById("publishQueueSummary");
       list.innerHTML = "";
       uploadQueue.forEach((batch, index) => {
-        const row = document.createElement("div");
-        row.className = "upload-queue-item";
+        const card = document.createElement("div");
+        card.className = "upload-queue-item";
+
+        const header = document.createElement("div");
+        header.className = "upload-queue-item-header";
 
         const label = document.createElement("span");
+        label.className = "upload-queue-item-label";
         const fileWord = batch.files.length === 1 ? "image" : "images";
-        label.textContent = `${batch.files.length} ${fileWord} → ${batch.folderValue}${batch.keywords ? ' (' + batch.keywords + ')' : ''}`;
-        row.appendChild(label);
+        label.innerHTML = `<strong>${batch.files.length} ${fileWord}</strong> &rarr; ${batch.folderValue}`;
+        if (batch.keywords) {
+          const tagsSpan = document.createElement("span");
+          tagsSpan.className = "upload-queue-item-tags";
+          tagsSpan.textContent = batch.keywords;
+          label.appendChild(tagsSpan);
+        }
+        header.appendChild(label);
 
         const removeBtn = document.createElement("button");
         removeBtn.type = "button";
@@ -6706,9 +6947,22 @@ function closeEnlargeModal() {
           uploadQueue.splice(index, 1);
           renderUploadQueue();
         });
-        row.appendChild(removeBtn);
+        header.appendChild(removeBtn);
+        card.appendChild(header);
 
-        list.appendChild(row);
+        const thumbs = document.createElement("div");
+        thumbs.className = "batch-review-thumbs-strip";
+        batch.files.forEach(file => {
+          const thumb = document.createElement("img");
+          thumb.className = "batch-review-thumb";
+          thumb.src = URL.createObjectURL(file);
+          thumb.onload = () => URL.revokeObjectURL(thumb.src);
+          thumb.alt = file.name;
+          thumbs.appendChild(thumb);
+        });
+        card.appendChild(thumbs);
+
+        list.appendChild(card);
       });
 
       const totalFiles = uploadQueue.reduce((sum, batch) => sum + batch.files.length, 0);
