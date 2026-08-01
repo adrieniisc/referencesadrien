@@ -4327,19 +4327,34 @@
       return dp[n];
     }
 
+    // Prefix match, not "appears anywhere as a substring" - a search word
+    // matching in the *middle* of an unrelated token (e.g. "sign" inside
+    // "design") reads as a false positive since nothing about that token is
+    // actually related to what was typed, whereas a word matching at the
+    // *start* of a longer token ("wood" against a "woodgrain" tag) is a
+    // sensible partial-word match. Also symmetric so a longer typed word
+    // still matches a shorter tag it's built from (typing "woodgrain" still
+    // matches a plain "wood" tag) - but only once the tag itself is at
+    // least 3 letters, otherwise a throwaway 1-2 letter token (a single
+    // filename-without-extension letter, a bare digit) would trivially
+    // prefix-match almost any longer search word typed in.
+    function wordMatchesToken(word, token) {
+      if (token.startsWith(word)) return true;
+      return token.length >= 3 && word.startsWith(token);
+    }
+
     // "painted wood" / "paintd wood" should both surface the same images -
     // a missing or extra letter in a search word shouldn't hide a real
-    // match. Exact substring (either direction) is still checked first
-    // since it's cheap and covers the common case (including partial words
-    // like "wood" matching a "woodgrain" tag); the edit-distance fallback
-    // only kicks in when that fails, with a threshold that scales with word
-    // length so a 1-letter typo on a short word doesn't accidentally also
-    // accept a completely different short word.
+    // match. The plain prefix check above is tried first since it's cheap;
+    // the edit-distance fallback only kicks in when that fails, with a
+    // threshold that scales with word length so a 1-letter typo on a short
+    // word doesn't accidentally also accept a completely different short
+    // word.
     function fuzzyWordMatchesToken(word, token) {
       if (!word || !token) return false;
-      if (token.includes(word) || word.includes(token)) return true;
-      if (Math.abs(word.length - token.length) > 2) return false;
-      const threshold = word.length <= 4 ? 1 : word.length <= 7 ? 2 : 3;
+      if (wordMatchesToken(word, token)) return true;
+      if (Math.abs(word.length - token.length) > 1) return false;
+      const threshold = word.length <= 5 ? 1 : 2;
       return levenshteinDistance(word, token) <= threshold;
     }
 
@@ -4384,11 +4399,33 @@
     // derived.
     const translatedKeywords = (imgContainer.dataset.translatedKeywords || "").toLowerCase();
     const synonymKeywords = synonymTagsEnabled ? (imgContainer.dataset.synonymKeywords || "").toLowerCase() : "";
-    const haystack = `${imgName} ${keywords} ${category} ${translatedKeywords} ${synonymKeywords}`;
-    const haystackTokens = haystack.split(/[^a-z0-9]+/).filter(Boolean);
+    // Matching is token-based (prefix, via wordMatchesToken), not "does the
+    // search word appear anywhere as a raw substring of the whole
+    // concatenated haystack string" - that older approach was reported as
+    // "too permissive": searching "sign" was surfacing unrelated vegetation
+    // photos, because "sign" is a substring sitting in the *middle* of
+    // "design" (most likely from an original filename like
+    // "garden-design.jpg", invisible in the tag pill), not because of
+    // anything actually related to "sign". Tokenizing first and requiring a
+    // prefix match rules that out while still matching a real partial word
+    // like "wood" against a "woodgrain" tag (a prefix, not a mid-word
+    // coincidence).
+    const haystackTokens = `${imgName} ${keywords} ${category} ${translatedKeywords} ${synonymKeywords}`
+      .split(/[^a-z0-9]+/).filter(Boolean);
+    // Typo tolerance (fuzzyWordMatchesToken) is scoped to just the real,
+    // visible tags - keywords + the folder/category name - rather than
+    // every token above. imgName (the original uploaded filename) is
+    // essentially unconstrained free text, and translatedKeywords/
+    // synonymKeywords are themselves already alternate spellings a human
+    // never typed - letting edit-distance fuzziness loose on either widens
+    // the odds of an incidental near-match on data the admin can't even see
+    // in the UI. Plain prefix matching (above) still applies to every field,
+    // unchanged - only the new edit-distance fallback is scoped down.
+    const fuzzyTokens = `${keywords} ${category}`.split(/[^a-z0-9]+/).filter(Boolean);
 
     const matchesSearch = searchWords.every(word =>
-      haystack.includes(word) || haystackTokens.some(token => fuzzyWordMatchesToken(word, token))
+      haystackTokens.some(token => wordMatchesToken(word, token)) ||
+      fuzzyTokens.some(token => fuzzyWordMatchesToken(word, token))
     );
     imgContainer.classList.toggle("hidden", !(matchesSearch && imageMatchesColorFilter(imgContainer)));
   });
