@@ -82,6 +82,16 @@
       --lightbox-row-gap: 80px;
       --lightbox-nav-inset: 20px;  /* arrow's own distance from the viewport edge */
       --lightbox-nav-size: 48px;
+      /* Minimum breathing room kept clear on every side of the whole
+         maxed-image composition (image + tags/resolution/size caption) -
+         "no depassement in this margin zone for visual confort... it's a
+         safe zone". updateEnlargedImageSize() reads this back the same way
+         it already does for the row-gap/nav tokens above, then actively
+         re-checks and shrinks the image afterward if the caption's real
+         (measured, not estimated) height would still push it past this
+         margin - see that function's own comment for why a plain estimate
+         isn't enough on its own. */
+      --lightbox-safe-margin: 32px;
 
       /* legacy aliases kept for any untouched rules */
       --main-bg: var(--bg);
@@ -1293,9 +1303,16 @@
       position: relative;
     }
     .file-preview-item img {
+      /* No forced aspect-ratio/object-fit: cover (2026-08-01, "i want
+         original ratios") - these used to crop every thumbnail to a square,
+         hiding each photo's real proportions. max-height caps how tall a
+         very portrait/panoramic image can get within the grid; object-fit:
+         contain (not cover) means that cap letterboxes rather than crops. */
       width: 100%;
-      aspect-ratio: 1;
-      object-fit: cover;
+      height: auto;
+      max-height: 180px;
+      object-fit: contain;
+      background-color: rgba(0, 0, 0, 0.2);
       border-radius: 6px;
       display: block;
       border: 1px solid var(--border-color);
@@ -1384,9 +1401,14 @@
       transition: border-color 0.1s ease;
     }
     .wizard-pool-tile img {
+      /* No forced aspect-ratio/object-fit: cover (2026-08-01, "i want
+         original ratios") - matches the same change on .file-preview-item
+         img above, for the same reason. */
       width: 100%;
-      aspect-ratio: 1;
-      object-fit: cover;
+      height: auto;
+      max-height: 180px;
+      object-fit: contain;
+      background-color: rgba(0, 0, 0, 0.2);
       border-radius: 4px;
       display: block;
       -webkit-user-drag: none;
@@ -2116,7 +2138,7 @@
   .enlarge-similar-panel { display: none !important; }
 }
 @media (max-width: 900px) {
-  :root { --lightbox-row-gap: 16px; }
+  :root { --lightbox-row-gap: 16px; --lightbox-safe-margin: 16px; }
 }
 
 /* Add this to the enlarged image container to allow proper positioning */
@@ -2737,16 +2759,25 @@
 /* --------------------------------------------------
    Review Submissions Panel
 -------------------------------------------------- */
+/* #reviewSubmissionsModal's own backdrop centers .submissions-review-content
+   within the gallery area (right of the sidebar), not the whole viewport -
+   same reasoning/pattern as #imageModal's own padding-left (see its
+   comment) - needed now that this panel is wide enough to otherwise spill
+   left into the sidebar. Reset to 0 at the <=900px tier below. */
+#reviewSubmissionsModal { padding-left: var(--sidebar-width); }
 .submissions-review-content {
-  /* Capped at 840px rather than wider - .sidebar has a higher z-index than
-     .modal-backdrop (a pre-existing mismatch, not introduced here), so a
-     modal wide enough to visually extend under the sidebar has that
-     overlapping strip's clicks swallowed by the sidebar instead of
-     reaching the modal underneath. 840px clears the 270px sidebar even at
-     a 1400px-wide viewport; the extra breathing room in this panel mostly
-     comes from the padding/gap increases below, not from raw width anyway. */
-  max-width: 840px;
+  /* Widened 840px -> 1600px (2026-08-01, "double images/global window
+     size") - safe now that .modal-backdrop sits above .sidebar (see that
+     rule's own comment for the z-index history); this used to be capped at
+     840px specifically to avoid that overlap, back when it was the only
+     fix available short of the real site-wide one. */
+  max-width: 1600px;
+  width: calc(100vw - var(--sidebar-width) - 80px);
   padding: 1.6rem 2rem 2rem;
+}
+@media (max-width: 900px) {
+  #reviewSubmissionsModal { padding-left: 0; }
+  .submissions-review-content { width: calc(100vw - 40px); }
 }
 #reviewSubmissionsList {
   max-height: 70vh;
@@ -2787,15 +2818,35 @@
   margin-bottom: 16px;
 }
 .submission-image-item {
-  width: 148px;
+  /* Doubled 148px -> 296px (2026-08-01, "double images/global window
+     size") - the modal itself was widened to match (see
+     .submissions-review-content), so these still lay out several per row
+     instead of just one or two. */
+  width: 296px;
 }
 .submission-image-item img {
-  width: 148px;
-  height: 148px;
-  object-fit: cover;
+  /* No forced object-fit: cover at a fixed square box (2026-08-01, "show
+     original ratio") - same reasoning/pattern as the upload wizard's pool
+     tiles (.file-preview-item/.wizard-pool-tile img): cropping every
+     submitted photo to a square hid its real proportions. max-height caps
+     how tall a very portrait/panoramic submission can get in the grid;
+     object-fit: contain (not cover) means that cap letterboxes rather than
+     crops. */
+  width: 296px;
+  height: auto;
+  max-height: 296px;
+  object-fit: contain;
+  background-color: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   display: block;
+  margin-bottom: 8px;
+}
+/* Per-image tag input (2026-08-01, "allow for tagging like upload mode") -
+   initTagChipInput() wraps the plain <input> this sits on into the same
+   chip-based control the upload wizard's own Keywords field uses; sized to
+   the doubled tile width above rather than the upload modal's wider field. */
+.submission-image-item .tag-chip-input {
   margin-bottom: 8px;
 }
 .submission-image-item select {
@@ -3452,7 +3503,7 @@
       brown: ["tan", "umber"],
       beige: ["cream", "sand"],
       red: ["crimson", "scarlet"],
-      orange: ["amber", "rust"],
+      orange: ["amber", "tangerine"],
       yellow: ["gold", "amber"],
       green: ["olive", "sage"],
       cyan: ["teal", "turquoise"],
@@ -6173,8 +6224,21 @@ downloadLink.addEventListener("click", function(e) {
           if (newTags === previousTags) return true; // nothing changed, skip the write
           const imageId = await getImageDocId(container);
           if (imageId) {
-            await db.collection('images').doc(imageId).update({ keywords: newTags });
+            // Recomputed fresh from the *new* full tag set every time a
+            // tag edit actually changes `keywords` - previously left
+            // untouched here, so synonymKeywords/translatedKeywords stayed
+            // whatever they were computed from at upload time (often just
+            // one or two of the tags typed back then), silently going stale
+            // the moment Edit Tags added/changed anything. Assigning fresh
+            // values (not merging with whatever was there before) is what
+            // "delete previous ones" means here - a full recompute already
+            // replaces them outright, it never appends to the old set.
+            const synonymKeywords = computeSynonymTags(newTags);
+            const translatedKeywords = computeTranslatedTags(newTags);
+            await db.collection('images').doc(imageId).update({ keywords: newTags, synonymKeywords, translatedKeywords });
             container.setAttribute('data-keywords', newTags);
+            container.dataset.synonymKeywords = synonymKeywords;
+            container.dataset.translatedKeywords = translatedKeywords;
             return true;
           }
           return false;
@@ -6293,6 +6357,51 @@ downloadLink.addEventListener("click", function(e) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  // Hides the size pill entirely rather than showing it empty - it used to
+  // just get textContent = "" for an unknown size, which still left a
+  // visible, blank rounded box sitting next to the resolution pill.
+  function showFileSizePill(bytes) {
+    const fileSizeElement = document.getElementById("enlargedFileSize");
+    const formatted = formatFileSize(bytes);
+    fileSizeElement.textContent = formatted;
+    fileSizeElement.style.display = formatted ? "inline-flex" : "none";
+  }
+
+  // Backfills a missing file size for images with no known one - real
+  // photos published before the 2026-08-01 fileSize field existed (or via
+  // Review Submissions' "Add", which never had a local File on this device
+  // to measure) would otherwise show no size at all, forever. A HEAD
+  // request against the image's own original Cloudinary URL reads back its
+  // real byte count (Content-Length) without downloading the file itself.
+  // Cached onto the container so this only ever runs once per image, and
+  // guarded against the admin having already moved on to a different image
+  // (prev/next, or closing the modal) by the time the request resolves.
+  // Relies on Cloudinary exposing Content-Length to cross-origin JS (no
+  // custom headers are sent, so this is a CORS "simple request" - no
+  // preflight - but the response header still needs to be readable, which
+  // requires the server's own Access-Control-Expose-Headers to include it,
+  // same class of CORS caveat detectDominantColorTagFromUrl() already hits
+  // for its own crossOrigin canvas read). Same sandbox limitation as
+  // everything else touching Cloudinary in this repo - no live Cloudinary
+  // access here to confirm the header actually comes through; if the pill
+  // still doesn't backfill on old images, check that first before assuming
+  // this function's own logic is wrong.
+  async function fetchRemoteFileSizeIfMissing(container) {
+    const url = container.dataset.url;
+    if (!url) return;
+    try {
+      const response = await fetch(url, { method: "HEAD" });
+      const bytes = parseInt(response.headers.get("content-length") || "0", 10);
+      if (!bytes) return;
+      container.dataset.fileSize = bytes;
+      if (currentEnlargedContainer === container && typeof activeEnlargedLayoutRefresh === "function") {
+        activeEnlargedLayoutRefresh();
+      }
+    } catch (error) {
+      console.warn("Could not determine file size for", url, error);
+    }
+  }
+
   function enlargeImage(url, filename, keywords = "", container = null) {
   currentEnlargedContainer = container;
   const enlargeModal = document.getElementById("enlargeImageModal");
@@ -6301,7 +6410,6 @@ downloadLink.addEventListener("click", function(e) {
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
   const resolutionElement = document.getElementById("enlargedResolution");
-  const fileSizeElement = document.getElementById("enlargedFileSize");
   const similarPanelEl = document.getElementById("enlargeSimilarPanel");
   const imageColumn = document.querySelector(".enlarge-image-column");
 
@@ -6316,6 +6424,45 @@ downloadLink.addEventListener("click", function(e) {
     const imgRect = enlargeImg.getBoundingClientRect();
     const columnRect = imageColumn.getBoundingClientRect();
     tagsContainer.style.top = `${imgRect.bottom - columnRect.top}px`;
+    // Caption width normally tracks 80% of the image's own width (the
+    // left/right: 10% insets in CSS), but that collapses into an unusably
+    // narrow column - forcing even a short tag list into many wrapped
+    // lines - for an extreme portrait aspect ratio, since the image itself
+    // can render only a couple hundred px wide. A tall wrapped stack like
+    // that is exactly what pushed the caption's real height well past
+    // --lightbox-safe-margin in testing, no matter how much the image
+    // itself got shrunk (narrowing the image only narrows the caption
+    // further, making the wrap *worse*, not better). Flooring the width
+    // decouples the two: the caption is allowed to be wider than a very
+    // narrow image, still centered under it, capped so it never runs past
+    // the viewport's own safe margins on an ultra-narrow viewport.
+    //
+    // The floor itself has to leave room for the resolution/size pills too,
+    // not just the tags text - both are flex-shrink: 0, so a floor sized
+    // only for a "reasonable" tags width (an earlier version used a flat
+    // 260px) left next to nothing for the tags pill once the fixed-width
+    // resolution/size pills and the row's own gaps were subtracted from it,
+    // which wrapped even a short 4-word tag list into a single
+    // one-character-wide vertical column - a real regression caught by
+    // screenshotting the actual result, not just measuring the container's
+    // outer box. Measuring the sibling pills' real rendered width here
+    // avoids guessing.
+    const resolutionEl = document.getElementById("enlargedResolution");
+    const fileSizeEl = document.getElementById("enlargedFileSize");
+    const rowGap = 10; // matches .enlarged-tags-container's own CSS gap
+    const TAGS_TEXT_MIN_WIDTH = 200;
+    let fixedPillsWidth = resolutionEl ? resolutionEl.offsetWidth + rowGap : 0;
+    if (fileSizeEl && getComputedStyle(fileSizeEl).display !== "none") {
+      fixedPillsWidth += fileSizeEl.offsetWidth + rowGap;
+    }
+    const MIN_CAPTION_WIDTH = fixedPillsWidth + TAGS_TEXT_MIN_WIDTH;
+    const rootStyle = getComputedStyle(document.documentElement);
+    const safeMarginPx = parseFloat(rootStyle.getPropertyValue("--lightbox-safe-margin")) || 32;
+    const maxCaptionWidth = Math.max(window.innerWidth - safeMarginPx * 2, MIN_CAPTION_WIDTH);
+    const captionWidth = Math.min(Math.max(imgRect.width * 0.8, MIN_CAPTION_WIDTH), maxCaptionWidth);
+    tagsContainer.style.width = `${captionWidth}px`;
+    tagsContainer.style.right = "auto";
+    tagsContainer.style.left = `${(imgRect.left + imgRect.width / 2) - columnRect.left - captionWidth / 2}px`;
   }
 
   // The same sizing math enlargeImg's onload below ran inline (reading
@@ -6375,8 +6522,11 @@ downloadLink.addEventListener("click", function(e) {
     // estimate had before.
     const tagContainerHeight = keywords && keywords.trim() !== "" ? 54 : 0; // pixels
 
-    // Define padding at top and bottom (equal)
-    const verticalPadding = 20; // pixels
+    // Define padding at top and bottom (equal) - this is also the minimum
+    // safe-zone clearance enforced below, read from the same --lightbox-
+    // safe-margin token the corrective pass at the end of this function
+    // uses, so both agree on what "enough room" means.
+    const verticalPadding = cssPx("--lightbox-safe-margin", 32); // pixels
 
     // Calculate available height for the image. Reserves *double* the
     // caption's footprint (2026-08-01, was single) - .enlarge-image-column
@@ -6432,13 +6582,51 @@ downloadLink.addEventListener("click", function(e) {
     resolutionElement.textContent = `${imgWidth} × ${imgHeight}`;
     // File size of what was actually uploaded (post-compression), read from
     // the container's own data-file-size - see saveImageToFirebase()'s
-    // fileSize param. Left blank (formatFileSize() returns "") for images
-    // with no known size, e.g. published via Review Submissions' "Add",
-    // which never had a local File on this device to measure.
-    fileSizeElement.textContent = formatFileSize(container ? parseInt(container.dataset.fileSize, 10) : 0);
+    // fileSize param. Falls back to fetchRemoteFileSizeIfMissing() below for
+    // images with no known size (pre-2026-08-01 uploads, or ones published
+    // via Review Submissions' "Add", which never had a local File on this
+    // device to measure) - showFileSizePill() hides the pill entirely
+    // rather than rendering an empty box while that lookup is pending/absent.
+    showFileSizePill(container ? parseInt(container.dataset.fileSize, 10) : 0);
+    if (container && !container.dataset.fileSize) fetchRemoteFileSizeIfMissing(container);
     // Must run after the width/height branch above (needs enlargeImg's
     // final rendered box).
     positionEnlargedTags();
+
+    // Corrective safe-zone pass: the tagContainerHeight reservation above is
+    // a single-line estimate (54px) - an underestimate whenever the tag
+    // list is long enough to wrap onto more lines (see .enlarged-tags's
+    // white-space: normal), which let the caption's real, rendered bottom
+    // edge slip past --lightbox-safe-margin in practice ("no depassement in
+    // this margin zone... tags included, it's a safe zone"). Rather than
+    // trying to predict the wrapped height in advance, measure it for real
+    // now that the caption is actually laid out, and shrink the image by
+    // whatever it overflows by - a small, targeted correction on top of the
+    // already-close estimate above, not a replacement for it.
+    // A few iterations (not just one) - positionEnlargedTags()'s own width
+    // floor (see its comment) keeps the caption's width, and so its wrapped
+    // height, essentially stable as the image shrinks, but isn't a
+    // guarantee for every aspect ratio/tag-list combination, so this
+    // re-measures after each shrink rather than assuming one pass is
+    // always enough.
+    const safeMarginPx = cssPx("--lightbox-safe-margin", 32);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const tagsContainerRect = tagsElement.parentElement.getBoundingClientRect();
+      const overflowBottom = tagsContainerRect.bottom - (window.innerHeight - safeMarginPx);
+      if (overflowBottom <= 0.5) break;
+      const currentImgRect = enlargeImg.getBoundingClientRect();
+      // The image is vertically centered within the column's full height
+      // (justify-content: center), so shrinking its height by X only moves
+      // its *bottom* edge up by X/2 - the other X/2 comes back as extra
+      // margin above it. Removing 2x the overflow (not 1x) is what actually
+      // closes the gap in one pass instead of only halving it each time.
+      const newHeight = Math.max(currentImgRect.height - overflowBottom * 2, 120);
+      if (newHeight >= currentImgRect.height) break; // already at the floor - shrinking further won't help
+      const scale = newHeight / currentImgRect.height;
+      enlargeImg.style.height = `${newHeight}px`;
+      enlargeImg.style.width = `${currentImgRect.width * scale}px`;
+      positionEnlargedTags();
+    }
   }
 
   // Re-run after the modal is already open and showing a real image - e.g.
@@ -6495,7 +6683,7 @@ downloadLink.addEventListener("click", function(e) {
   enlargeImg.style.width = "";
   enlargeImg.style.height = "";
   resolutionElement.textContent = "";
-  fileSizeElement.textContent = "";
+  showFileSizePill(0);
   enlargeSpinner.classList.add("active");
   enlargeModal.style.justifyContent = "center";
   enlargeModal.style.paddingTop = "0";
@@ -6539,7 +6727,8 @@ downloadLink.addEventListener("click", function(e) {
       tagsElement.style.display = "none";
     }
     resolutionElement.textContent = "";
-    fileSizeElement.textContent = formatFileSize(container ? parseInt(container.dataset.fileSize, 10) : 0);
+    showFileSizePill(container ? parseInt(container.dataset.fileSize, 10) : 0);
+    if (container && !container.dataset.fileSize) fetchRemoteFileSizeIfMissing(container);
     tagsElement.parentElement.style.display = "flex";
     positionEnlargedTags();
   };
@@ -6743,12 +6932,85 @@ function closeEnlargeModal() {
     const poolClearSelectionBtn = document.getElementById("poolClearSelectionBtn");
     const poolConfirmBtn = document.getElementById("poolConfirmBtn");
 
+    // Small downscaled thumbnail for a pool tile, instead of pointing the
+    // <img> straight at the full-resolution file (2026-08-01, "still very
+    // laggy in upload step 1&2 when more than 3 images"). The previous
+    // identity-reuse fix (see poolPreviewTilesById/poolGridTilesById below)
+    // stopped tiles from being re-decoded on every unrelated re-render, but
+    // did nothing about the *first* decode: `thumb.src = item.url` pointed
+    // directly at the original file's object URL, and this gallery's real
+    // source photos are full phone-camera resolution (many MB, 4000px+ on
+    // the long edge - the client-side compression in compressImageIfNeeded()
+    // only runs later, at actual upload time, not here). Asking the browser
+    // to decode several of those at once just to paint a ~110px tile is
+    // real, expensive work - a handful of real photos was enough to jank
+    // the modal, which matches "laggy... when more than 3 images" much
+    // better than a DOM-node-count explanation would. createImageBitmap's
+    // resize options do the downscale during decode itself (often
+    // hardware-accelerated) instead of decoding at full size and *then*
+    // shrinking, and only one of resizeWidth/resizeHeight is given so the
+    // photo's real aspect ratio is preserved (see the CSS change on
+    // .file-preview-item/.wizard-pool-tile img dropping the old forced
+    // square crop - "i want original ratios"). Falls back to the plain
+    // object URL - same as before this fix - for anything the browser can't
+    // decode this way (e.g. HEIC in browsers with no native HEIC decode,
+    // the same limitation compressImageIfNeeded() already documents).
+    const POOL_THUMB_SIZE = 240;
+    async function createPoolThumbnailUrl(file) {
+      if (!window.createImageBitmap) return null;
+      let bitmap;
+      try {
+        bitmap = await createImageBitmap(file, { resizeWidth: POOL_THUMB_SIZE, resizeQuality: "medium" });
+      } catch (error) {
+        return null;
+      }
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        canvas.getContext("2d").drawImage(bitmap, 0, 0);
+        return canvas.toDataURL("image/jpeg", 0.72);
+      } catch (error) {
+        return null;
+      } finally {
+        bitmap.close();
+      }
+    }
+
     function addFilesToPool(fileList) {
       const files = Array.from(fileList || []).filter(f => !f.type || f.type.startsWith("image/"));
-      files.forEach(file => {
-        uploadPool.push({ id: `pool-${poolIdCounter++}`, file, url: URL.createObjectURL(file) });
-      });
+      const newItems = files.map(file => ({
+        id: `pool-${poolIdCounter++}`,
+        file,
+        // Kept around for the actual upload later and as a last-resort
+        // display fallback (see below) - deliberately *not* assigned as a
+        // tile's img.src on creation, since that would trigger the exact
+        // full-resolution decode this whole mechanism exists to avoid.
+        url: URL.createObjectURL(file),
+        thumbUrl: null,
+      }));
+      uploadPool.push(...newItems);
       renderPoolViews();
+      newItems.forEach(item => {
+        createPoolThumbnailUrl(item.file).then(thumbUrl => {
+          // Only a real generated thumbnail is cached for reuse by later
+          // renders - a failed generation (thumbUrl === null, e.g. a HEIC
+          // file the browser can't decode this way) falls back to the full
+          // object URL for display, same as before this fix existed, but
+          // isn't stored as "the" thumbnail so nothing here silently treats
+          // a full-res URL as if it were the small version.
+          const displaySrc = thumbUrl || item.url;
+          if (thumbUrl) item.thumbUrl = thumbUrl;
+          // The item may have been discarded (or the whole pool cleared)
+          // before this resolved - only apply it, and only touch the DOM
+          // tiles, if it's still actually in the pool.
+          if (!uploadPool.includes(item)) return;
+          const previewImg = poolPreviewTilesById.get(item.id)?.querySelector("img");
+          const gridImg = poolGridTilesById.get(item.id)?.querySelector("img");
+          if (previewImg) previewImg.src = displaySrc;
+          if (gridImg) gridImg.src = displaySrc;
+        });
+      });
     }
 
     // Removes one image from the working pool entirely (before it's ever
@@ -6832,7 +7094,14 @@ function closeEnlargeModal() {
           tile = document.createElement("div");
           tile.className = "file-preview-item";
           const thumb = document.createElement("img");
-          thumb.src = item.url;
+          // No src at all until the downscaled thumbnail is ready (see
+          // createPoolThumbnailUrl()) - assigning the full-resolution
+          // item.url here would trigger exactly the expensive full decode
+          // this whole mechanism exists to avoid, just to immediately throw
+          // it away once the thumbnail replaces it a moment later. The
+          // tile's own background-color (see .file-preview-item img) shows
+          // as a neutral placeholder in the meantime.
+          if (item.thumbUrl) thumb.src = item.thumbUrl;
           thumb.alt = item.file.name;
           thumb.draggable = false;
           const label = document.createElement("span");
@@ -6876,7 +7145,9 @@ function closeEnlargeModal() {
           tile = document.createElement("div");
           tile.className = "wizard-pool-tile";
           const thumb = document.createElement("img");
-          thumb.src = item.url;
+          // Same reasoning as .file-preview-item's tile above - no src
+          // until the downscaled thumbnail resolves.
+          if (item.thumbUrl) thumb.src = item.thumbUrl;
           thumb.alt = item.file.name;
           thumb.draggable = false;
           const check = document.createElement("div");
@@ -7354,6 +7625,19 @@ function closeEnlargeModal() {
           populateFolderSelectOptions(folderSelectEl);
           item.appendChild(folderSelectEl);
 
+          // Per-image tagging (2026-08-01, "allow for tagging like upload
+          // mode") - reuses the exact same chip-input control the upload
+          // wizard's own Keywords field is built with, so an admin isn't
+          // limited to whatever color tag auto-detection comes up with when
+          // publishing a submitted image; typed tags are merged with that
+          // color tag the same way processUpload() already merges typed
+          // Keywords with it for a normal upload.
+          const tagInputEl = document.createElement("input");
+          tagInputEl.type = "text";
+          tagInputEl.placeholder = "Tags (optional)";
+          item.appendChild(tagInputEl);
+          initTagChipInput(tagInputEl);
+
           const addBtn = document.createElement("button");
           addBtn.type = "button";
           addBtn.textContent = "Add";
@@ -7369,7 +7653,10 @@ function closeEnlargeModal() {
               // where they get their first shot at an auto color tag,
               // sampled from the Cloudinary URL directly.
               const colorTag = await detectDominantColorTagFromUrl(url);
-              const keywords = colorTag || "";
+              const typedTags = tagInputEl.tagChipsAPI.getValue().toLowerCase();
+              const keywords = typedTags
+                ? (colorTag ? mergeTagStrings(typedTags, colorTag) : typedTags)
+                : (colorTag || "");
               // No local File exists for a submitted image (see the comment
               // above), so fileSize stays unknown here - the lightbox's size
               // pill just stays blank for these, same as it does for any
@@ -7381,6 +7668,7 @@ function closeEnlargeModal() {
               renderColorFilterDots();
               addBtn.textContent = "Added";
               folderSelectEl.disabled = true;
+              tagInputEl.disabled = true;
             } catch (error) {
               console.error("Error adding submitted image:", error);
               addBtn.disabled = false;

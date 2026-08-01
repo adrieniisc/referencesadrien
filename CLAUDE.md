@@ -1146,6 +1146,104 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     folder names and the color auto-tagger's words) - if a commonly-used tag has no synonyms/
     translations yet, that's expected (not a bug) until `SYNONYM_MAP`/`TRANSLATION_MAP` are extended
     for it.
+  - **Fourth round of fixes (2026-08-01, same day) - real-usage bug reports against the batch
+    above, plus one explicit new feature request.**
+    - **`orange`'s synonyms no longer include `rust`** (`SYNONYM_MAP`) - `rust` is also its own
+      real, distinct tag (`rust: ["corrosion", "oxidation"]`), so surfacing it as a synonym of the
+      *color* orange read as wrong/confusing on an orange-but-not-rusted image. Replaced with
+      `tangerine`.
+    - **Synonym/translated tags going stale after Edit Tags, fixed** - reported as "synonym tags
+      seem to only apply to the last tag of each image." Root cause: `completeUpload()` and Re-tag
+      Synonyms both correctly compute `synonymKeywords`/`translatedKeywords` from *every* keyword,
+      but `saveEditedTags()` never touched either field at all - editing an image's tags (adding,
+      removing, or replacing) left both fields exactly as they were computed at upload time, so the
+      lightbox's merged tag display drifted out of sync with whatever the current `keywords` field
+      actually said the moment Edit Tags changed it. Fixed by recomputing both fields from the *new*
+      full tag set inside `saveEditedTags()` and writing them alongside `keywords` in the same
+      Firestore update - a full recompute-and-overwrite, per the explicit "when regenerated synonyms
+      delete previous ones (same for translation)" request, not a merge with whatever was there
+      before.
+    - **Lightbox size pill was showing as an empty box, not a real value** - `showFileSizePill()`
+      (new) now hides `#enlargedFileSize` outright (`display: none`) when there's no known size,
+      instead of leaving a blank rounded pill sitting next to the resolution pill. For images that
+      genuinely have no known size (most existing photos predate the 2026-08-01 `fileSize` field;
+      Review Submissions' "Add" never had a local File to measure), `fetchRemoteFileSizeIfMissing()`
+      (new) backfills a real value via a HEAD request against the image's own original Cloudinary
+      URL (reading `Content-Length`), caches it onto the container so it only runs once per image,
+      and re-runs the lightbox's layout refresh once it resolves. This depends on Cloudinary
+      actually exposing `Content-Length` to cross-origin JS (a `Access-Control-Expose-Headers`
+      question, not just a plain CORS-allowed one) - same class of caveat
+      `detectDominantColorTagFromUrl()` already has for its own crossOrigin canvas read - and, same
+      as everything else touching Cloudinary in this repo, has not been checked against live
+      Cloudinary. If the pill still doesn't backfill on old images, check that header first.
+    - **Lightbox "safe zone" overflow, fixed for real via a measure-then-correct pass, not another
+      estimate tweak** - reported (with a screenshot) as the tags/resolution caption sitting outside
+      a comfortable margin at the bottom of the screen for a maxed portrait image. The caption's
+      reserved height in `updateEnlargedImageSize()` was (and still is) a single-line *estimate*
+      (54px) - fine for the common case, but an underestimate the moment a longer tag list wraps
+      onto more lines, which is exactly what let the real, rendered caption slip past
+      `--lightbox-safe-margin` (a new token, 32px desktop / 16px at <=900px, replacing a bare `20`
+      constant). Rather than trying to guess the wrapped height more precisely up front, both ends
+      of the actual problem got fixed: (1) `positionEnlargedTags()` now gives the caption a real
+      **minimum width** - measured from the resolution/size pills' own rendered width plus a 200px
+      floor for the tags text, not just "80% of the image's width" - since for an extreme portrait
+      aspect ratio the image itself can render only a couple hundred px wide, and a caption that
+      narrow forces even a short tag list into a tall, barely-readable stack of one-word lines
+      (confirmed the hard way with a synthetic 1:3 portrait + 15-tag test case, which blew the old
+      layout by over 1000px); (2) `updateEnlargedImageSize()` ends with a corrective loop (max 3
+      passes) that measures the caption's *actual* rendered bottom edge and shrinks the image by
+      whatever it overflows the safe margin by - accounting for the image being vertically centered
+      (shrinking its height by X only moves its bottom edge up by X/2, so the correction removes
+      **2x** the measured overflow, not 1x) - so the guarantee holds regardless of tag-list length,
+      aspect ratio, or estimate error, instead of chasing the estimate itself again. Verified via a
+      Playwright harness serving real (non-data-URI) JPEGs of varied real aspect ratios through a
+      second local static server, across both the pathological synthetic case and several realistic
+      ones (a 4-tag list on a 1:3 portrait, a no-tags square, a 6-tag list on a milder portrait) -
+      all converge to exactly 0px overflow past the safe margin.
+    - **Upload wizard steps 1/2 still laggy with more than ~3 images, and "i want original ratios"**
+      - the 2026-08-01 batch's own tile-identity-reuse fix (`poolPreviewTilesById`/
+      `poolGridTilesById`) stopped *unrelated* re-renders from re-decoding every tile, but never
+      addressed the *first* decode: `thumb.src = item.url` pointed straight at the original file's
+      object URL, and this gallery's real source photos are full phone-camera resolution (many MB,
+      4000px+ on the long edge - `compressImageIfNeeded()` only runs later, at actual upload time).
+      Asking the browser to decode several of those just to paint a ~110px tile is real, expensive
+      work - confirmed via a Playwright harness using real multi-megapixel JPEGs (not data-URI
+      stubs) rather than assumed. Fixed with `createPoolThumbnailUrl()` (new): `createImageBitmap()`
+      with `resizeWidth` downscales *during* decode instead of decoding at full size and shrinking
+      after, and a tile's `<img>` gets no `src` at all until that resolves (a neutral background-
+      color placeholder shows in the meantime) - falls back to the plain object URL only if
+      generation fails (e.g. HEIC in a browser with no native HEIC decode, same limitation
+      `compressImageIfNeeded()` already documents). Only `resizeWidth` is given (not `resizeHeight`),
+      which is also what fixes "original ratios": `.file-preview-item img`/`.wizard-pool-tile img`
+      dropped their forced `aspect-ratio: 1; object-fit: cover` square crop in favor of `height:
+      auto; max-height: 180px; object-fit: contain`, so a tile shows its real proportions
+      (letterboxed if taller than the cap) instead of a center-cropped square. Verified via
+      Playwright with real JPEGs at five different aspect ratios (including an extreme 1:3 portrait
+      and a 3:1 panorama) confirming the rendered thumbnail's `naturalWidth`/`naturalHeight` ratio
+      matches the source exactly (240px-wide thumbnails at 720/81/240/416px tall respectively).
+    - **Review Submissions panel: original ratio, doubled size, per-image tagging (explicit
+      request: "in review mode, show original ratio, double images/global window size. Allow for
+      tagging like upload mode")** - `.submission-image-item img` dropped the same forced
+      `object-fit: cover` square crop as the upload pool tiles above, for the same reason (real
+      submitted photos shown uncropped); the tile width doubled 148px -> 296px, and the modal itself
+      (`.submissions-review-content`) widened from a flat 840px cap to `calc(100vw - sidebar - 80px)`
+      / max 1600px, matching the Add Image wizard's own sizing pattern - safe now that
+      `.modal-backdrop` sits above `.sidebar` in the z-index stack (the 2026-08-01 site-wide fix
+      that same-day Add Image wizard entry put in place; this panel's 840px cap only ever existed to
+      dodge that before the real fix landed, so widening it now is just catching up, not
+      reintroducing the old overlap risk - `#reviewSubmissionsModal` gets the same `padding-left:
+      var(--sidebar-width)` treatment `#imageModal` already uses so it centers over the gallery area
+      rather than the full viewport). Each image now also gets its own tag-chip input
+      (`initTagChipInput()`, the exact same control the upload wizard's Keywords field uses) between
+      the folder `<select>` and the Add button - typed tags merge with the auto-detected color tag
+      the same way `processUpload()` already merges typed Keywords with it for a normal upload
+      (`mergeTagStrings(typedTags, colorTag)`), rather than the admin being limited to whatever
+      color word `detectDominantColorTagFromUrl()` comes up with. Verified via Playwright (a
+      two-image fake submission, real JPEGs through the same second local static server as the pool-
+      tile fix above): tile width measures exactly 296px, `object-fit` computes to `contain`, typing
+      "wood" + "rustic" into the chip input then clicking Add saves `keywords` as
+      `"wood, rustic, brown"` (the typed tags plus a stubbed `brown` color tag) on the resulting
+      gallery image.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
