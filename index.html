@@ -625,16 +625,38 @@
       pointer-events: auto;
     }
     .sidebar-brand.brand-active:hover { opacity: 0.8; }
+    /* Wraps just the text + cursor (not the whole centered .sidebar-brand
+       box) so the two can be baseline-aligned to each other independently
+       of the outer align-items:center centering the pair as a group within
+       the taller header box. */
+    .sidebar-brand-typing {
+      display: inline-flex;
+      align-items: baseline;
+    }
     /* Blinking text-cursor after "aReference" while it's being typed out -
        reuses the search placeholder's own blink keyframes (searchPlace-
        holderBlink) for one consistent "typing" look across the page. Only
        animates while .blinking is present; playBrandIntroAnimation()
        removes that class once typing finishes and switches to a fixed,
        counted number of on/off "ticks" instead (reads as the cursor
-       settling to a stop, not blinking forever), then hides it outright. */
+       settling to a stop, not blinking forever), then hides it outright.
+       Drawn as a plain background bar rather than a "|" text glyph
+       (2026-08-02, "should be bottom aligned and not under like that") -
+       a pipe character's own glyph shape extends visibly below the
+       baseline in most fonts (it's drawn to span close to the font's full
+       ascender-to-descender range), so even perfectly baseline-aligned it
+       still visually hung lower than "aReference"'s letters, which have no
+       descenders of their own. A plain box has no such glyph metrics: its
+       flex "baseline" (having no text/baseline of its own) is its own
+       bottom margin edge per the flex baseline-alignment spec, so aligning
+       it via .sidebar-brand-typing's align-items:baseline plants its
+       bottom exactly on the text's baseline instead of below it. */
     .sidebar-brand-cursor {
       display: inline-block;
+      width: 2px;
+      height: 1em;
       margin-left: 2px;
+      background-color: currentColor;
     }
     .sidebar-brand-cursor.blinking {
       animation: searchPlaceholderBlink 0.8s step-end infinite;
@@ -3471,7 +3493,7 @@
            buildSidebarFrostStrip()/syncSidebarFrostStripPosition(). -->
       <div class="sidebar-frost-art" id="sidebarFrostArt"></div>
       <div class="sidebar-scroll">
-        <div class="sidebar-brand" id="sidebarBrand"><span id="sidebarBrandText"></span><span class="sidebar-brand-cursor" id="sidebarBrandCursor">|</span></div>
+        <div class="sidebar-brand" id="sidebarBrand"><span class="sidebar-brand-typing"><span id="sidebarBrandText"></span><span class="sidebar-brand-cursor" id="sidebarBrandCursor"></span></span></div>
         <!-- Mobile-only (2026-08-02) - the sidebar doubles as the mobile
              nav drawer, so it needs its own close affordance beyond
              tapping the backdrop. Hidden above the mobile breakpoint. -->
@@ -5130,6 +5152,31 @@
     // element actually become clickable (see the click handler just above
     // and .brand-active in the CSS).
     let isBrandIntroDone = false;
+    // Shared "settle to a stop" sequence: a fixed number of on/off ticks
+    // (separate from the continuous CSS .blinking animation), ending
+    // hidden - reused by both the intro's own finish (below) and the
+    // post-hover fade-out (further down), since both are literally the same
+    // "stop blinking continuously, blink N more times, then hide" behavior.
+    // Tracks its own interval on the cursor element's dataset so a second
+    // call (e.g. re-entering mid-blink-out) can cancel an in-flight one
+    // instead of running two tick loops on top of each other.
+    function blinkCursorOutThenHide(cursorEl, blinkCount, onDone) {
+      if (cursorEl._blinkOutTimer) clearInterval(cursorEl._blinkOutTimer);
+      cursorEl.classList.remove("blinking");
+      cursorEl.style.opacity = "1";
+      let tick = 0;
+      const totalTicks = blinkCount * 2; // each blink = one off+on cycle
+      cursorEl._blinkOutTimer = setInterval(() => {
+        tick++;
+        cursorEl.style.opacity = tick % 2 === 0 ? "1" : "0";
+        if (tick >= totalTicks) {
+          clearInterval(cursorEl._blinkOutTimer);
+          cursorEl._blinkOutTimer = null;
+          cursorEl.style.display = "none";
+          if (onDone) onDone();
+        }
+      }, 220);
+    }
     function playBrandIntroAnimation() {
       const brandEl = document.getElementById("sidebarBrand");
       const textEl = document.getElementById("sidebarBrandText");
@@ -5144,26 +5191,11 @@
         if (i < fullText.length) {
           setTimeout(typeStep, 65);
         } else {
-          finishWithTicks();
-        }
-      }
-      // A few final on/off "ticks", separate from the continuous CSS blink
-      // used while typing - reads as the cursor settling to a stop rather
-      // than blinking forever, then it disappears and the brand activates.
-      function finishWithTicks() {
-        cursorEl.classList.remove("blinking");
-        let tick = 0;
-        const TOTAL_TICKS = 6; // even count so it ends on "off" right before hiding
-        const tickTimer = setInterval(() => {
-          tick++;
-          cursorEl.style.opacity = tick % 2 === 0 ? "0" : "1";
-          if (tick >= TOTAL_TICKS) {
-            clearInterval(tickTimer);
-            cursorEl.style.display = "none";
+          blinkCursorOutThenHide(cursorEl, 3, () => {
             brandEl.classList.add("brand-active");
             isBrandIntroDone = true;
-          }
-        }, 220);
+          });
+        }
       }
       typeStep();
     }
@@ -5180,13 +5212,20 @@
     // mouseleave (rather than hiding immediately) is what makes it read as
     // "still there for a moment" instead of flickering on/off across small
     // cursor movements right at the element's edge; the pending hide is
-    // cancelled if the pointer re-enters before it fires.
+    // cancelled if the pointer re-enters before it fires. Once it does
+    // start leaving, the cursor blinks three times (2026-08-02, explicit
+    // request) via the same blinkCursorOutThenHide() sequence the intro's
+    // own finish uses, rather than just disappearing outright.
     let brandHoverCursorHideTimer = null;
     document.getElementById("sidebarBrand")?.addEventListener("mouseenter", () => {
       if (!isBrandIntroDone) return;
       const cursorEl = document.getElementById("sidebarBrandCursor");
       if (!cursorEl) return;
       clearTimeout(brandHoverCursorHideTimer);
+      if (cursorEl._blinkOutTimer) {
+        clearInterval(cursorEl._blinkOutTimer);
+        cursorEl._blinkOutTimer = null;
+      }
       cursorEl.style.display = "inline-block";
       cursorEl.style.opacity = "";
       cursorEl.classList.add("blinking");
@@ -5196,8 +5235,7 @@
       const cursorEl = document.getElementById("sidebarBrandCursor");
       if (!cursorEl) return;
       brandHoverCursorHideTimer = setTimeout(() => {
-        cursorEl.classList.remove("blinking");
-        cursorEl.style.display = "none";
+        blinkCursorOutThenHide(cursorEl, 3);
       }, 400);
     });
 
