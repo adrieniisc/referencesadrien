@@ -360,8 +360,41 @@
   font-size: 0.95rem;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-color);
+  /* A row with a link becomes a flex row so its icon (below) aligns to the
+     far right; a plain-name row has no icon child at all and just renders
+     as before. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
 .contributors-list li:last-child { border-bottom: none; }
+/* Small social icon on a contributor's row (2026-08-02, explicit request)
+   - only rendered when that row's contributors.txt line has a link after
+   the name (see parseContributorLine()/CONTRIBUTOR_SOCIAL_ICONS in the
+   script), auto-picking LinkedIn/ArtStation/Instagram's real mark or a
+   generic globe for anything else (e.g. a personal portfolio site). Same
+   visual language as the About modal's own .about-social-icon, just a
+   little smaller to fit this list's tighter row height. */
+.contributor-social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background-color: rgba(255,255,255,0.04);
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.contributor-social-icon svg { width: 14px; height: 14px; }
+.contributor-social-icon:hover {
+  background-color: rgba(255,255,255,0.1);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
 .contributors-list li.contributors-list-empty {
   color: var(--text-faint);
   font-style: italic;
@@ -405,16 +438,18 @@
   background-color: rgba(11,11,13,0.88);
   border-right: 1px solid var(--border-color);
   /* 2026-08-01: doubled from blur(20px) at explicit request - the frosted
-     look was too subtle against .sidebar-frost-art's reflection underneath. */
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+     look was too subtle against .sidebar-frost-art's reflection underneath.
+     2026-08-02: doubled again to blur(80px), same explicit "twice blurrier"
+     request. */
+  backdrop-filter: blur(80px);
+  -webkit-backdrop-filter: blur(80px);
   box-shadow: var(--shadow-md);
   position: relative;
   color: var(--text);
   z-index: 1100;
   height: 100%;
 }
-@supports not (backdrop-filter: blur(40px)) {
+@supports not (backdrop-filter: blur(80px)) {
   .sidebar { background-color: var(--bg); }
 }
 
@@ -550,10 +585,34 @@
       font-weight: 700;
       letter-spacing: 0.01em;
       color: var(--text);
-      cursor: pointer;
+      /* Not clickable until the typewriter intro animation finishes
+         (2026-08-02, see playBrandIntroAnimation()/isBrandIntroDone in the
+         script) - "activating the button" only once the animation actually
+         completes, same as a real button wouldn't be usable mid-animation.
+         .brand-active is added by that same script once it's done. */
+      cursor: default;
+      pointer-events: none;
       transition: opacity 0.15s ease;
     }
-    .sidebar-brand:hover { opacity: 0.8; }
+    .sidebar-brand.brand-active {
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .sidebar-brand.brand-active:hover { opacity: 0.8; }
+    /* Blinking text-cursor after "aReference" while it's being typed out -
+       reuses the search placeholder's own blink keyframes (searchPlace-
+       holderBlink) for one consistent "typing" look across the page. Only
+       animates while .blinking is present; playBrandIntroAnimation()
+       removes that class once typing finishes and switches to a fixed,
+       counted number of on/off "ticks" instead (reads as the cursor
+       settling to a stop, not blinking forever), then hides it outright. */
+    .sidebar-brand-cursor {
+      display: inline-block;
+      margin-left: 2px;
+    }
+    .sidebar-brand-cursor.blinking {
+      animation: searchPlaceholderBlink 0.8s step-end infinite;
+    }
     .folder-list {
       list-style: none;
       flex: 1;
@@ -1034,6 +1093,13 @@
       z-index: 1150;
     }
     .modal-backdrop.active { opacity: 1; visibility: visible; }
+    /* Edit Tags specifically (2026-08-02) needs to sit *above* the lightbox
+       (#enlargeImageModal, z-index 15000) rather than behind it like every
+       other .modal-backdrop - see enlargeEditTagsForCurrentImage()'s own
+       comment for why: editing a single image's tags from the lightbox no
+       longer closes it first, so this modal has to actually be reachable
+       on top of it instead of rendering invisibly underneath. */
+    #editTagsModal { z-index: 15200; }
     .modal-content {
       background: var(--bg-elevated);
       border: 1px solid var(--border-color);
@@ -2048,9 +2114,15 @@
 /* .enlarged-filesize (2026-08-01) shares this exact treatment - "just like
    the resolution pill add a size pill". Both are short, fixed-format text,
    so both stay flex-shrink: 0; the tags pill next to them is still the one
-   that gives up space. */
+   that gives up space. .enlarged-filename (2026-08-02, "add a name pill...
+   on the left of the other pills, same look as the resolution or size
+   pill") shares it too - it's the real uploaded filename, capped/ellipsized
+   rather than flex-shrink: 0 like the other two, since unlike a resolution
+   or file size a filename has no fixed short format and could otherwise
+   force the row too wide. */
 .enlarged-resolution,
-.enlarged-filesize {
+.enlarged-filesize,
+.enlarged-filename {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -2063,6 +2135,21 @@
   padding: 0 14px;
   border-radius: 999px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+}
+.enlarged-filename {
+  /* flex-shrink: 0 like its resolution/filesize siblings (not the tags
+     pill's min-width:0/shrink-to-ellipsize treatment) - real uploaded
+     filenames are typically short (camera-style names, a handful of
+     words), so treating this as fixed-width-up-to-a-cap keeps the same
+     "tags pill is the one that gives up space" behavior
+     positionEnlargedTags() already documents, rather than splitting
+     available space between two shrinking pills. max-width/ellipsis below
+     is just a safety net for an unusually long real filename. */
+  flex-shrink: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .enlarged-tags {
@@ -3118,7 +3205,7 @@
            buildSidebarFrostStrip()/syncSidebarFrostStripPosition(). -->
       <div class="sidebar-frost-art" id="sidebarFrostArt"></div>
       <div class="sidebar-scroll">
-        <div class="sidebar-brand" id="sidebarBrand">aReference</div>
+        <div class="sidebar-brand" id="sidebarBrand"><span id="sidebarBrandText"></span><span class="sidebar-brand-cursor" id="sidebarBrandCursor">|</span></div>
         <ul class="folder-list" id="folderList">
           <!-- Folder items will be generated dynamically -->
         </ul>
@@ -3229,6 +3316,7 @@
       </div>
       <!-- Tags container now positioned at the bottom of the image column -->
       <div class="enlarged-tags-container">
+        <span class="enlarged-filename" id="enlargedFilename"></span>
         <div class="enlarged-tags" id="enlargedTags"></div>
         <span class="enlarged-resolution" id="enlargedResolution"></span>
         <span class="enlarged-filesize" id="enlargedFileSize"></span>
@@ -4718,7 +4806,57 @@
       filterImages("all");
       resetGalleryScroll();
     }
-    document.getElementById("sidebarBrand")?.addEventListener("click", goToHomeAll);
+    document.getElementById("sidebarBrand")?.addEventListener("click", () => {
+      if (isBrandIntroDone) goToHomeAll();
+    });
+
+    // Typewriter intro for the "aReference" brand/home-link (2026-08-02,
+    // explicit request) - plays once on every page load (every visit, not
+    // gated behind localStorage like the About modal's first-visit-only
+    // auto-open above), typing the word out one character at a time with a
+    // blinking cursor, which then "ticks" (blinks) a fixed number of times
+    // before disappearing outright - only once that finishes does the
+    // element actually become clickable (see the click handler just above
+    // and .brand-active in the CSS).
+    let isBrandIntroDone = false;
+    function playBrandIntroAnimation() {
+      const brandEl = document.getElementById("sidebarBrand");
+      const textEl = document.getElementById("sidebarBrandText");
+      const cursorEl = document.getElementById("sidebarBrandCursor");
+      if (!brandEl || !textEl || !cursorEl) { isBrandIntroDone = true; return; }
+      const fullText = "aReference";
+      cursorEl.classList.add("blinking");
+      let i = 0;
+      function typeStep() {
+        i++;
+        textEl.textContent = fullText.slice(0, i);
+        if (i < fullText.length) {
+          setTimeout(typeStep, 65);
+        } else {
+          finishWithTicks();
+        }
+      }
+      // A few final on/off "ticks", separate from the continuous CSS blink
+      // used while typing - reads as the cursor settling to a stop rather
+      // than blinking forever, then it disappears and the brand activates.
+      function finishWithTicks() {
+        cursorEl.classList.remove("blinking");
+        let tick = 0;
+        const TOTAL_TICKS = 6; // even count so it ends on "off" right before hiding
+        const tickTimer = setInterval(() => {
+          tick++;
+          cursorEl.style.opacity = tick % 2 === 0 ? "0" : "1";
+          if (tick >= TOTAL_TICKS) {
+            clearInterval(tickTimer);
+            cursorEl.style.display = "none";
+            brandEl.classList.add("brand-active");
+            isBrandIntroDone = true;
+          }
+        }, 220);
+      }
+      typeStep();
+    }
+    playBrandIntroAnimation();
 
     /** ABOUT JavaScript **/
 
@@ -4771,23 +4909,74 @@ const contributorsModal = document.getElementById("contributorsModal");
 const closeContributorsModalBtn = document.getElementById("closeContributorsModalBtn");
 const contributorsList = document.getElementById("contributorsList");
 
+// One small hand-drawn monochrome glyph per platform (2026-08-02, explicit
+// request), reusing the exact same paths as the About modal's own social
+// icons for visual consistency - "website" is the fallback for anything
+// that isn't LinkedIn/ArtStation/Instagram (e.g. a personal portfolio).
+const CONTRIBUTOR_SOCIAL_ICONS = {
+  linkedin: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="8" r="1.6"/><rect x="6.2" y="10.5" width="2.6" height="7.5"/><path d="M11.5 10.5h2.5v1.2c.6-.9 1.6-1.4 2.9-1.4 2.4 0 3.6 1.6 3.6 4.4v4.8h-2.6v-4.3c0-1.3-.5-2.2-1.7-2.2-1 0-1.6.7-1.9 1.3-.1.2-.1.6-.1 1v4.2h-2.6v-8.9z"/></svg>',
+  artstation: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 17.723l2.027 3.505h.001a2.424 2.424 0 0 0 2.164 1.333h13.457l-2.792-4.838H0zm24 .025c0-.484-.143-.935-.388-1.314L15.728 2.728a2.424 2.424 0 0 0-2.142-1.289H9.419L21.598 22.54l1.92-3.325c.378-.637.482-.919.482-1.467zM14.795 13.685H2.766L8.783 3.24l6.012 10.445z"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6"/><circle cx="12" cy="12" r="5"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>',
+  website: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 6 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-6-3.8-9s1.3-6.3 3.8-9z"/></svg>',
+};
+
+function detectContributorSocialPlatform(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    if (host.includes("linkedin.com")) return { platform: "linkedin", label: "LinkedIn" };
+    if (host.includes("artstation.com")) return { platform: "artstation", label: "ArtStation" };
+    if (host.includes("instagram.com")) return { platform: "instagram", label: "Instagram" };
+    return { platform: "website", label: "Website" };
+  } catch (e) {
+    return { platform: "website", label: "Website" };
+  }
+}
+
+// A contributors.txt line is either just a name, or a name followed by a
+// link on the *same* line with at least a space between them (2026-08-02,
+// explicit request) - "Axel Bernard https://www.artstation.com/..." - the
+// link is whatever whitespace-separated http(s) URL appears after the
+// name; a line with no such URL has no link at all.
+function parseContributorLine(line) {
+  const match = line.match(/^(.*?)\s+(https?:\/\/\S+)\s*$/i);
+  if (match) {
+    return { name: match[1].trim(), link: match[2] };
+  }
+  return { name: line.trim(), link: null };
+}
+
 async function loadContributorsList() {
   contributorsList.innerHTML = "";
   try {
     const response = await fetch("contributors.txt", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
-    const names = text.split("\n").map(line => line.trim()).filter(Boolean);
-    if (names.length === 0) {
+    const lines = text.split("\n").map(line => line.trim()).filter(Boolean);
+    if (lines.length === 0) {
       const li = document.createElement("li");
       li.className = "contributors-list-empty";
       li.textContent = "No contributors listed yet.";
       contributorsList.appendChild(li);
       return;
     }
-    names.forEach(name => {
+    lines.forEach(line => {
+      const { name, link } = parseContributorLine(line);
       const li = document.createElement("li");
-      li.textContent = name;
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = name;
+      li.appendChild(nameSpan);
+      if (link) {
+        const { platform, label } = detectContributorSocialPlatform(link);
+        const a = document.createElement("a");
+        a.className = "contributor-social-icon";
+        a.href = link;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.title = label;
+        a.setAttribute("aria-label", `${name} on ${label}`);
+        a.innerHTML = CONTRIBUTOR_SOCIAL_ICONS[platform] || CONTRIBUTOR_SOCIAL_ICONS.website;
+        li.appendChild(a);
+      }
       contributorsList.appendChild(li);
     });
   } catch (e) {
@@ -5051,6 +5240,19 @@ contributorsModal.addEventListener("click", (e) => {
     // color tag again, add another synthetic case shaped like the real
     // failure (per the comment on dominantColorNameFromCanvas) and check
     // there first.
+    //
+    // 2026-08-02: real report - several unambiguously yellow objects with
+    // an ordinary amount of shadow in frame kept coming back "brown".
+    // Reworked twice more in the same pass (see nameColorFromRgb's and
+    // dominantColorNameFromCanvas's own comments): brown/beige moved from
+    // a per-pixel carve-out to a post-vote decision made from the winning
+    // orange/yellow family's own aggregate lightness/saturation (so a lit
+    // and a shadowed patch of the same paint vote together instead of
+    // splitting into two competing name buckets), and each hue-family
+    // pixel's vote is now discounted the further its own lightness sits
+    // from a well-lit midtone (never applied to the black/white/gray
+    // vote). Re-tag Colors needs to be run again to pick this up on
+    // already-published images - it isn't automatic.
     // --------------------------------------------------------------
     function rgbToHsl(r, g, b) {
       r /= 255; g /= 255; b /= 255;
@@ -5079,37 +5281,29 @@ contributorsModal.addEventListener("click", (e) => {
     // artifacts) into misleadingly large "saturation" values right where
     // it matters most for telling white/black apart from a weak tint.
     // Chroma has no such blowup, so it's what decides "is this actually a
-    // color, or basically neutral" - `s` is still used below for the
-    // brown/beige lightness carve-out, away from those unstable extremes.
-    // "brown" and "beige" are carved out of the orange hue range by
-    // lightness, since they're common on the reference materials this
-    // gallery actually holds (wood, concrete, stone, rust) and "orange"
-    // alone wouldn't read as a useful tag for them.
+    // color, or basically neutral".
+    // 2026-08-02: this used to also carve "brown"/"beige" out of the
+    // orange/yellow hue range *per pixel* here (by lightness/saturation).
+    // That meant a single material spanning both a lit and a shadowed
+    // patch - the ordinary case for almost any real photo - split its own
+    // vote across two entirely different name buckets: the shadowed
+    // orange-hued pixels alone (same paint, just darker) were enough to
+    // read as "brown" in dominantColorNameFromCanvas's per-pixel vote,
+    // competing separately from - instead of adding to - the lit pixels'
+    // "yellow"/"orange" vote. Real report: several unambiguously yellow
+    // objects (machinery, tools) with an ordinary amount of shadow in
+    // frame kept coming back "brown". This function now only classifies
+    // the base hue family; dominantColorNameFromCanvas decides brown vs.
+    // beige vs. orange/yellow afterward, from the *whole winning family's*
+    // aggregate lightness/saturation - see that function's comment.
     function nameColorFromRgb(r, g, b) {
-      const [h, s, l] = rgbToHsl(r, g, b);
+      const [h, , l] = rgbToHsl(r, g, b);
       const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
       if (chroma < 0.12) {
         if (l < 0.12) return 'black';
         if (l > 0.90) return 'white';
         return 'gray';
       }
-      // Upper bound 45 (2026-08-01, was 50) - "lots of yellow dominant pics
-      // are stored in brown". This carve-out is meant to catch a *darkened
-      // orange* (rust, terracotta, wood) reading as brown rather than
-      // orange - but the plain hue-only classification below already draws
-      // the orange/yellow line at 45 (h < 45 -> orange, else -> yellow), so
-      // a 50 upper bound here reached 5 degrees past that line into hue
-      // territory that would otherwise be *yellow*, not orange, diverting
-      // any sufficiently dark, saturated yellow/gold/mustard pixel (hue
-      // 45-50, e.g. rgb(160,130,10) at h=48) into "brown" before it ever
-      // reached the yellow check. Confirmed with real reference colors: a
-      // dark mustard (h=48, l=0.33) now correctly falls through to yellow,
-      // while genuine dark oranges/browns actually in the 15-45 hue band
-      // (saddle brown h=25, dark goldenrod h=43) are unaffected and still
-      // read as brown - this narrows what the carve-out catches, it
-      // doesn't change how it decides once a hue is in range.
-      if (h >= 15 && h < 45 && l < 0.45) return 'brown';
-      if (h >= 15 && h < 60 && l >= 0.45 && l < 0.88 && s < 0.35) return 'beige';
       if (h < 15 || h >= 345) return 'red';
       if (h < 45) return 'orange';
       if (h < 70) return 'yellow';
@@ -5117,8 +5311,7 @@ contributorsModal.addEventListener("click", (e) => {
       if (h < 200) return 'cyan';
       if (h < 255) return 'blue';
       if (h < 290) return 'purple';
-      if (h < 345) return 'pink';
-      return 'gray';
+      return 'pink';
     }
 
     // Classifies every sampled pixel (nameColorFromRgb()) and returns the
@@ -5198,19 +5391,76 @@ contributorsModal.addEventListener("click", (e) => {
       const CHROMA_FLOOR = 0.03;
       const CHROMA_CAP = 0.50;
 
+      // 2026-08-02: real report - several unambiguously yellow objects
+      // (machinery, tools) with an ordinary amount of shadow in frame kept
+      // coming back "brown". A shadowed patch of the same paint has the
+      // same hue and, since chroma alone doesn't fall much with lightness,
+      // often nearly the *same* chroma-based weight as its lit half - so
+      // once enough of an object sits in shadow, it could tip the vote
+      // just by sheer pixel count, even though the visibly lit majority
+      // reads as unambiguously yellow to a person. LIGHTNESS_WEIGHT
+      // discounts a hue-family pixel's vote (never a black/white/gray
+      // one - neutral classification is untouched) the further its own
+      // lightness sits from a well-lit midtone (0.5): a deep-shadow or
+      // blown-out-highlight pixel is a less reliable reading of a
+      // material's actual color than a normally-lit one. Floored at 0.4
+      // rather than letting it reach 0, so a uniformly dark or uniformly
+      // bright material (nothing else in frame to out-vote) still wins
+      // its own vote regardless. Verified against a synthetic highlight/
+      // shadow sweep of the same paint color (same approach as the
+      // FLOOR/CAP tuning above, since there's still no live Cloudinary
+      // access to test against real photos): the point where the vote
+      // flips from "yellow" to "brown" as shadow area grows moved from
+      // ~50% shadow to ~65% shadow, while every previously-documented
+      // regression case (a wood pole beating a small vivid sky sliver, a
+      // large dull subject beating small vivid slivers, saddle brown/dark
+      // goldenrod staying brown, dark mustard/gold staying yellow, a red
+      // vending machine and green grass keeping their own color) came out
+      // unchanged. If a real image is still wrong after this, get its
+      // logged breakdown (below) before re-tuning this curve blind.
+      function lightnessWeight(l) {
+        return Math.min(1, Math.max(0.4, 1 - 2 * Math.abs(l - 0.5)));
+      }
+
+      // brown/beige used to be decided per pixel (by that pixel's own hue
+      // + lightness + saturation). That split a single material's vote
+      // across two name buckets the moment it had both a lit and a
+      // shadowed patch - see nameColorFromRgb's own comment. Now every
+      // orange/yellow-hued pixel votes as just "orange"/"yellow" (whole
+      // family, un-split), and brown/beige are decided once at the end
+      // from that *winning* family's own weighted-average lightness/
+      // saturation - lSum/sSum accumulate exactly that, keyed by name.
       const votes = new Map();
+      const lSum = new Map();
+      const sSum = new Map();
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 128) continue; // skip transparent pixels
         const r = data[i], g = data[i + 1], b = data[i + 2];
+        const [, s, l] = rgbToHsl(r, g, b);
         const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
         const name = nameColorFromRgb(r, g, b);
-        const weight = Math.min(Math.max(chroma, CHROMA_FLOOR), CHROMA_CAP);
+        let weight = Math.min(Math.max(chroma, CHROMA_FLOOR), CHROMA_CAP);
+        if (chroma >= 0.12) weight *= lightnessWeight(l);
         votes.set(name, (votes.get(name) || 0) + weight);
+        lSum.set(name, (lSum.get(name) || 0) + l * weight);
+        sSum.set(name, (sSum.get(name) || 0) + s * weight);
       }
       if (votes.size === 0) return null;
 
       let bestName = null, bestWeight = 0;
       votes.forEach((weight, name) => { if (weight > bestWeight) { bestWeight = weight; bestName = name; } });
+
+      if (bestName === 'orange' || bestName === 'yellow') {
+        const avgL = lSum.get(bestName) / bestWeight;
+        const avgS = sSum.get(bestName) / bestWeight;
+        // Matches the old per-pixel h-range coverage (brown: h in
+        // [15,45); beige: h in [15,60)) as closely as an aggregate,
+        // no-longer-per-pixel-hue check can - see nameColorFromRgb's
+        // comment for why this moved from per-pixel to per-family.
+        if (bestName === 'orange' && avgL < 0.45) bestName = 'brown';
+        else if (avgL >= 0.45 && avgL < 0.88 && avgS < 0.35) bestName = 'beige';
+      }
+
       if (debugLabel) {
         const breakdown = Array.from(votes.entries()).sort((a, b) => b[1] - a[1])
           .map(([name, weight]) => `${name}:${weight.toFixed(1)}`).join(', ');
@@ -6526,6 +6776,10 @@ downloadLink.addEventListener("click", function(e) {
     async function saveEditedTags() {
       if (selectedImagesForTagEdit.length === 0) return;
       const typedValue = editTagsInput.tagChipsAPI.getValue();
+      // Captured before the tail below clears selectedImagesForTagEdit, so
+      // the lightbox-refresh check after the save can still tell whether
+      // the currently-open image was one of the ones just edited.
+      const editedContainers = selectedImagesForTagEdit.slice();
       try {
         const savePromises = selectedImagesForTagEdit.map(async (container) => {
           const previousTags = container.getAttribute("data-keywords") || "";
@@ -6572,6 +6826,14 @@ downloadLink.addEventListener("click", function(e) {
         // enlargeEditTagsForCurrentImage()) never turned bulk Edit Tags
         // mode on, so this shouldn't turn it on either.
         if (isTagEditMode) { toggleTagEditMode(); } else { selectedImagesForTagEdit = []; }
+        // Edit Tags no longer closes the lightbox (2026-08-02, see
+        // enlargeEditTagsForCurrentImage()'s comment) - if the image still
+        // open there was one of the ones just edited, refresh its displayed
+        // tags so the caption doesn't show stale data now that closing/
+        // reopening the lightbox isn't what triggers a redraw anymore.
+        if (currentEnlargedContainer && editedContainers.includes(currentEnlargedContainer)) {
+          refreshEnlargedTagsFromContainer(currentEnlargedContainer);
+        }
       } catch (error) {
         console.error('Error saving tags:', error);
         alert(`Error saving tags: ${error.message}`);
@@ -6734,6 +6996,7 @@ downloadLink.addEventListener("click", function(e) {
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
   const resolutionElement = document.getElementById("enlargedResolution");
+  const filenameElement = document.getElementById("enlargedFilename");
   const similarPanelEl = document.getElementById("enlargeSimilarPanel");
   const imageColumn = document.querySelector(".enlarge-image-column");
 
@@ -6773,11 +7036,15 @@ downloadLink.addEventListener("click", function(e) {
     // avoids guessing.
     const resolutionEl = document.getElementById("enlargedResolution");
     const fileSizeEl = document.getElementById("enlargedFileSize");
+    const filenameEl = document.getElementById("enlargedFilename");
     const rowGap = 10; // matches .enlarged-tags-container's own CSS gap
     const TAGS_TEXT_MIN_WIDTH = 200;
     let fixedPillsWidth = resolutionEl ? resolutionEl.offsetWidth + rowGap : 0;
     if (fileSizeEl && getComputedStyle(fileSizeEl).display !== "none") {
       fixedPillsWidth += fileSizeEl.offsetWidth + rowGap;
+    }
+    if (filenameEl && filenameEl.textContent) {
+      fixedPillsWidth += filenameEl.offsetWidth + rowGap;
     }
     const MIN_CAPTION_WIDTH = fixedPillsWidth + TAGS_TEXT_MIN_WIDTH;
     const rootStyle = getComputedStyle(document.documentElement);
@@ -7007,6 +7274,12 @@ downloadLink.addEventListener("click", function(e) {
   enlargeImg.style.width = "";
   enlargeImg.style.height = "";
   resolutionElement.textContent = "";
+  // Real uploaded filename pill (2026-08-02, explicit request: "add a name
+  // pill... on the left of the other pills, same look as the resolution or
+  // size pill") - unlike resolution/file size this doesn't depend on the
+  // image decoding or any async lookup, so it's set once here rather than
+  // duplicated into both onload and onerror below.
+  if (filenameElement) filenameElement.textContent = filename || "";
   showFileSizePill(0);
   enlargeSpinner.classList.add("active");
   enlargeModal.style.justifyContent = "center";
@@ -7175,6 +7448,33 @@ function closeEnlargeModal() {
   activeEnlargedLayoutRefresh = null;
 }
 
+// Re-renders the lightbox's own tags pill from a container's current
+// data-keywords/synonymKeywords (2026-08-02) - used after saveEditedTags()
+// edits the currently-open image's tags without closing the lightbox (see
+// enlargeEditTagsForCurrentImage()'s comment for why it no longer does).
+// Mirrors the same merge enlargeImage()'s onload/onerror handlers already
+// do; kept as its own function since those are local to enlargeImage()'s
+// closure and not callable from outside it.
+function refreshEnlargedTagsFromContainer(container) {
+  const tagsElement = document.getElementById("enlargedTags");
+  const tagsContainer = tagsElement ? tagsElement.parentElement : null;
+  if (!tagsElement || !tagsContainer) return;
+  const keywords = container.getAttribute("data-keywords") || "";
+  const lightboxKeywords = (synonymTagsEnabled && container.dataset.synonymKeywords)
+    ? mergeTagStrings(keywords, container.dataset.synonymKeywords)
+    : keywords;
+  if (keywords.trim() !== "") {
+    tagsElement.textContent = lightboxKeywords;
+    tagsElement.style.display = "inline-flex";
+  } else {
+    tagsElement.style.display = "none";
+  }
+  // Re-measure/reposition the caption now that its text (and so its width/
+  // wrap height) may have changed - same function the resize/fullscreen
+  // listener already reuses for this exact purpose.
+  if (activeEnlargedLayoutRefresh) activeEnlargedLayoutRefresh();
+}
+
 // Admin quick actions for whichever image is currently open in the lightbox
 // (2026-08-02) - reuse the exact same Firestore/DOM logic the sidebar's
 // bulk Delete/Move/Edit Tags tools already use, just scoped to a
@@ -7211,10 +7511,24 @@ async function enlargeDeleteCurrentImage() {
 // selectedImagesForMove/selectedImagesForTagEdit arrays those already read
 // - see the "if (isMoveMode) ... else ..." / "if (isTagEditMode) ... else
 // ..." tails on those functions for why that's safe to do outside of
-// actually turning Move Images/Edit Tags mode on. The lightbox itself has
-// to close first: both modals are .modal-backdrop (z-index 1150), well
-// below #enlargeImageModal's 15000, so opening one while the lightbox
-// stayed open would render it completely obscured underneath.
+// actually turning Move Images/Edit Tags mode on.
+//
+// Move still closes the lightbox first: moveDestinationModal is a plain
+// .modal-backdrop (z-index 1150), well below #enlargeImageModal's 15000,
+// so opening it while the lightbox stayed open would render it completely
+// obscured underneath, and once a move succeeds the image may no longer
+// belong in whatever folder/filter the gallery is currently showing behind
+// it anyway.
+//
+// Edit Tags (2026-08-02, explicit request: "it works but it closes the
+// image in background, don't... it should stay open") is different - the
+// image itself doesn't change, only its tags, so there's no reason to lose
+// the admin's place in the lightbox. Instead of closing #enlargeImageModal,
+// #editTagsModal gets its own z-index override (see its CSS) that puts it
+// *above* the lightbox, so it opens as a modal-on-top-of-the-lightbox
+// rather than needing the lightbox out of the way first. saveEditedTags()
+// refreshes the lightbox's own tag display afterward (see its own comment)
+// so the caption doesn't go stale once the modal closes.
 function enlargeMoveCurrentImage() {
   const container = currentEnlargedContainer;
   if (!container) return;
@@ -7227,7 +7541,6 @@ function enlargeEditTagsForCurrentImage() {
   const container = currentEnlargedContainer;
   if (!container) return;
   selectedImagesForTagEdit = [container];
-  closeEnlargeModal();
   populateEditTagsModal();
   editTagsModal.classList.add("active");
 }

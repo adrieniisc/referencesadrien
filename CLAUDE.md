@@ -443,6 +443,43 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     neutral. **If another image is still wrong after this, extend that harness with a case shaped
     like the new failure first** (or get a real `[color detect]` console line, if someone can) —
     don't re-tune these two numbers blind again; that's the mistake every prior pass made.
+    **Fifth pass, 2026-08-02** — reported again: "lots of yellow dominant pics are stored in
+    brown" (screenshot of the real gallery, several machinery/tool photos with visible shadow).
+    This time the actual algorithmic gap was findable without a live photo: `nameColorFromRgb()`'s
+    brown carve-out (`h in [15,45), l < 0.45`) ran *per pixel*, so a material that's unambiguously
+    yellow where it's lit and merely darker (not a different hue) where it's shadowed had its own
+    vote split across two entirely separate name buckets - the shadowed half alone, voting as
+    "brown", only had to outweigh the lit half's "yellow" vote, not the other way around. Reworked
+    two things together in `dominantColorNameFromCanvas()`/`nameColorFromRgb()`: (1)
+    `nameColorFromRgb()` no longer decides brown/beige at all - it only returns the base hue family
+    (orange/yellow/red/etc., or black/white/gray) - and brown/beige are now decided once, after
+    voting, from the *winning* orange/yellow family's own vote-weighted average lightness/
+    saturation (`lSum`/`sSum`, keyed by name) - a lit and a shadowed patch of the same paint now
+    add to the *same* bucket instead of competing in different ones, and that bucket's own overall
+    lightness decides brown vs. orange/yellow/beige, matching what a person actually looking at the
+    photo would judge from its dominant tone rather than its darkest pixels; (2) added
+    `lightnessWeight(l)` - each hue-family pixel's vote (never a black/white/gray one) is now
+    discounted the further its own lightness sits from a well-lit midtone (`1 - 2*|l-0.5|`, floored
+    at 0.4 so a uniformly dark or uniformly bright material with nothing else in frame still wins
+    its own vote outright) - a deep-shadow or blown-out-highlight reading is a less reliable sample
+    of a material's actual color than a normally-lit one, so it should count for less, not the same
+    as CHROMA_FLOOR/CHROMA_CAP already give it. Verified the same way as every pass in this saga -
+    no live Cloudinary access here - but this time by extracting the *actual* functions straight out
+    of `index.html` (via a small brace-matching parser, not hand-retyped copies, since a hand-copy
+    can silently drift from what's really shipped) into a Node harness with a stubbed `document`/
+    canvas returning a synthetic pixel buffer, so what got tested is exactly the shipped code, not a
+    stand-in for it: swept a highlight/shadow ratio of the same yellow paint from 70/30 down to
+    30/70 - the vote now stays "yellow" through 40% highlight / 60% shadow (was flipping to "brown"
+    past 50/50 before this pass) - while every previously-documented regression case in this saga
+    (saddle brown and dark goldenrod staying brown, dark mustard and gold staying yellow, a wood
+    pole beating a small vivid sky sliver, a large dull subject beating small vivid slivers, a red
+    vending machine and green grass keeping their own name, a desaturated tan staying beige) came
+    back unchanged. **Existing images already tagged "brown" need Re-tag Colors run again** to pick
+    up this corrected behavior - it isn't automatic, same as every prior rework in this saga. If
+    another image is still wrong after this, get a real `[color detect]` console line or build
+    another case shaped like the failure and check it against the *real* extracted function (per
+    the harness approach here) before re-tuning `lightnessWeight()`'s curve or the 0.45/0.88/0.35
+    aggregate thresholds blind - same standing advice as every pass before this one.
   - **Stability: delete/move/edit-tags/re-tag now target a Firestore doc id, not a url lookup
     (2026-07-31)** — prompted by "make sure images won't disappear randomly." `findImageIdByUrl()`
     (`where('url','==',url).limit(1)`) is ambiguous whenever two `images` docs share the same url,
@@ -1456,6 +1493,78 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       visitor, a full Edit Tags/Move/Delete round trip via the lightbox's quick-action buttons
       confirming neither bulk mode gets left active afterward, and the new CSS values - all
       confirmed passing (24 assertions) with zero console errors from app code.
+  - **Second 2026-08-02 batch: contributors auto-icons, Edit Tags no longer closes the lightbox,
+    brand typewriter intro, doubled sidebar blur, filename pill** — five more requests, landed
+    after the first 2026-08-02 batch above had already merged.
+    - **Contributors modal auto-detects a social icon from an inline link** - a `contributors.txt`
+      line can now be just a name, or "Name https://..." (a link after at least one space, same
+      line) - `parseContributorLine()` splits the two, and `detectContributorSocialPlatform()` picks
+      an icon by the link's hostname (`linkedin.com`/`artstation.com`/`instagram.com`, else a
+      generic globe "website" icon for anything else, e.g. a personal portfolio) via
+      `CONTRIBUTOR_SOCIAL_ICONS` - the exact same SVG paths as the About modal's own
+      `.about-social-icon` set, reused for visual consistency, just smaller (`.contributor-social-
+      icon`, 28px vs. 34px) to fit this list's tighter row height. `.contributors-list li` became a
+      flex row (`justify-content: space-between`) so the icon aligns to the far right of its row; a
+      plain-name line just renders as before with no icon child at all.
+    - **Edit Tags from the lightbox no longer closes it** (`enlargeEditTagsForCurrentImage()`) -
+      previously it called `closeEnlargeModal()` first (same as Move still does), which was reported
+      as the image "closing in background" when the actual intent was "stay open as is while and
+      after editing tags." Fixed by *not* closing the lightbox and instead giving `#editTagsModal` a
+      dedicated `z-index: 15200` (every other `.modal-backdrop` is 1150, well below the lightbox's
+      15000) so it renders as a modal-on-top-of-the-lightbox instead of invisibly underneath it.
+      Move (`enlargeMoveCurrentImage()`) still closes the lightbox first, unchanged - only Edit Tags
+      was reported/asked for, and unlike a tag edit, a successful move can take the image out of
+      whatever folder/filter the gallery is showing behind it anyway. `saveEditedTags()` now also
+      captures `selectedImagesForTagEdit` into `editedContainers` before its own cleanup tail clears
+      that array, and calls the new `refreshEnlargedTagsFromContainer(container)` (mirrors the exact
+      tag-merge logic `enlargeImage()`'s onload/onerror already do, since that logic lives inside
+      `enlargeImage()`'s own closure and isn't callable from outside it) when the image just edited
+      is the one still open in the lightbox - otherwise the caption would go stale now that closing/
+      reopening the lightbox is no longer what triggers a redraw.
+    - **"aReference" brand: typewriter intro animation, every page load** (explicit request) -
+      `playBrandIntroAnimation()` types `#sidebarBrandText` out one character at a time (a blinking
+      `#sidebarBrandCursor` alongside it, via the search placeholder's own `searchPlaceholderBlink`
+      keyframes reused for one consistent "typing" look across the page), then - once fully typed -
+      switches from the continuous CSS blink to a fixed, JS-counted number of on/off "ticks" (reads
+      as the cursor settling to a stop, not blinking forever) before hiding the cursor outright and
+      adding `.brand-active` to `#sidebarBrand`. This runs on **every** load (unlike the About
+      modal's `localStorage`-gated first-visit-only auto-open a few entries up) - there's
+      deliberately no persistence check here. The brand is `pointer-events: none` by default in CSS
+      and only gets `pointer-events: auto` (+ `cursor: pointer`) via `.brand-active` - "activating
+      the button" means the click handler (still bound once, at `#sidebarBrand`) checks a module-
+      level `isBrandIntroDone` flag and no-ops entirely until the animation actually finishes,
+      rather than just visually looking inactive while still secretly clickable underneath.
+    - **Sidebar blur doubled again** - `blur(40px)` → `blur(80px)` (+ matching `@supports not
+      (backdrop-filter: ...)` selector), same "twice blurrier" explicit request shape as the
+      2026-08-01 blur(20px)→blur(40px) doubling before it.
+    - **Lightbox filename pill** (`#enlargedFilename`, "add a name pill... on the left of the other
+      pills, same look as the resolution or size pill") - a new leftmost pill in
+      `.enlarged-tags-container`, sharing `.enlarged-resolution`/`.enlarged-filesize`'s exact visual
+      treatment via the same shared CSS rule. Unlike the admin-only debug filename in the lightbox
+      admin bar (see the first 2026-08-02 batch above - a `title`/`#enlargeAdminFilename` pairing
+      gated on `auth.currentUser`), this pill is public-facing, shown to every visitor regardless of
+      admin state - two different features that happen to both display a filename, not a
+      duplicate of the same one. Populated once, synchronously, right when `enlargeImage()` opens
+      (the filename is already known from the function's own parameter, unlike resolution/file size
+      which need the image to actually decode or an async fetch fallback) rather than duplicated
+      into both `onload`/`onerror`. Kept `flex-shrink: 0` (like resolution/filesize) rather than the
+      tags pill's own shrink-and-ellipsize treatment, since real uploaded filenames are typically
+      short (camera-style names) - a `max-width: 220px` + ellipsis is just a safety net for an
+      unusually long one, not the primary sizing mechanism; `positionEnlargedTags()`'s
+      `fixedPillsWidth` reservation (which sizes the caption's floor width so the tags pill doesn't
+      get squeezed to nothing) now also accounts for this pill's rendered width alongside
+      resolution/filesize's.
+    - **Sandbox caveat, unchanged from every other entry in this file**: no live Firebase/Cloudinary
+      access here - verified via the same Playwright + hand-rolled Firestore/Auth stub pattern (this
+      file's Testing section), extended with a real `contributors.txt` served over the test's local
+      HTTP server (not a stub) so the actual repo file's format got exercised - Edit Tags keeping
+      the lightbox open (and its z-index rendering above it) through a full save-and-refresh cycle,
+      the filename pill showing real text, contributor rows correctly getting/not-getting an icon
+      matching the real file's three cases (website link, ArtStation link, no link), the brand
+      being unclickable and partially-typed shortly after load then fully typed/clickable/cursor-
+      hidden ~2.5s later and an actual click then navigating home, and the doubled blur value - all
+      confirmed passing (15 new assertions, 39 total across both 2026-08-02 batches) with zero
+      console errors from app code.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
