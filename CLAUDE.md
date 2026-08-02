@@ -1774,6 +1774,54 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       horizontal overflow, nav arrows and caption pills still visible (the caption pill row's own
       content already ran slightly past the viewport edge before this change at very narrow widths -
       pre-existing and unrelated to the sidebar, out of scope for this rework).
+  - **Mobile drawer follow-up: real performance fix + welcome-screen opt-out (2026-08-02, same day)**
+    - **"Very poorly optimized, lags with an A13 Bionic chip."** Root cause: the mobile drawer above
+      made `.sidebar` a fixed, *always-mounted* element (just transformed off-screen when closed),
+      but its `backdrop-filter: blur(80px)` (doubled twice the same day at explicit request, with no
+      real-device testing possible in this sandbox - see the sidebar-blur history earlier in this
+      file) stayed active the whole time regardless of visibility, and worse,
+      `buildSidebarFrostStrip()`/`syncSidebarFrostStripPosition()` - the decorative reflection
+      strip's rebuild-and-position logic - kept running behind it: the rebuild fires from
+      `layoutGallery()`, which reruns on every lazy-loaded thumbnail's own `load` event while
+      scrolling (not just filter/search/add/delete), and the position sync fires on *every single
+      gallery scroll frame*. On mobile, with the drawer closed, none of this reflection is visible
+      at all - it was continuous, real, wasted DOM/network/GPU-compositing work on every ordinary
+      scroll through the gallery, exactly the shape of thing that reads as "lag" on a real device
+      even though it's invisible in a desktop browser or this sandbox's Playwright harness (which
+      can't measure actual GPU cost, only confirm the work is happening or not).
+      Fixed with a single guard, `isMobileDrawerHidden()` (`window.innerWidth <= 768 &&
+      !.sidebar.classList.contains('mobile-open')`), checked at the top of both
+      `buildSidebarFrostStrip()` and `syncSidebarFrostStripPosition()` - short-circuits all of that
+      work whenever the drawer is genuinely invisible. `.sidebar`'s `backdrop-filter` itself is now
+      `none` by default at `<=768px` and only restored to `blur(80px)` via `.mobile-open` - so the
+      GPU-expensive composite is paid only while the drawer is actually on screen. Since
+      `buildSidebarFrostStrip()`/`syncSidebarFrostStripPosition()` now skip while closed, the
+      reflection can go stale or never get built at all before the drawer opens -
+      `openMobileDrawer()` calls `buildSidebarFrostStrip()` once right after adding `.mobile-open`
+      (which itself calls `syncSidebarFrostStripPosition()` at its own end) to catch it up the moment
+      it's actually needed. Desktop (and the 769-900px tablet tier, which never uses the drawer CSS)
+      is completely unaffected - the guard only ever short-circuits at `<=768px`.
+      **Verified via Playwright** (no live device to profile, so this measures the *mechanism*, not
+      real GPU/frame timing): scrolled a 60-image gallery 15 times on a 375px mobile viewport with
+      the drawer closed - zero `<img>` tiles existed in the reflection strip afterward and
+      `backdrop-filter` computed to `none` throughout, confirming none of that work ran; opening the
+      drawer immediately populated all 46 expected tiles with `blur(80px)` restored, confirming nothing
+      is actually broken, just deferred; the same scroll-and-check on a 1400px desktop viewport still
+      populated tiles normally with `blur(80px)` active the whole time, confirming desktop behavior is
+      unchanged. **If mobile scrolling is still reported as laggy after this, the gallery's own
+      `layoutGallery()`/justified-layout algorithm (unrelated to the sidebar) is the next thing to
+      profile on a real device** - this fix addresses the frosted-sidebar-specific waste, not
+      every possible mobile performance issue.
+    - **First-visit About modal no longer auto-opens on mobile** (explicit request, clarified via a
+      follow-up question - the ask was "turn it off for mobile", not "it's broken, fix it") - the
+      existing `hasVisitedReferencesAdrien` localStorage flag is still set on a mobile visitor's
+      first visit exactly as before (so a later *desktop* visit on the same browser profile still
+      won't show it either - this is "seen it once, ever" semantics, not "seen it once per screen
+      size"), but `aboutModal.classList.add("active")` is now additionally gated on
+      `window.innerWidth > 768`, the same breakpoint the mobile drawer uses. Verified via Playwright:
+      a genuinely fresh profile (no seeded localStorage) at a 375px viewport does not show the About
+      modal but does still set the flag, while the identical fresh-profile setup at a 1400px viewport
+      still auto-opens it as before.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
