@@ -3217,6 +3217,47 @@
 }
 
 /* --------------------------------------------------
+   Suggested tags (2026-08-02) - nearest-neighbor tag suggestions surfaced
+   next to a tag-chip-input field (see initTagChipInput() above and the
+   CLIP-embedding block in the script, near detectDominantColorTag). Shared
+   by the upload wizard's step 2 Keywords field and each Review Submissions
+   image's own tag field - a plain outlined "not yet added" chip look,
+   distinct from the solid .tag-chip pill an actually-applied tag gets.
+-------------------------------------------------- */
+.suggest-tags-btn {
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+.suggest-tags-btn:hover { color: var(--text); border-color: var(--border-strong); }
+.suggested-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 1.4rem;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+.suggested-tags-label { color: var(--text-faint); }
+.suggested-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.suggested-tag-chip:hover { background-color: var(--accent-soft); }
+
+/* --------------------------------------------------
    Review Submissions Panel
 -------------------------------------------------- */
 /* #reviewSubmissionsModal's own backdrop centers .submissions-review-content
@@ -3340,6 +3381,17 @@
   opacity: 0.6;
   cursor: default;
 }
+/* Overrides the generic ".submission-image-item button" rule above (solid
+   success-green, full width) - this is an informational helper action, not
+   the tile's actual publish action, so it shouldn't visually compete with
+   "Add". */
+.submission-image-item button.suggest-tags-btn {
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+.submission-image-item .suggested-tags-row { margin-bottom: 8px; }
 .submission-dismiss-btn {
   background-color: var(--danger) !important;
   margin-top: 4px;
@@ -3538,6 +3590,7 @@
             <button id="retagColorsBtn">Re-tag Colors</button>
             <button id="retagFilteredColorsBtn">Re-tag Current Color Filter</button>
             <button id="retagSynonymsBtn">Re-tag Synonyms</button>
+            <button id="buildTagSuggestionIndexBtn">Build Tag Suggestions Index</button>
           </div>
           <hr class="separator">
          <div class="sidebar-admin-section">
@@ -3723,8 +3776,10 @@
           <div class="wizard-pool-confirm-bar">
             <select id="folderSelect" aria-label="Folder for selected images"></select>
             <input type="text" id="imageKeywords" placeholder="Tags (optional) - e.g., red, green" aria-label="Tags for selected images">
+            <button type="button" id="suggestTagsBtn" class="suggest-tags-btn">Suggest Tags</button>
             <button type="button" id="poolConfirmBtn" disabled>Confirm &amp; Queue Selected</button>
           </div>
+          <div id="suggestedTagsRow" class="suggested-tags-row"></div>
         </div>
 
         <div class="wizard-panel" data-panel="3">
@@ -4389,6 +4444,17 @@
     // resolution caption instead of leaving them at whatever pixel values
     // were computed for the old viewport size.
     let activeEnlargedLayoutRefresh = null;
+    // Tag-suggestion embedding index (2026-08-02) - see the CLIP-embedding
+    // block further down (near detectDominantColorTag) for what populates
+    // these. Declared this early, well before auth.onAuthStateChanged() is
+    // registered, on purpose: a stubbed/synchronous auth backend invoking
+    // its callback immediately already broke page load once before
+    // (submissionsBadgeUnsubscribe's temporal-dead-zone bug, 2026-08-01) by
+    // reaching a `let` declared after the callback registration - these
+    // Maps aren't read from that callback today, but there's no reason to
+    // risk the same shape again for a two-line declaration.
+    const imageEmbeddingsById = new Map();
+    const imageContainersByDocId = new Map();
     let isDeleteMode = false;
     let selectedImages = [];
     let isMoveMode = false;
@@ -4432,6 +4498,8 @@
     const folderSelect = document.getElementById("folderSelect");
     const imageKeywords = document.getElementById("imageKeywords");
     initTagChipInput(imageKeywords);
+    const suggestTagsBtn = document.getElementById("suggestTagsBtn");
+    const suggestedTagsRow = document.getElementById("suggestedTagsRow");
 
     // Add Image modal step wizard (2026-08-01, rebuilt a second time the
     // same day into a pool/sort/review flow - see the modal's own HTML
@@ -4537,6 +4605,7 @@
     const retagColorsBtn = document.getElementById("retagColorsBtn");
     const retagFilteredColorsBtn = document.getElementById("retagFilteredColorsBtn");
     const retagSynonymsBtn = document.getElementById("retagSynonymsBtn");
+    const buildTagSuggestionIndexBtn = document.getElementById("buildTagSuggestionIndexBtn");
 
     // Delete Image elements
     const deleteImageBtn = document.getElementById("deleteImageBtn");
@@ -6023,6 +6092,257 @@ contributorsModal.addEventListener("click", (e) => {
       }
     }
 
+    // --------------------------------------------------------------
+    // Tag-suggestion embeddings (2026-08-02) - a nearest-neighbor "suggest
+    // tags" helper for new images, built on this gallery's OWN existing
+    // tagged images, not a trained classifier. For a new local File (upload
+    // wizard) or an already-hosted URL (Review Submissions, the bulk
+    // backfill below), a small pretrained CLIP vision encoder (loaded
+    // lazily from a CDN, entirely client-side - no backend inference
+    // service exists here) turns the image into a vector; the admin's
+    // "Suggest Tags" click then finds that vector's nearest neighbors among
+    // every OTHER image's own stored vector (imageEmbeddingsById) and
+    // offers THEIR tags as clickable suggestions - nothing is ever applied
+    // automatically, and nothing here ever blocks an upload/publish if it
+    // fails.
+    //
+    // This is a deliberate reintroduction of an ML dependency after the
+    // 2026-07-30 removal of Cloud Vision/MobileNet (see that entry in
+    // CLAUDE.md, and the repeated "this app has no ML/AI" notes elsewhere)
+    // - done on a fresh, explicit owner request, not silently. It's also a
+    // different kind of thing than what was removed: MobileNet/Cloud
+    // Vision tried to *name* what's in a photo from a fixed generic label
+    // set (and did so badly, per the owner, which is why they were
+    // removed); this only measures "does this look like other images
+    // already tagged here" and borrows THEIR tags, so its ceiling tracks
+    // this gallery's own tagging, not a generic classifier's vocabulary.
+    //
+    // IMPORTANT CAVEAT, more so than anywhere else in this codebase: this
+    // was written and wired up without ever being run once, in any form.
+    // This sandbox's network policy blocks both cdn.jsdelivr.net and
+    // huggingface.co (confirmed via the proxy's own status endpoint -
+    // explicit 403 policy denials, not flaky failures), which is exactly
+    // where the library/model below load from - so unlike every other "no
+    // live Cloudinary access" caveat elsewhere in this file, there was no
+    // way to load the library even once, let alone verify the exact API
+    // surface, model behavior, or suggestion quality against real photos.
+    // Every function below is written defensively (try/catch, never
+    // throws) and mirrors the exact dual local-file/URL pattern already
+    // proven out by detectDominantColorTag/detectDominantColorTagFromUrl
+    // just above, so a wrong API call should just fail a suggestion
+    // silently rather than break uploads/tagging - but this genuinely needs
+    // a real-browser smoke test (open the site, sign in as admin, open
+    // dev tools, click "Suggest Tags" on one image or "Build Tag
+    // Suggestions Index" on a couple, watch the console) before trusting
+    // it, more than the "verify against real Cloudinary" caveat elsewhere
+    // in this file usually implies.
+    // --------------------------------------------------------------
+    const CLIP_MODEL_ID = 'Xenova/clip-vit-base-patch32';
+    const CLIP_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+    const SUGGESTED_TAG_NEIGHBORS = 8;
+    const SUGGESTED_TAG_MAX = 6;
+
+    // Loaded lazily (dynamic import works fine from a plain, non-`module`
+    // script) only the first time an admin actually triggers a suggestion
+    // or the bulk backfill below - never on ordinary page load, so a
+    // visitor who never tags anything never pays for this download at all.
+    let clipModulePromise = null;
+    function loadClipModule() {
+      if (!clipModulePromise) clipModulePromise = import(CLIP_MODULE_URL);
+      return clipModulePromise;
+    }
+
+    // Singleton processor+model pair, loaded once per page session and
+    // reused for every embedding after that. `onProgress` only actually
+    // fires for whichever caller happens to be first to trigger the real
+    // download this page load - by the time a second caller awaits this,
+    // the promise is already resolved and there's nothing left to report.
+    let clipComponentsPromise = null;
+    function getClipComponents(onProgress) {
+      if (!clipComponentsPromise) {
+        clipComponentsPromise = loadClipModule().then(async ({ AutoProcessor, CLIPVisionModelWithProjection, env }) => {
+          env.allowLocalModels = false;
+          const progress_callback = onProgress ? (data) => {
+            try { onProgress(data); } catch (err) { /* a broken progress UI must never break model loading */ }
+          } : undefined;
+          const [processor, visionModel] = await Promise.all([
+            AutoProcessor.from_pretrained(CLIP_MODEL_ID, { progress_callback }),
+            CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL_ID, { quantized: true, progress_callback })
+          ]);
+          return { processor, visionModel };
+        });
+      }
+      return clipComponentsPromise;
+    }
+
+    function normalizeVector(vector) {
+      let sumSquares = 0;
+      for (let i = 0; i < vector.length; i++) sumSquares += vector[i] * vector[i];
+      const norm = Math.sqrt(sumSquares);
+      return norm ? vector.map(v => v / norm) : vector;
+    }
+
+    async function embedRawImage(rawImage, onProgress) {
+      const { processor, visionModel } = await getClipComponents(onProgress);
+      const inputs = await processor(rawImage);
+      const { image_embeds } = await visionModel(inputs);
+      return normalizeVector(Array.from(image_embeds.data));
+    }
+
+    // Local File about to be uploaded (upload wizard step 2's "Suggest
+    // Tags"). Mirrors detectDominantColorTag()'s exact shape: reuse
+    // decodeToCanvas() (already handles the HEIC-detection/fallback-decode
+    // dance) rather than feeding the raw File to the model directly, so
+    // this never has to duplicate that logic or invent a second, untested
+    // HEIC decode path. Never throws - a failed embedding just means no
+    // suggestions for this image, not a blocked upload.
+    async function computeImageEmbedding(file, onProgress) {
+      try {
+        const { RawImage } = await loadClipModule();
+        const canvas = await decodeToCanvas(file);
+        return await embedRawImage(RawImage.fromCanvas(canvas), onProgress);
+      } catch (err) {
+        console.warn(`Could not compute tag-suggestion embedding for ${file.name}:`, err);
+        return null;
+      }
+    }
+
+    // Already-hosted Cloudinary URL (Review Submissions' "Suggest Tags"/
+    // "Add" and the "Build Tag Suggestions Index" bulk action below).
+    // Mirrors detectDominantColorTagFromUrl()'s exact shape - same
+    // crossOrigin canvas read, same w_200/q_90 sample size - so this
+    // inherits that function's own CORS-dependency caveat (a
+    // tainted-canvas read just fails here the same way, returning null
+    // instead of blocking whatever called it).
+    async function computeImageEmbeddingFromUrl(url, onProgress) {
+      try {
+        const { RawImage } = await loadClipModule();
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = cloudinaryDisplayUrl(url, { width: 200, quality: 90 });
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        return await embedRawImage(RawImage.fromCanvas(canvas), onProgress);
+      } catch (err) {
+        console.warn(`Could not compute tag-suggestion embedding for ${url}:`, err);
+        return null;
+      }
+    }
+
+    function cosineSimilarity(a, b) {
+      const len = Math.min(a.length, b.length);
+      let dot = 0, normA = 0, normB = 0;
+      for (let i = 0; i < len; i++) {
+        dot += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+      }
+      if (!normA || !normB) return 0;
+      return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    // Scores every candidate tag by summed similarity across an embedding's
+    // SUGGESTED_TAG_NEIGHBORS nearest neighbors - not just the single
+    // closest match, so one outlier/mistagged neighbor can't dominate a
+    // suggestion on its own. excludeDocId skips an image comparing against
+    // itself; neither current call site needs it (a new upload/submission
+    // has no docId yet), but it costs nothing to support for a future
+    // "suggest more tags for an existing image" caller.
+    function accumulateTagVotes(tagScores, embedding, excludeDocId) {
+      if (!embedding) return;
+      const scored = [];
+      imageEmbeddingsById.forEach((otherEmbedding, docId) => {
+        if (docId === excludeDocId) return;
+        scored.push({ docId, score: cosineSimilarity(embedding, otherEmbedding) });
+      });
+      scored.sort((a, b) => b.score - a.score);
+      scored.slice(0, SUGGESTED_TAG_NEIGHBORS).forEach(({ docId, score }) => {
+        if (score <= 0) return;
+        const container = imageContainersByDocId.get(docId);
+        if (!container) return;
+        (container.dataset.keywords || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
+          .forEach(tag => tagScores.set(tag, (tagScores.get(tag) || 0) + score));
+      });
+    }
+
+    // Renders up to SUGGESTED_TAG_MAX ranked tags the field doesn't already
+    // have as small clickable chips into rowEl; clicking one merges it into
+    // tagInputEl's chip list (mergeTagStrings() - same de-dupe behavior
+    // every other tag-merge in this file already uses) and removes just
+    // that one chip, since offering it again would be redundant.
+    function renderSuggestedTags(tagScores, tagInputEl, rowEl) {
+      const existing = new Set(tagInputEl.tagChipsAPI.getValue().split(",").map(t => t.trim().toLowerCase()).filter(Boolean));
+      const ranked = Array.from(tagScores.entries())
+        .filter(([tag]) => !existing.has(tag))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, SUGGESTED_TAG_MAX);
+      rowEl.innerHTML = "";
+      if (ranked.length === 0) {
+        rowEl.textContent = "No suggestions found for this image yet.";
+        return;
+      }
+      const label = document.createElement("span");
+      label.className = "suggested-tags-label";
+      label.textContent = "Suggested:";
+      rowEl.appendChild(label);
+      ranked.forEach(([tag]) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "suggested-tag-chip";
+        chip.textContent = `+ ${tag}`;
+        chip.addEventListener("click", () => {
+          tagInputEl.tagChipsAPI.setTags(mergeTagStrings(tagInputEl.tagChipsAPI.getValue(), tag));
+          chip.remove();
+        });
+        rowEl.appendChild(chip);
+      });
+    }
+
+    // Shared "Suggest Tags" button wiring for both call sites (upload
+    // wizard step 2, Review Submissions per-image). getEmbeddings must
+    // resolve to an array of embeddings (plural, since the wizard can have
+    // several images selected at once) - null/failed entries are filtered
+    // out, not treated as a hard error, same "a failed detection just means
+    // fewer/no suggestions" contract as computeImageEmbedding/
+    // computeImageEmbeddingFromUrl themselves.
+    async function runSuggestTags(buttonEl, rowEl, tagInputEl, getEmbeddings) {
+      const originalLabel = buttonEl.textContent;
+      buttonEl.disabled = true;
+      // If a previous action already loaded the model this page session,
+      // clipComponentsPromise is already resolved and its progress_callback
+      // will never fire again below - skip straight past "Loading model…"
+      // so a warm second run doesn't sit on a misleading label.
+      let modelReady = !!clipComponentsPromise;
+      buttonEl.textContent = modelReady ? "Analyzing…" : "Loading model…";
+      try {
+        const onProgress = () => {
+          if (!modelReady) { buttonEl.textContent = "Analyzing…"; modelReady = true; }
+        };
+        const embeddings = (await getEmbeddings(onProgress)).filter(Boolean);
+        if (embeddings.length === 0) {
+          rowEl.innerHTML = "";
+          rowEl.textContent = "Could not analyze this image.";
+          return;
+        }
+        const tagScores = new Map();
+        embeddings.forEach(embedding => accumulateTagVotes(tagScores, embedding, null));
+        renderSuggestedTags(tagScores, tagInputEl, rowEl);
+      } catch (err) {
+        console.error("Tag suggestion failed:", err);
+        rowEl.innerHTML = "";
+        rowEl.textContent = "Could not load tag suggestions.";
+      } finally {
+        buttonEl.disabled = false;
+        buttonEl.textContent = originalLabel;
+      }
+    }
+
     // Sniffs the ISO-BMFF "ftyp" box at the start of the file to detect HEIC/HEIF
     // content regardless of name or reported MIME type - both can lie (iOS/Safari
     // sometimes hands the page raw HEIC bytes named/typed as .jpeg).
@@ -6297,7 +6617,13 @@ contributorsModal.addEventListener("click", (e) => {
           addTime: Date.now(),
           fileSize: extra.fileSize || null,
           synonymKeywords: extra.synonymKeywords || '',
-          translatedKeywords: extra.translatedKeywords || ''
+          translatedKeywords: extra.translatedKeywords || '',
+          // Tag-suggestion embedding (2026-08-02) - a normalized CLIP
+          // vision-encoder vector, or null if detection failed/hasn't run
+          // yet for this image. See the CLIP-embedding block near
+          // detectDominantColorTag for what computes this and
+          // imageEmbeddingsById/imageContainersByDocId for how it's used.
+          embedding: extra.embedding || null
         });
         console.log('Image saved to Firestore:', url);
         return docRef.id;
@@ -6313,7 +6639,7 @@ contributorsModal.addEventListener("click", (e) => {
         gallery.innerHTML = '';
         imagesSnapshot.forEach(doc => {
           const imageData = doc.data();
-          addImageToGallery(
+          const container = addImageToGallery(
             imageData.url,
             imageData.folder || 'all',
             imageData.keywords || '',
@@ -6326,6 +6652,15 @@ contributorsModal.addEventListener("click", (e) => {
               translatedKeywords: imageData.translatedKeywords || ''
             }
           );
+          // Feeds the tag-suggestion nearest-neighbor index (see the
+          // CLIP-embedding block near detectDominantColorTag) - keyed by
+          // doc id rather than stashed on the container's dataset, since a
+          // 512-number float array is a poor fit for a string-coerced HTML
+          // attribute.
+          imageContainersByDocId.set(doc.id, container);
+          if (Array.isArray(imageData.embedding) && imageData.embedding.length) {
+            imageEmbeddingsById.set(doc.id, imageData.embedding);
+          }
         });
         console.log('Images loaded from Firestore');
       } catch (error) {
@@ -6487,6 +6822,7 @@ downloadLink.addEventListener("click", function(e) {
       container.appendChild(downloadLink);
       gallery.appendChild(container);
       scheduleLayout();
+      return container;
     }
 
     function buildFolderStructure() {
@@ -6947,6 +7283,8 @@ downloadLink.addEventListener("click", function(e) {
           const imageId = await getImageDocId(container);
           if (imageId) {
             await db.collection('images').doc(imageId).delete();
+            imageEmbeddingsById.delete(imageId);
+            imageContainersByDocId.delete(imageId);
             container.remove();
             return true;
           }
@@ -8159,6 +8497,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     function resetImageModal() {
       fileInput.value = "";
       imageKeywords.tagChipsAPI.setTags("");
+      suggestedTagsRow.innerHTML = "";
       poolSelection.clear();
       renderPoolViews();
       wizardFurthestStep = 1;
@@ -8432,6 +8771,26 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
       updatePoolSelectionUI();
     }
 
+    // Suggest Tags (2026-08-02) - explicit button rather than reacting
+    // automatically to every selection change, on purpose: computing an
+    // embedding is a real client-side ML inference per image, and
+    // re-running it on every drag-select tick would be both wasteful and
+    // need its own debouncing for no real benefit over "click when you're
+    // ready to tag." Suggests from whatever's currently in poolSelection -
+    // for multiple selected images, each gets its own embedding and all of
+    // their neighbor-tag votes are combined into one ranked list.
+    suggestTagsBtn.addEventListener("click", () => {
+      const selectedItems = uploadPool.filter(item => poolSelection.has(item.id));
+      if (selectedItems.length === 0) { alert("Select at least one image first."); return; }
+      runSuggestTags(suggestTagsBtn, suggestedTagsRow, imageKeywords, async (onProgress) => {
+        const embeddings = [];
+        for (const item of selectedItems) {
+          embeddings.push(await computeImageEmbedding(item.file, onProgress));
+        }
+        return embeddings;
+      });
+    });
+
     poolSelectAllBtn.addEventListener("click", () => {
       poolSelection = new Set(uploadPool.map(item => item.id));
       renderPoolViews();
@@ -8457,6 +8816,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
       uploadPool = uploadPool.filter(item => !confirmedIds.has(item.id));
       poolSelection.clear();
       imageKeywords.tagChipsAPI.setTags("");
+      suggestedTagsRow.innerHTML = "";
       renderPoolViews();
       renderUploadQueue();
     });
@@ -8824,6 +9184,66 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     }
     retagSynonymsBtn?.addEventListener("click", reevaluateAllSynonymTags);
 
+    // Build Tag Suggestions Index (2026-08-02) - same one-time,
+    // explicit, admin-triggered bulk shape as Re-tag Colors/Re-tag Synonyms
+    // above, computing embeddings via computeImageEmbeddingFromUrl() the
+    // same way Re-tag Colors already fetches a small Cloudinary sample per
+    // image. Unlike those two, this SKIPS any image that already has a
+    // stored embedding (imageEmbeddingsById already reflects what's in
+    // Firestore, from loadImagesFromFirebase/completeUpload/Review
+    // Submissions' Add) - an embedding doesn't go stale the way a color/
+    // synonym tag can from an improved algorithm, so the only reason to
+    // ever run this is to backfill images that don't have one yet (every
+    // image published before this feature existed, or a prior run
+    // interrupted partway through). That skip-if-present behavior matters
+    // in practice at this gallery's size (~1400 images): a full run is a
+    // real number of minutes (one network fetch + one client-side ML
+    // inference per image, sequentially - same "one op at a time, don't
+    // hammer Cloudinary" reasoning as every other bulk action here), so
+    // being able to stop and resume without redoing already-finished images
+    // is load-bearing, not a nice-to-have.
+    async function buildMissingImageEmbeddings() {
+      const containers = Array.from(document.querySelectorAll(".image-container"))
+        .filter(container => container.dataset.docId && !imageEmbeddingsById.has(container.dataset.docId));
+      if (containers.length === 0) { alert("Every loaded image already has a tag-suggestion embedding."); return; }
+      if (!confirm(`Compute tag-suggestion embeddings for ${containers.length} image(s) that don't have one yet? This loads an ML model in your browser (larger one-time download) and processes one image at a time - for a large batch this can take several minutes, and can be safely re-run later to pick up wherever it left off.`)) return;
+
+      const originalLabel = buildTagSuggestionIndexBtn.textContent;
+      buildTagSuggestionIndexBtn.disabled = true;
+      // Same warm-model check as runSuggestTags() above - if the model's
+      // already loaded this session, its progress_callback won't fire
+      // again, so start straight from "Indexing…" instead of a "Loading
+      // model…" label that would otherwise never update.
+      let done = 0, failed = 0, modelReady = !!clipComponentsPromise;
+
+      for (let i = 0; i < containers.length; i++) {
+        const container = containers[i];
+        buildTagSuggestionIndexBtn.textContent = modelReady ? `Indexing… ${i}/${containers.length}` : "Loading model…";
+        const url = container.dataset.url;
+        try {
+          const embedding = await computeImageEmbeddingFromUrl(url, () => { modelReady = true; });
+          modelReady = true;
+          if (embedding) {
+            const imageId = container.dataset.docId;
+            await db.collection('images').doc(imageId).update({ embedding });
+            imageEmbeddingsById.set(imageId, embedding);
+            imageContainersByDocId.set(imageId, container);
+            done++;
+          } else {
+            failed++;
+          }
+        } catch (error) {
+          console.error(`Could not build tag-suggestion embedding for ${url}:`, error);
+          failed++;
+        }
+      }
+
+      buildTagSuggestionIndexBtn.disabled = false;
+      buildTagSuggestionIndexBtn.textContent = originalLabel;
+      alert(`Indexed ${done} image(s) for tag suggestions${failed ? `, ${failed} failed` : ""}.`);
+    }
+    buildTagSuggestionIndexBtn?.addEventListener("click", buildMissingImageEmbeddings);
+
     /********************************************************
      * Review Submissions
      * Admin-only view of what's landed in the 'submissions' collection via
@@ -8908,6 +9328,30 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
           item.appendChild(tagInputEl);
           initTagChipInput(tagInputEl);
 
+          // Suggest Tags (2026-08-02) - same nearest-neighbor embedding
+          // suggester as the upload wizard's step 2, offered per-submission-
+          // image since each one gets published independently here. Caches
+          // whatever embedding it computes so "Add" (below) can reuse it
+          // instead of re-fetching/re-analyzing the same image a second
+          // time if the admin suggested first.
+          let cachedEmbedding = null;
+          const suggestTagsBtnEl = document.createElement("button");
+          suggestTagsBtnEl.type = "button";
+          suggestTagsBtnEl.className = "suggest-tags-btn";
+          suggestTagsBtnEl.textContent = "Suggest Tags";
+          item.appendChild(suggestTagsBtnEl);
+
+          const suggestedTagsRowEl = document.createElement("div");
+          suggestedTagsRowEl.className = "suggested-tags-row";
+          item.appendChild(suggestedTagsRowEl);
+
+          suggestTagsBtnEl.addEventListener("click", () => {
+            runSuggestTags(suggestTagsBtnEl, suggestedTagsRowEl, tagInputEl, async (onProgress) => {
+              cachedEmbedding = await computeImageEmbeddingFromUrl(url, onProgress);
+              return [cachedEmbedding];
+            });
+          });
+
           const addBtn = document.createElement("button");
           addBtn.type = "button";
           addBtn.textContent = "Add";
@@ -8930,15 +9374,23 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
               // No local File exists for a submitted image (see the comment
               // above), so fileSize stays unknown here - the lightbox's size
               // pill just stays blank for these, same as it does for any
-              // image with no known fileSize.
-              const extra = { synonymKeywords: computeSynonymTags(keywords), translatedKeywords: computeTranslatedTags(keywords) };
+              // image with no known fileSize. Reuses cachedEmbedding if
+              // "Suggest Tags" already computed one for this image, rather
+              // than paying for a second identical fetch+inference.
+              const embedding = cachedEmbedding || await computeImageEmbeddingFromUrl(url);
+              const extra = { synonymKeywords: computeSynonymTags(keywords), translatedKeywords: computeTranslatedTags(keywords), embedding };
               const docId = await saveImageToFirebase(url, folder, keywords, "submission-image", extra);
-              addImageToGallery(url, folder, keywords, "submission-image", Date.now(), docId, extra);
+              const container = addImageToGallery(url, folder, keywords, "submission-image", Date.now(), docId, extra);
+              if (docId) {
+                imageContainersByDocId.set(docId, container);
+                if (embedding) imageEmbeddingsById.set(docId, embedding);
+              }
               updateFolderCounts();
               renderColorFilterDots();
               addBtn.textContent = "Added";
               folderSelectEl.disabled = true;
               tagInputEl.disabled = true;
+              suggestTagsBtnEl.disabled = true;
             } catch (error) {
               console.error("Error adding submitted image:", error);
               addBtn.disabled = false;
@@ -9278,6 +9730,10 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
   // didn't, most likely because it was added later (2026-08-01, for the
   // lightbox size pill's fileSize param) without matching it.
   let uploadFile;
+  // Same "declare outside, assign inside" pattern as imageUrl/colorTag
+  // above (see the comment on uploadFile) - also read after the try block,
+  // via completeUpload()'s call below.
+  let embedding;
   try {
     console.log(`Starting upload process for ${file.name}`);
 
@@ -9285,14 +9741,16 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
     setUploadItemProgress(uploadItemId, 30);
 
     // Upload the file (compressed first if it's too large for the upload function).
-    // Dominant-color detection runs on the same (already-decoded-once)
-    // compressed file, in parallel with the network upload, so it doesn't
-    // add extra wait time - see detectDominantColorTag() above.
+    // Dominant-color detection and the tag-suggestion embedding both run on
+    // the same (already-decoded-once) compressed file, in parallel with the
+    // network upload, so neither adds extra wait time - see
+    // detectDominantColorTag()/computeImageEmbedding() above.
     console.log(`Uploading ${file.name}...`);
     uploadFile = await compressImageIfNeeded(file);
-    [imageUrl, colorTag] = await Promise.all([
+    [imageUrl, colorTag, embedding] = await Promise.all([
       uploadImage(uploadFile),
-      detectDominantColorTag(uploadFile)
+      detectDominantColorTag(uploadFile),
+      computeImageEmbedding(uploadFile)
     ]);
     console.log(`File uploaded successfully, URL: ${imageUrl}`);
 
@@ -9322,12 +9780,12 @@ async function processUpload(file, folderValue, keywords, uploadItemId) {
   // uploadFile.size is the byte size of what actually went to Cloudinary
   // (post-compressImageIfNeeded), which is what the lightbox's size pill
   // should show - not the original file's size before compression.
-  await completeUpload(imageUrl, folderValue, finalKeywords, file.name, uploadItemId, uploadFile.size)
+  await completeUpload(imageUrl, folderValue, finalKeywords, file.name, uploadItemId, uploadFile.size, embedding)
     .catch(error => console.error(`Error completing upload for ${file.name}:`, error));
 }
 
 // Saves an already-uploaded (Cloudinary) image to Firestore and the gallery.
-async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName, uploadItemId, fileSize) {
+async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName, uploadItemId, fileSize, embedding) {
   try {
     // Synonym/translated tags (2026-08-01) are derived from the final tag
     // list (typed keywords + auto color tag) - see the "Synonym & translated
@@ -9336,14 +9794,18 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
     // *use* - display and search - not whether they're generated/stored).
     const synonymKeywords = computeSynonymTags(combinedKeywords);
     const translatedKeywords = computeTranslatedTags(combinedKeywords);
-    const extra = { fileSize, synonymKeywords, translatedKeywords };
+    const extra = { fileSize, synonymKeywords, translatedKeywords, embedding };
 
     // Save to Firebase
     const docId = await saveImageToFirebase(imageUrl, folderValue, combinedKeywords, fileName, extra);
     console.log(`Image saved to Firebase`);
 
     // Add to gallery
-    addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now(), docId, extra);
+    const container = addImageToGallery(imageUrl, folderValue, combinedKeywords, fileName, Date.now(), docId, extra);
+    if (docId) {
+      imageContainersByDocId.set(docId, container);
+      if (embedding) imageEmbeddingsById.set(docId, embedding);
+    }
     updateFolderCounts();
     renderColorFilterDots();
     console.log(`Image added to gallery`);
