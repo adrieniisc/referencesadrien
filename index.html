@@ -5240,6 +5240,19 @@ contributorsModal.addEventListener("click", (e) => {
     // color tag again, add another synthetic case shaped like the real
     // failure (per the comment on dominantColorNameFromCanvas) and check
     // there first.
+    //
+    // 2026-08-02: real report - several unambiguously yellow objects with
+    // an ordinary amount of shadow in frame kept coming back "brown".
+    // Reworked twice more in the same pass (see nameColorFromRgb's and
+    // dominantColorNameFromCanvas's own comments): brown/beige moved from
+    // a per-pixel carve-out to a post-vote decision made from the winning
+    // orange/yellow family's own aggregate lightness/saturation (so a lit
+    // and a shadowed patch of the same paint vote together instead of
+    // splitting into two competing name buckets), and each hue-family
+    // pixel's vote is now discounted the further its own lightness sits
+    // from a well-lit midtone (never applied to the black/white/gray
+    // vote). Re-tag Colors needs to be run again to pick this up on
+    // already-published images - it isn't automatic.
     // --------------------------------------------------------------
     function rgbToHsl(r, g, b) {
       r /= 255; g /= 255; b /= 255;
@@ -5268,37 +5281,29 @@ contributorsModal.addEventListener("click", (e) => {
     // artifacts) into misleadingly large "saturation" values right where
     // it matters most for telling white/black apart from a weak tint.
     // Chroma has no such blowup, so it's what decides "is this actually a
-    // color, or basically neutral" - `s` is still used below for the
-    // brown/beige lightness carve-out, away from those unstable extremes.
-    // "brown" and "beige" are carved out of the orange hue range by
-    // lightness, since they're common on the reference materials this
-    // gallery actually holds (wood, concrete, stone, rust) and "orange"
-    // alone wouldn't read as a useful tag for them.
+    // color, or basically neutral".
+    // 2026-08-02: this used to also carve "brown"/"beige" out of the
+    // orange/yellow hue range *per pixel* here (by lightness/saturation).
+    // That meant a single material spanning both a lit and a shadowed
+    // patch - the ordinary case for almost any real photo - split its own
+    // vote across two entirely different name buckets: the shadowed
+    // orange-hued pixels alone (same paint, just darker) were enough to
+    // read as "brown" in dominantColorNameFromCanvas's per-pixel vote,
+    // competing separately from - instead of adding to - the lit pixels'
+    // "yellow"/"orange" vote. Real report: several unambiguously yellow
+    // objects (machinery, tools) with an ordinary amount of shadow in
+    // frame kept coming back "brown". This function now only classifies
+    // the base hue family; dominantColorNameFromCanvas decides brown vs.
+    // beige vs. orange/yellow afterward, from the *whole winning family's*
+    // aggregate lightness/saturation - see that function's comment.
     function nameColorFromRgb(r, g, b) {
-      const [h, s, l] = rgbToHsl(r, g, b);
+      const [h, , l] = rgbToHsl(r, g, b);
       const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
       if (chroma < 0.12) {
         if (l < 0.12) return 'black';
         if (l > 0.90) return 'white';
         return 'gray';
       }
-      // Upper bound 45 (2026-08-01, was 50) - "lots of yellow dominant pics
-      // are stored in brown". This carve-out is meant to catch a *darkened
-      // orange* (rust, terracotta, wood) reading as brown rather than
-      // orange - but the plain hue-only classification below already draws
-      // the orange/yellow line at 45 (h < 45 -> orange, else -> yellow), so
-      // a 50 upper bound here reached 5 degrees past that line into hue
-      // territory that would otherwise be *yellow*, not orange, diverting
-      // any sufficiently dark, saturated yellow/gold/mustard pixel (hue
-      // 45-50, e.g. rgb(160,130,10) at h=48) into "brown" before it ever
-      // reached the yellow check. Confirmed with real reference colors: a
-      // dark mustard (h=48, l=0.33) now correctly falls through to yellow,
-      // while genuine dark oranges/browns actually in the 15-45 hue band
-      // (saddle brown h=25, dark goldenrod h=43) are unaffected and still
-      // read as brown - this narrows what the carve-out catches, it
-      // doesn't change how it decides once a hue is in range.
-      if (h >= 15 && h < 45 && l < 0.45) return 'brown';
-      if (h >= 15 && h < 60 && l >= 0.45 && l < 0.88 && s < 0.35) return 'beige';
       if (h < 15 || h >= 345) return 'red';
       if (h < 45) return 'orange';
       if (h < 70) return 'yellow';
@@ -5306,8 +5311,7 @@ contributorsModal.addEventListener("click", (e) => {
       if (h < 200) return 'cyan';
       if (h < 255) return 'blue';
       if (h < 290) return 'purple';
-      if (h < 345) return 'pink';
-      return 'gray';
+      return 'pink';
     }
 
     // Classifies every sampled pixel (nameColorFromRgb()) and returns the
@@ -5387,19 +5391,76 @@ contributorsModal.addEventListener("click", (e) => {
       const CHROMA_FLOOR = 0.03;
       const CHROMA_CAP = 0.50;
 
+      // 2026-08-02: real report - several unambiguously yellow objects
+      // (machinery, tools) with an ordinary amount of shadow in frame kept
+      // coming back "brown". A shadowed patch of the same paint has the
+      // same hue and, since chroma alone doesn't fall much with lightness,
+      // often nearly the *same* chroma-based weight as its lit half - so
+      // once enough of an object sits in shadow, it could tip the vote
+      // just by sheer pixel count, even though the visibly lit majority
+      // reads as unambiguously yellow to a person. LIGHTNESS_WEIGHT
+      // discounts a hue-family pixel's vote (never a black/white/gray
+      // one - neutral classification is untouched) the further its own
+      // lightness sits from a well-lit midtone (0.5): a deep-shadow or
+      // blown-out-highlight pixel is a less reliable reading of a
+      // material's actual color than a normally-lit one. Floored at 0.4
+      // rather than letting it reach 0, so a uniformly dark or uniformly
+      // bright material (nothing else in frame to out-vote) still wins
+      // its own vote regardless. Verified against a synthetic highlight/
+      // shadow sweep of the same paint color (same approach as the
+      // FLOOR/CAP tuning above, since there's still no live Cloudinary
+      // access to test against real photos): the point where the vote
+      // flips from "yellow" to "brown" as shadow area grows moved from
+      // ~50% shadow to ~65% shadow, while every previously-documented
+      // regression case (a wood pole beating a small vivid sky sliver, a
+      // large dull subject beating small vivid slivers, saddle brown/dark
+      // goldenrod staying brown, dark mustard/gold staying yellow, a red
+      // vending machine and green grass keeping their own color) came out
+      // unchanged. If a real image is still wrong after this, get its
+      // logged breakdown (below) before re-tuning this curve blind.
+      function lightnessWeight(l) {
+        return Math.min(1, Math.max(0.4, 1 - 2 * Math.abs(l - 0.5)));
+      }
+
+      // brown/beige used to be decided per pixel (by that pixel's own hue
+      // + lightness + saturation). That split a single material's vote
+      // across two name buckets the moment it had both a lit and a
+      // shadowed patch - see nameColorFromRgb's own comment. Now every
+      // orange/yellow-hued pixel votes as just "orange"/"yellow" (whole
+      // family, un-split), and brown/beige are decided once at the end
+      // from that *winning* family's own weighted-average lightness/
+      // saturation - lSum/sSum accumulate exactly that, keyed by name.
       const votes = new Map();
+      const lSum = new Map();
+      const sSum = new Map();
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 128) continue; // skip transparent pixels
         const r = data[i], g = data[i + 1], b = data[i + 2];
+        const [, s, l] = rgbToHsl(r, g, b);
         const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
         const name = nameColorFromRgb(r, g, b);
-        const weight = Math.min(Math.max(chroma, CHROMA_FLOOR), CHROMA_CAP);
+        let weight = Math.min(Math.max(chroma, CHROMA_FLOOR), CHROMA_CAP);
+        if (chroma >= 0.12) weight *= lightnessWeight(l);
         votes.set(name, (votes.get(name) || 0) + weight);
+        lSum.set(name, (lSum.get(name) || 0) + l * weight);
+        sSum.set(name, (sSum.get(name) || 0) + s * weight);
       }
       if (votes.size === 0) return null;
 
       let bestName = null, bestWeight = 0;
       votes.forEach((weight, name) => { if (weight > bestWeight) { bestWeight = weight; bestName = name; } });
+
+      if (bestName === 'orange' || bestName === 'yellow') {
+        const avgL = lSum.get(bestName) / bestWeight;
+        const avgS = sSum.get(bestName) / bestWeight;
+        // Matches the old per-pixel h-range coverage (brown: h in
+        // [15,45); beige: h in [15,60)) as closely as an aggregate,
+        // no-longer-per-pixel-hue check can - see nameColorFromRgb's
+        // comment for why this moved from per-pixel to per-family.
+        if (bestName === 'orange' && avgL < 0.45) bestName = 'brown';
+        else if (avgL >= 0.45 && avgL < 0.88 && avgS < 0.35) bestName = 'beige';
+      }
+
       if (debugLabel) {
         const breakdown = Array.from(votes.entries()).sort((a, b) => b[1] - a[1])
           .map(([name, weight]) => `${name}:${weight.toFixed(1)}`).join(', ');

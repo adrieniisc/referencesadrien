@@ -443,6 +443,43 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     neutral. **If another image is still wrong after this, extend that harness with a case shaped
     like the new failure first** (or get a real `[color detect]` console line, if someone can) —
     don't re-tune these two numbers blind again; that's the mistake every prior pass made.
+    **Fifth pass, 2026-08-02** — reported again: "lots of yellow dominant pics are stored in
+    brown" (screenshot of the real gallery, several machinery/tool photos with visible shadow).
+    This time the actual algorithmic gap was findable without a live photo: `nameColorFromRgb()`'s
+    brown carve-out (`h in [15,45), l < 0.45`) ran *per pixel*, so a material that's unambiguously
+    yellow where it's lit and merely darker (not a different hue) where it's shadowed had its own
+    vote split across two entirely separate name buckets - the shadowed half alone, voting as
+    "brown", only had to outweigh the lit half's "yellow" vote, not the other way around. Reworked
+    two things together in `dominantColorNameFromCanvas()`/`nameColorFromRgb()`: (1)
+    `nameColorFromRgb()` no longer decides brown/beige at all - it only returns the base hue family
+    (orange/yellow/red/etc., or black/white/gray) - and brown/beige are now decided once, after
+    voting, from the *winning* orange/yellow family's own vote-weighted average lightness/
+    saturation (`lSum`/`sSum`, keyed by name) - a lit and a shadowed patch of the same paint now
+    add to the *same* bucket instead of competing in different ones, and that bucket's own overall
+    lightness decides brown vs. orange/yellow/beige, matching what a person actually looking at the
+    photo would judge from its dominant tone rather than its darkest pixels; (2) added
+    `lightnessWeight(l)` - each hue-family pixel's vote (never a black/white/gray one) is now
+    discounted the further its own lightness sits from a well-lit midtone (`1 - 2*|l-0.5|`, floored
+    at 0.4 so a uniformly dark or uniformly bright material with nothing else in frame still wins
+    its own vote outright) - a deep-shadow or blown-out-highlight reading is a less reliable sample
+    of a material's actual color than a normally-lit one, so it should count for less, not the same
+    as CHROMA_FLOOR/CHROMA_CAP already give it. Verified the same way as every pass in this saga -
+    no live Cloudinary access here - but this time by extracting the *actual* functions straight out
+    of `index.html` (via a small brace-matching parser, not hand-retyped copies, since a hand-copy
+    can silently drift from what's really shipped) into a Node harness with a stubbed `document`/
+    canvas returning a synthetic pixel buffer, so what got tested is exactly the shipped code, not a
+    stand-in for it: swept a highlight/shadow ratio of the same yellow paint from 70/30 down to
+    30/70 - the vote now stays "yellow" through 40% highlight / 60% shadow (was flipping to "brown"
+    past 50/50 before this pass) - while every previously-documented regression case in this saga
+    (saddle brown and dark goldenrod staying brown, dark mustard and gold staying yellow, a wood
+    pole beating a small vivid sky sliver, a large dull subject beating small vivid slivers, a red
+    vending machine and green grass keeping their own name, a desaturated tan staying beige) came
+    back unchanged. **Existing images already tagged "brown" need Re-tag Colors run again** to pick
+    up this corrected behavior - it isn't automatic, same as every prior rework in this saga. If
+    another image is still wrong after this, get a real `[color detect]` console line or build
+    another case shaped like the failure and check it against the *real* extracted function (per
+    the harness approach here) before re-tuning `lightnessWeight()`'s curve or the 0.45/0.88/0.35
+    aggregate thresholds blind - same standing advice as every pass before this one.
   - **Stability: delete/move/edit-tags/re-tag now target a Firestore doc id, not a url lookup
     (2026-07-31)** — prompted by "make sure images won't disappear randomly." `findImageIdByUrl()`
     (`where('url','==',url).limit(1)`) is ambiguous whenever two `images` docs share the same url,
