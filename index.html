@@ -575,13 +575,15 @@
       padding-bottom: 0.6rem;
       margin-bottom: 0.6rem;
       border-bottom: 1px solid var(--border-color);
-      /* Bumped from 1.3rem (2026-08-01, explicit request) - still comfortably
-         clears --sidebar-width's 270px base minus .sidebar-scroll's 0.8rem
-         padding on each side. The two responsive tiers below were bumped by
-         a proportional amount so the size hierarchy (base > 640px > 420px)
-         is preserved rather than the narrow tiers suddenly reading small
-         next to a much bigger base. */
-      font-size: 1.75rem;
+      /* Bumped again to 2.1rem (2026-08-02, "doesn't utilize the space it
+         has" - was 1.75rem) - still comfortably clears --sidebar-width's
+         270px base minus .sidebar-scroll's 0.8rem padding on each side
+         ("aReference" at this size/weight measures well under the ~244px
+         available). The two responsive tiers below were bumped by the same
+         proportion so the size hierarchy (base > 640px > 420px) is
+         preserved rather than the narrow tiers suddenly reading small next
+         to a much bigger base. */
+      font-size: 2.1rem;
       font-weight: 700;
       letter-spacing: 0.01em;
       color: var(--text);
@@ -1946,6 +1948,21 @@
 
 #enlargeImage {
   max-width: 90vw;
+  /* max-height (2026-08-02) - navigating between images without a full
+     modal close/reopen (a similar-grid thumb click, prev/next) clears the
+     inline width/height enlargeImage() had set for the *previous* image
+     (see that function's own width/height reset near the top) before the
+     new image has loaded and JS can compute its real size. With no height
+     cap here, the browser had nothing to constrain the still-visible old
+     bitmap's height by except its own intrinsic pixel size - only
+     max-width (90vw) was bounding anything - so the current image would
+     balloon to its full unconstrained height for that one frame ("flashes
+     bigger") before shrinking back once the new image's onload re-applied
+     an explicit pixel height. Matches max-width's 90vw so both axes are
+     always bounded regardless of inline-style state; JS still narrows this
+     further once it knows the real available space.
+  */
+  max-height: 90vh;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -2143,13 +2160,72 @@
      words), so treating this as fixed-width-up-to-a-cap keeps the same
      "tags pill is the one that gives up space" behavior
      positionEnlargedTags() already documents, rather than splitting
-     available space between two shrinking pills. max-width/ellipsis below
-     is just a safety net for an unusually long real filename. */
+     available space between two shrinking pills. The overflow/ellipsis
+     cap itself now lives on #enlargedFilenameText (below), not here -
+     see this element's own position:relative comment for why. */
   flex-shrink: 0;
+  /* Click-to-copy (2026-08-02, explicit request) - positioning context for
+     .filename-copied-tooltip below. Deliberately no overflow:hidden here
+     (unlike the other pills) - the tooltip is a child of this element,
+     positioned below its bottom edge via top: 100%, and overflow:hidden
+     on the containing block would clip any descendant positioned outside
+     its own box, tooltip included. */
+  position: relative;
+  cursor: pointer;
+}
+.enlarged-filename:hover { opacity: 0.85; }
+#enlargedFilenameText {
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}
+/* Appears for 1.5s after clicking the filename pill (see the click
+   handler near enlargeImage()) - a small arrow-pointed pill below the
+   filename confirming the copy, same visual language as the pills above
+   it rather than a generic browser tooltip. Faded/scaled in via .show
+   (added and removed by JS) rather than shown/hidden outright, so it
+   reads as a small pop rather than an instant appear/disappear. */
+.filename-copied-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  white-space: nowrap;
+  background-color: rgba(26, 26, 30, 0.95);
+  border: 1px solid var(--border-color);
+  color: var(--text);
+  font-size: 0.7rem;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 1;
+}
+.filename-copied-tooltip::before,
+.filename-copied-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+}
+.filename-copied-tooltip::before {
+  top: -6px;
+  border-bottom: 5px solid var(--border-color);
+}
+.filename-copied-tooltip::after {
+  top: -5px;
+  border-bottom: 5px solid rgba(26, 26, 30, 0.95);
+}
+.filename-copied-tooltip.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .enlarged-tags {
@@ -2814,7 +2890,12 @@
      of .sidebar, that padding pushes it inward too. Confirmed by measuring
      the actual rendered gap between the two separators at this tier before
      this override existed - it was off by almost exactly 0.6rem. */
-  .sidebar-brand { font-size: 1.35rem; height: calc(var(--header-height) - 1.4rem); }
+  /* 1.6rem (2026-08-02, was 1.35rem, matches the base tier's own bump) -
+     measured at 140.6px rendered width against this tier's ~155.2px
+     available content width (200px sidebar minus .sidebar's 0.6rem padding
+     plus .sidebar-scroll's 0.8rem padding on each side, per the comment
+     above) via a headless render, not guessed - still real headroom left. */
+  .sidebar-brand { font-size: 1.6rem; height: calc(var(--header-height) - 1.4rem); }
   .top-search-bar { padding: 8px 12px; padding-left: 0.6rem; gap: 0.6rem; }
   .about-btn { top: 64px; right: 16px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
   .contributors-btn { top: 64px; right: 116px; width: 90px; height: 40px; padding: 8px 10px; font-size: 0.85rem; }
@@ -2844,7 +2925,12 @@
 @media (max-width: 420px) {
   :root { --sidebar-width: 140px; --header-height: 52px; }
   /* Same 1.4rem reasoning as the 640px tier above - .sidebar's own 0.6rem
-     padding still applies at this tier too. */
+     padding still applies at this tier too. Deliberately left at 1.15rem
+     (2026-08-02) rather than scaled up with the base/640px tiers above -
+     measured (headless render) at ~101px rendered width against only
+     ~95px of available content width at this tier's 140px sidebar, i.e.
+     already right at its limit before this change; scaling it up with the
+     other tiers would make an existing tightness worse, not better. */
   .sidebar-brand { font-size: 1.15rem; height: calc(var(--header-height) - 1.4rem); }
   .top-search-bar { padding: 8px 10px; padding-left: 0.6rem; }
   .about-btn { top: 58px; width: 78px; right: 12px; padding: 6px 8px; font-size: 0.78rem; }
@@ -3316,7 +3402,10 @@
       </div>
       <!-- Tags container now positioned at the bottom of the image column -->
       <div class="enlarged-tags-container">
-        <span class="enlarged-filename" id="enlargedFilename"></span>
+        <span class="enlarged-filename" id="enlargedFilename" title="Click to copy">
+          <span id="enlargedFilenameText"></span>
+          <span class="filename-copied-tooltip" id="filenameCopiedTooltip">Name copied</span>
+        </span>
         <div class="enlarged-tags" id="enlargedTags"></div>
         <span class="enlarged-resolution" id="enlargedResolution"></span>
         <span class="enlarged-filesize" id="enlargedFileSize"></span>
@@ -4858,6 +4947,38 @@
     }
     playBrandIntroAnimation();
 
+    // Hovering the brand after the intro has finished briefly re-shows the
+    // blinking cursor (2026-08-02, explicit request) - a small "still
+    // alive" affordance now that it's clickable. Bound once here rather
+    // than re-attached anywhere per-render (same "bind lifecycle listeners
+    // once, read state at event time" pattern this file already uses for
+    // the download button and the old upload-dock minimize button), gated
+    // on isBrandIntroDone so hovering during the intro itself can't fight
+    // with the typing animation's own cursor state. A short delay on
+    // mouseleave (rather than hiding immediately) is what makes it read as
+    // "still there for a moment" instead of flickering on/off across small
+    // cursor movements right at the element's edge; the pending hide is
+    // cancelled if the pointer re-enters before it fires.
+    let brandHoverCursorHideTimer = null;
+    document.getElementById("sidebarBrand")?.addEventListener("mouseenter", () => {
+      if (!isBrandIntroDone) return;
+      const cursorEl = document.getElementById("sidebarBrandCursor");
+      if (!cursorEl) return;
+      clearTimeout(brandHoverCursorHideTimer);
+      cursorEl.style.display = "inline-block";
+      cursorEl.style.opacity = "";
+      cursorEl.classList.add("blinking");
+    });
+    document.getElementById("sidebarBrand")?.addEventListener("mouseleave", () => {
+      if (!isBrandIntroDone) return;
+      const cursorEl = document.getElementById("sidebarBrandCursor");
+      if (!cursorEl) return;
+      brandHoverCursorHideTimer = setTimeout(() => {
+        cursorEl.classList.remove("blinking");
+        cursorEl.style.display = "none";
+      }, 400);
+    });
+
     /** ABOUT JavaScript **/
 
 const aboutBtn = document.getElementById("aboutBtn");
@@ -4959,8 +5080,12 @@ async function loadContributorsList() {
       contributorsList.appendChild(li);
       return;
     }
-    lines.forEach(line => {
-      const { name, link } = parseContributorLine(line);
+    // Sorted alphabetically by name (2026-08-02, explicit request) rather
+    // than shown in whatever order contributors.txt happens to list them -
+    // parsed first so the sort compares just the name, not a trailing link.
+    const entries = lines.map(parseContributorLine)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    entries.forEach(({ name, link }) => {
       const li = document.createElement("li");
       const nameSpan = document.createElement("span");
       nameSpan.textContent = name;
@@ -6996,7 +7121,6 @@ downloadLink.addEventListener("click", function(e) {
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const tagsElement = document.getElementById("enlargedTags");
   const resolutionElement = document.getElementById("enlargedResolution");
-  const filenameElement = document.getElementById("enlargedFilename");
   const similarPanelEl = document.getElementById("enlargeSimilarPanel");
   const imageColumn = document.querySelector(".enlarge-image-column");
 
@@ -7037,13 +7161,19 @@ downloadLink.addEventListener("click", function(e) {
     const resolutionEl = document.getElementById("enlargedResolution");
     const fileSizeEl = document.getElementById("enlargedFileSize");
     const filenameEl = document.getElementById("enlargedFilename");
+    // Reads the inner text span, not filenameEl.textContent directly -
+    // filenameEl now also contains the "Name copied" tooltip span (see
+    // the copy-to-clipboard feature below), whose text is always present
+    // in the DOM (just visually hidden), so filenameEl.textContent alone
+    // would never read as empty even with no real filename set.
+    const filenameTextEl = document.getElementById("enlargedFilenameText");
     const rowGap = 10; // matches .enlarged-tags-container's own CSS gap
     const TAGS_TEXT_MIN_WIDTH = 200;
     let fixedPillsWidth = resolutionEl ? resolutionEl.offsetWidth + rowGap : 0;
     if (fileSizeEl && getComputedStyle(fileSizeEl).display !== "none") {
       fixedPillsWidth += fileSizeEl.offsetWidth + rowGap;
     }
-    if (filenameEl && filenameEl.textContent) {
+    if (filenameEl && filenameTextEl && filenameTextEl.textContent) {
       fixedPillsWidth += filenameEl.offsetWidth + rowGap;
     }
     const MIN_CAPTION_WIDTH = fixedPillsWidth + TAGS_TEXT_MIN_WIDTH;
@@ -7278,8 +7408,12 @@ downloadLink.addEventListener("click", function(e) {
   // pill... on the left of the other pills, same look as the resolution or
   // size pill") - unlike resolution/file size this doesn't depend on the
   // image decoding or any async lookup, so it's set once here rather than
-  // duplicated into both onload and onerror below.
-  if (filenameElement) filenameElement.textContent = filename || "";
+  // duplicated into both onload and onerror below. Sets the inner text
+  // span, not filenameElement.textContent directly - filenameElement also
+  // holds the "Name copied" tooltip span now (see the click-to-copy
+  // handler below), which a direct textContent assignment would wipe out.
+  const filenameTextElement = document.getElementById("enlargedFilenameText");
+  if (filenameTextElement) filenameTextElement.textContent = filename || "";
   showFileSizePill(0);
   enlargeSpinner.classList.add("active");
   enlargeModal.style.justifyContent = "center";
@@ -7426,6 +7560,29 @@ document.getElementById("enlargedDownloadBtn")?.addEventListener("click", functi
       // Fallback to opening in new tab if fetch fails
       window.open(url, '_blank');
     });
+});
+
+// Click-to-copy the filename pill (2026-08-02, explicit request). Bound
+// once at script load, same reasoning as the download button just above -
+// reads #enlargedFilenameText's live textContent at click time instead of
+// closing over enlargeImage()'s own parameters, so it always copies
+// whichever image is actually showing regardless of how many times
+// enlargeImage() has run since the page loaded.
+let filenameCopiedTooltipTimer = null;
+document.getElementById("enlargedFilename")?.addEventListener("click", (e) => {
+  e.stopPropagation(); // Prevent the lightbox from closing
+  const textEl = document.getElementById("enlargedFilenameText");
+  const tooltipEl = document.getElementById("filenameCopiedTooltip");
+  const name = textEl ? textEl.textContent : "";
+  if (!name) return;
+  navigator.clipboard?.writeText(name).then(() => {
+    if (!tooltipEl) return;
+    clearTimeout(filenameCopiedTooltipTimer);
+    tooltipEl.classList.add("show");
+    filenameCopiedTooltipTimer = setTimeout(() => {
+      tooltipEl.classList.remove("show");
+    }, 1500);
+  }).catch(err => console.warn("Could not copy filename to clipboard:", err));
 });
 
 function closeEnlargeModal() {
