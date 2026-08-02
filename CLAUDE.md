@@ -1625,6 +1625,86 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       the test viewport's height regardless of its inline width/height being cleared - the specific
       state `enlargeImage()` puts it in right before a navigation, which is what the flash bug relied
       on being unbounded.
+  - **Fourth 2026-08-02 batch: Re-tag Current Color Filter, bigger copy-confirmation pill, brand
+    centering, matched header-button widths, one more dominant-color rework** — five more requests.
+    - **Re-tag Current Color Filter** (`retagFilteredColorsBtn`, next to Re-tag Colors) - re-runs
+      dominant-color detection on just the images the color filter is currently narrowing the
+      gallery to (`imageMatchesColorFilter()`, the same predicate `filterImages()`/`performSearch()`
+      already AND onto their own results), instead of the whole loaded gallery - a targeted way to
+      check/fix one specific mistagged color bucket (e.g. yellow photos sitting under "brown")
+      without a full-gallery pass. Refactored the shared detect-then-overwrite loop out of
+      `reevaluateAllImageColors()` into `retagColorsForContainers(containers, buttonEl,
+      confirmLabel)` so both buttons drive the exact same logic against a different container list/
+      button. Per the explicit request, clicking this with no color dot selected
+      (`!currentColorFilter`) just alerts "No color selected." rather than running against nothing.
+    - **Filename-copied tooltip sized at 1.5x** (`.filename-copied-tooltip`) - font-size 0.7rem ->
+      1.05rem, padding 5px/10px -> 7.5px/15px, and the arrow's half-width/offsets scaled by the same
+      1.5 factor (5px -> 7.5px) - so the whole pill reads proportionally bigger, not just the text
+      inside a same-size box.
+    - **"aReference" brand centered - equal left/right margins** (`.sidebar-brand`) - it had no
+      `justify-content` (defaulting to `flex-start`), so the text sat flush against the left padding
+      while the box's full unused width (it's narrower than the sidebar) piled up on the right.
+      Added `justify-content: center` - centers the text+cursor group as a unit, which is what gives
+      equal space on both sides regardless of the exact rendered text/cursor width.
+    - **About/Submit/Contributors header buttons unified to the same width** - Contributors was
+      already the widest of the three at the base and `<=900px` tiers (140px/110px respectively,
+      needed for its longer label without ellipsis) while About/Submit were narrower (120px/90px) -
+      the other two grew to match Contributors' width at each of those tiers rather than shrinking
+      Contributors to match them (which would have brought back the ellipsis truncation it was
+      originally widened to avoid). Repositioning cascades from there: each button's `right` is
+      still "previous button's right + its own width + a fixed 10px gap" (unchanged formula, just
+      recomputed with the new widths), and `.top-search-bar`'s `padding-right` (which reserves space
+      for all three) grew to match Submit's new total footprint. The `<=640px`/`<=420px` tiers
+      already had all three at equal widths (90px/78px) from earlier work, so neither needed
+      touching. Also added a 10% brighter fill to just `.contributors-btn` (`rgba(15,15,17,0.82)` ->
+      `rgba(17,17,19,0.82)`, each rgb channel `*1.1`) per the explicit request - `.about-btn`'s
+      identical starting fill and both buttons' `:hover` states are unchanged.
+    - **Dominant-color detection: one more rework, after real photos of yellow aircraft/machinery
+      were reported still tagging "brown"** - before changing anything, this pass first reconstructed
+      representative pixel distributions from the actual attached photos (a pristine bright-yellow
+      bolted plate in direct sun, a yellow fuselage with a large hard-edged cast shadow, a worn/grimy
+      yellow crane/machinery close-up, a wide aircraft shot with a large sky background) and ran them
+      through the *already-shipped* `dominantColorNameFromCanvas()` (extracted straight out of
+      `index.html`, not hand-copied) rather than assuming another blind retune was needed. Result:
+      3 of the 4 reconstructions already correctly resolve to "yellow" under the code shipped
+      earlier the same day (the shadow-vote-discounting/aggregate-brown-decision rework a few
+      entries above this one) - if those specific photos are still showing "brown" on the live site,
+      the most likely explanation is simply that they haven't been re-tagged since that fix landed
+      (color tags don't update themselves - **Re-tag Colors**, or now the new **Re-tag Current Color
+      Filter** above, has to actually be run). The 4th reconstruction (worn/grimy machinery paint)
+      *did* still compute as "brown", but investigating why turned up a genuinely hue-identical
+      collision with "dark goldenrod" (a real, already-confirmed-correct "stays brown" test case
+      from earlier in this saga) - both land at essentially the same ~43-44° hue, so no hue/lightness
+      threshold can tell them apart; this is an irreducibly ambiguous case for a heuristic this
+      simple, not a bug with a clean fix. Did land one small, low-risk, *actually-tested* improvement
+      found along the way: `dominantColorNameFromCanvas()` now pools 'orange' and 'yellow' votes'
+      lightness/saturation together (when 'orange' is the raw winner and 'yellow' also has weight)
+      before deciding brown vs. not, instead of judging only from the orange-hued half's own average
+      - orange and yellow are adjacent hue families the *same* lit material commonly splits across
+      (a lighting-driven few-degree hue shift, not a different color), so a material's brighter
+      yellow-hued pixels should count toward "is this material actually light enough to not be
+      brown," not be ignored just because they landed one hue-bucket away. Deliberately
+      one-directional - a 'yellow' win never pools with 'orange' or becomes 'brown', so the
+      established dark-mustard/gold "stays yellow" behavior is completely unaffected. Verified
+      against the *full* regression sweep from every prior round of this saga plus the four new
+      photo reconstructions, all run against the real extracted function (not a hand-copy): the
+      highlight/shadow flip point is unchanged (still holds "yellow" through 40% shadow, flips past
+      60%), saddle brown/dark goldenrod/wood-pole-vs-sky/red-vending-machine/green-grass/beige-tan
+      all came back exactly as before, and 3 of the 4 new photo reconstructions read "yellow" - only
+      the worn-machinery one still reads "brown", for the hue-collision reason above. **If another
+      photo is reported wrong after this, get its real `[color detect]` console line (the
+      `debugLabel` mechanism from an earlier round) before touching these thresholds again** - this
+      round's whole point was replacing another blind guess with an actual reconstruction-and-test
+      pass, and that's the standard to hold the next one to as well.
+    - **Verified via the same Playwright + hand-rolled Firestore/Auth stub pattern** as every other
+      entry in this file: the brand's text+cursor group measured equal left/right margins (within
+      float-rounding), all three header buttons measured the identical rendered width, Contributors'
+      computed background color matched the 10%-brighter value, the copied-tooltip's computed
+      font-size/padding matched the 1.5x values, clicking Re-tag Current Color Filter with no color
+      selected showed exactly the "No color selected." alert with no Firestore writes, and selecting
+      a color then confirming the button only wrote updates for the containers actually tagged with
+      that color (a same-count, same-id check against a small mixed-color fake gallery) - not the
+      other loaded images.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
