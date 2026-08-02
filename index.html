@@ -155,7 +155,12 @@
   font-size: 0.95rem;
   font-weight: 400;
   cursor: pointer;
-  width: 120px;
+  /* 140px (2026-08-02, was 120px) - matches .contributors-btn's own width
+     so all three header buttons are the same size; Contributors was
+     already the widest of the three (its text needs the most room), so
+     the other two grew to match it rather than it shrinking to match
+     them. */
+  width: 140px;
   text-align: center;
   z-index: 1200;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
@@ -186,10 +191,10 @@
 .submit-reference-btn {
   position: absolute;
   top: 15px;
-  /* Contributors' right (140px) + Contributors' width (140px) + the 10px
+  /* Contributors' right (160px) + Contributors' width (140px) + the 10px
      gap the header buttons keep between each other - see the comment on
      .about-btn's `right`. */
-  right: 290px;
+  right: 310px;
   background-color: #ffffff;
   color: #17120c;
   border: none;
@@ -198,7 +203,9 @@
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  width: 120px;
+  /* 140px (2026-08-02, was 120px) - same "match Contributors' width"
+     reasoning as .about-btn above. */
+  width: 140px;
   text-align: center;
   z-index: 1200;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
@@ -222,15 +229,24 @@
    sits between Submit and About instead of outermost) - same box model/
    visual weight as .about-btn (dark pill, muted text) since this is
    informational like About rather than an action like Submit. Its own
-   `right` is About's right (10px) + About's width (120px) + the same 10px
-   gap the other two buttons already keep between each other - see
+   `right` is About's right (10px) + About's width + the same 10px gap the
+   other two buttons already keep between each other - see
    .top-search-bar's padding-right below for why that value has to grow
-   alongside this. */
+   alongside this. All three buttons share this width (2026-08-02, explicit
+   request) - Contributors was already the widest of the three (its text
+   needs the most room without ellipsis), so About/Submit grew to match it
+   rather than this one shrinking to match them. */
 .contributors-btn {
   position: absolute;
   top: 15px;
-  right: 140px;
-  background-color: rgba(15, 15, 17, 0.82);
+  /* About's right (10px) + About's now-140px width + the 10px gap - see
+     the comment on .about-btn's `right`. Was 140px before About also grew
+     to 140px wide. */
+  right: 160px;
+  /* 10% brighter than .about-btn's identical starting fill (2026-08-02,
+     explicit request, this button only) - each rgb channel *1.1:
+     rgba(15,15,17) -> rgba(17,17,19). */
+  background-color: rgba(17, 17, 19, 0.82);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
   padding: 10px 12px;
@@ -572,6 +588,14 @@
       height: calc(var(--header-height) - 0.8rem);
       display: flex;
       align-items: center;
+      /* Centered horizontally (2026-08-02, "offset aReference a bit to the
+         right to have equal margins left and right") - with no
+         justify-content this defaulted to flex-start, so the text sat
+         flush against the left padding while all the box's leftover width
+         (it's narrower than the sidebar) piled up on the right instead.
+         Centering the text+cursor group as a unit is what gives it equal
+         space on both sides regardless of exact text/cursor width. */
+      justify-content: center;
       padding-bottom: 0.6rem;
       margin-bottom: 0.6rem;
       border-bottom: 1px solid var(--border-color);
@@ -2187,7 +2211,11 @@
    filename confirming the copy, same visual language as the pills above
    it rather than a generic browser tooltip. Faded/scaled in via .show
    (added and removed by JS) rather than shown/hidden outright, so it
-   reads as a small pop rather than an instant appear/disappear. */
+   reads as a small pop rather than an instant appear/disappear.
+   Sized at 1.5x (2026-08-02, explicit request) - font-size/padding/arrow
+   all scaled by the same factor (0.7rem->1.05rem, 5px/10px padding->
+   7.5px/15px, 5px arrow half-width->7.5px) so the whole pill (not just
+   the text) reads proportionally bigger. */
 .filename-copied-tooltip {
   position: absolute;
   top: calc(100% + 10px);
@@ -2197,8 +2225,8 @@
   background-color: rgba(26, 26, 30, 0.95);
   border: 1px solid var(--border-color);
   color: var(--text);
-  font-size: 0.7rem;
-  padding: 5px 10px;
+  font-size: 1.05rem;
+  padding: 7.5px 15px;
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
   opacity: 0;
@@ -2212,16 +2240,16 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
+  border-left: 7.5px solid transparent;
+  border-right: 7.5px solid transparent;
 }
 .filename-copied-tooltip::before {
-  top: -6px;
-  border-bottom: 5px solid var(--border-color);
+  top: -9px;
+  border-bottom: 7.5px solid var(--border-color);
 }
 .filename-copied-tooltip::after {
-  top: -5px;
-  border-bottom: 5px solid rgba(26, 26, 30, 0.95);
+  top: -7.5px;
+  border-bottom: 7.5px solid rgba(26, 26, 30, 0.95);
 }
 .filename-copied-tooltip.show {
   opacity: 1;
@@ -2426,12 +2454,11 @@
      `left`/`right` so the bar's edge-to-edge background doesn't leave
      gaps. The About/Submit/Contributors buttons are `position: absolute`
      and layer on top (z-index 1200 > this bar's 1000), so `padding-right`
-     still reserves the same visual gap for them as before - 420px =
-     Contributors' `right` (270px) + its width (140px) + the same 10px gap
-     the buttons keep between each other (2026-08-01: grew from 270px when
-     the Contributors button was added to the left of Submit; before that,
-     2026-07-31: tightened from 312px alongside that gap shrinking from
-     24px to 10px). */
+     still reserves the same visual gap for them as before - 460px =
+     Submit's `right` (310px) + its width (140px) + the same 10px gap the
+     buttons keep between each other (2026-08-02: grew from 420px when all
+     three buttons became the same 140px width, up from About/Submit's
+     120px). */
   left: var(--sidebar-width);
   right: 0;
   padding: 14px 24px;
@@ -2440,7 +2467,7 @@
      lines up with the gallery images' left edge instead of sitting further
      right than them. */
   padding-left: 0.8rem;
-  padding-right: 420px;
+  padding-right: 460px;
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -2866,9 +2893,14 @@
 @media (max-width: 900px) {
   :root { --sidebar-width: 230px; --header-height: 64.16px; }
   .top-search-bar { padding-right: 24px; }
-  .about-btn { top: 76px; right: 20px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
-  .contributors-btn { top: 76px; right: 130px; width: 110px; padding: 8px 6px; font-size: 0.8rem; }
-  .submit-reference-btn { top: 76px; right: 260px; width: 90px; padding: 8px 10px; font-size: 0.85rem; }
+  /* About/Submit widened to 110px (2026-08-02, was 90px) to match
+     Contributors' own width at this tier - same "match the widest of the
+     three" reasoning as the base tier above. Contributors' `right` shifts
+     20 -> 140 to account for About's new width (right(20) + width(110) +
+     the 10px gap between them). */
+  .about-btn { top: 76px; right: 20px; width: 110px; padding: 8px 10px; font-size: 0.85rem; }
+  .contributors-btn { top: 76px; right: 140px; width: 110px; padding: 8px 6px; font-size: 0.8rem; }
+  .submit-reference-btn { top: 76px; right: 260px; width: 110px; padding: 8px 10px; font-size: 0.85rem; }
   #mainImageSearch { padding: 8px 12px 8px 38px; font-size: 0.85rem; }
   .search-bar-icon { left: 12px; width: 16px; height: 16px; }
   .search-placeholder-fade { left: 38px; font-size: 0.85rem; }
@@ -3318,6 +3350,7 @@
             <button id="deleteFolderBtn" class="delete-btn">Delete Folder</button>
             <button id="findDuplicatesBtn">Find Duplicates</button>
             <button id="retagColorsBtn">Re-tag Colors</button>
+            <button id="retagFilteredColorsBtn">Re-tag Current Color Filter</button>
             <button id="retagSynonymsBtn">Re-tag Synonyms</button>
           </div>
           <hr class="separator">
@@ -4293,6 +4326,7 @@
     const closeDuplicatesModalBtn = document.getElementById("closeDuplicatesModalBtn");
     const duplicatesList = document.getElementById("duplicatesList");
     const retagColorsBtn = document.getElementById("retagColorsBtn");
+    const retagFilteredColorsBtn = document.getElementById("retagFilteredColorsBtn");
     const retagSynonymsBtn = document.getElementById("retagSynonymsBtn");
 
     // Delete Image elements
@@ -5576,8 +5610,24 @@ contributorsModal.addEventListener("click", (e) => {
       votes.forEach((weight, name) => { if (weight > bestWeight) { bestWeight = weight; bestName = name; } });
 
       if (bestName === 'orange' || bestName === 'yellow') {
-        const avgL = lSum.get(bestName) / bestWeight;
-        const avgS = sSum.get(bestName) / bestWeight;
+        // 2026-08-02: when 'orange' is winning, pool its stats with
+        // 'yellow''s too (if any) before deciding brown/beige - orange and
+        // yellow are adjacent hue families that the *same* lit material
+        // commonly splits across (a lighting-driven few-degree hue shift,
+        // e.g. a painted surface reading ~44° in one patch and ~46° in
+        // another - not a different underlying color), and deciding
+        // "is this dark enough to be brown" from only the orange-hued
+        // half's own average ignores the material's own brighter,
+        // yellow-hued pixels sitting right next to it. Deliberately
+        // one-directional - a 'yellow' win never pools in 'orange' or
+        // becomes 'brown', preserving the existing dark-mustard/gold ->
+        // stays-yellow behavior exactly as before.
+        const yellowWeight = bestName === 'orange' ? (votes.get('yellow') || 0) : 0;
+        const poolWeight = bestWeight + yellowWeight;
+        const poolL = (lSum.get(bestName) || 0) + (bestName === 'orange' ? (lSum.get('yellow') || 0) : 0);
+        const poolS = (sSum.get(bestName) || 0) + (bestName === 'orange' ? (sSum.get('yellow') || 0) : 0);
+        const avgL = poolL / poolWeight;
+        const avgS = poolS / poolWeight;
         // Matches the old per-pixel h-range coverage (brown: h in
         // [15,45); beige: h in [15,60)) as closely as an aggregate,
         // no-longer-per-pixel-hue check can - see nameColorFromRgb's
@@ -8337,19 +8387,21 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     // Untestable end-to-end in a sandboxed session (no live Cloudinary
     // access) - if this doesn't behave as expected against the real
     // gallery, that's the first thing to account for.
-    async function reevaluateAllImageColors() {
-      const containers = Array.from(document.querySelectorAll(".image-container"));
-      if (containers.length === 0) { alert("No images to re-tag."); return; }
-      if (!confirm(`Re-run color detection on all ${containers.length} image(s)? This rewrites each image's color tag and may take a while.`)) return;
+    // Shared by both Re-tag Colors (all loaded images) and Re-tag Current
+    // Color Filter (2026-08-02, just the images matching currentColorFilter)
+    // - same sequential detect-then-overwrite loop either way, just handed a
+    // different container list and button to show progress on.
+    async function retagColorsForContainers(containers, buttonEl, confirmLabel) {
+      if (!confirm(`Re-run color detection on ${confirmLabel}? This rewrites each image's color tag and may take a while.`)) return;
 
       const colorWords = new Set(COLOR_FILTER_SWATCHES.map(s => s.color));
-      const originalLabel = retagColorsBtn.textContent;
-      retagColorsBtn.disabled = true;
+      const originalLabel = buttonEl.textContent;
+      buttonEl.disabled = true;
       let changed = 0, failed = 0;
 
       for (let i = 0; i < containers.length; i++) {
         const container = containers[i];
-        retagColorsBtn.textContent = `Re-tagging… ${i}/${containers.length}`;
+        buttonEl.textContent = `Re-tagging… ${i}/${containers.length}`;
         const url = container.dataset.url;
         const previousTags = container.getAttribute("data-keywords") || "";
         try {
@@ -8371,13 +8423,39 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
         }
       }
 
-      retagColorsBtn.disabled = false;
-      retagColorsBtn.textContent = originalLabel;
+      buttonEl.disabled = false;
+      buttonEl.textContent = originalLabel;
       renderColorFilterDots();
       performSearch();
       alert(`Re-tagged colors for ${containers.length} image(s): ${changed} changed${failed ? `, ${failed} failed` : ""}.`);
     }
+
+    async function reevaluateAllImageColors() {
+      const containers = Array.from(document.querySelectorAll(".image-container"));
+      if (containers.length === 0) { alert("No images to re-tag."); return; }
+      await retagColorsForContainers(containers, retagColorsBtn, `all ${containers.length} image(s)`);
+    }
     retagColorsBtn?.addEventListener("click", reevaluateAllImageColors);
+
+    // Re-tag Current Color Filter (2026-08-02, explicit request) - same
+    // bulk re-detection as Re-tag Colors above, scoped to just the images
+    // the color filter is currently narrowing the gallery to
+    // (imageMatchesColorFilter(), the same predicate filterImages()/
+    // performSearch() already AND onto their own results), rather than the
+    // whole loaded gallery - the point being a targeted way to check/fix a
+    // specific mistagged color bucket (e.g. yellow photos sitting under the
+    // "brown" filter) without a full-gallery re-tag pass. "No color
+    // selected" per the explicit request covers the case where the admin
+    // clicks this with no color dot active - there'd be nothing to scope
+    // the retag to.
+    async function reevaluateFilteredImageColors() {
+      if (!currentColorFilter) { alert("No color selected."); return; }
+      const containers = Array.from(document.querySelectorAll(".image-container"))
+        .filter(imageMatchesColorFilter);
+      if (containers.length === 0) { alert(`No images currently tagged "${currentColorFilter}".`); return; }
+      await retagColorsForContainers(containers, retagFilteredColorsBtn, `the ${containers.length} image(s) currently tagged "${currentColorFilter}"`);
+    }
+    retagFilteredColorsBtn?.addEventListener("click", reevaluateFilteredImageColors);
 
     // Re-tag Synonyms (2026-08-01): backfills synonymKeywords/
     // translatedKeywords for every currently-loaded image from its current
