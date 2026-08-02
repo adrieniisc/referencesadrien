@@ -4332,14 +4332,19 @@
     // calls keeps its actual DOM node (and thus its already-loaded <img> and
     // faded-in opacity) instead of being torn down and recreated.
     let frostTilesByKey = new Map();
-    function buildSidebarFrostStrip() {
+    // `precomputedPicks`, when given, is an array of { el, top, height }
+    // that layoutGallery() already worked out for free during its own
+    // row-packing pass (each row's first image, at the top/height that
+    // pass already computed for it) - see the comment below for why that
+    // matters. Callers with no fresh row-packing data on hand
+    // (openMobileDrawer(), init) omit it and fall back to measuring the
+    // DOM directly via getFirstColumnContainers().
+    function buildSidebarFrostStrip(precomputedPicks) {
       if (isMobileDrawerHidden()) return;
       const art = document.getElementById("sidebarFrostArt");
       const galleryEl = document.getElementById("gallery");
       const viewport = document.querySelector(".main-content");
       if (!art || !galleryEl || !viewport) return;
-
-      const picks = getFirstColumnContainers();
 
       let strip = art.querySelector(".sidebar-frost-strip");
       if (!strip) {
@@ -4348,6 +4353,7 @@
         art.appendChild(strip);
       }
 
+      const scrollTop = viewport.scrollTop;
       const galleryRect = galleryEl.getBoundingClientRect();
       // Reference frame for tile `top` values below is `art`'s own box, not
       // the gallery's (2026-08-01 fix) - `art` (#sidebarFrostArt) is inset:0
@@ -4361,7 +4367,50 @@
       // breakpoint-dependent misalignment, reported as the reflection not
       // matching the images next to it.
       const artRect = art.getBoundingClientRect();
-      const scrollTop = viewport.scrollTop;
+
+      // getFirstColumnContainers() used to run unconditionally here - a
+      // getComputedStyle()+getBoundingClientRect() read for *every*
+      // gallery image, on every single call. layoutGallery() had just
+      // written a brand-new inline width/height to every one of those same
+      // containers (its own row-packing pass, right above where it calls
+      // this function), so that read forced an immediate, synchronous
+      // browser reflow across the whole gallery (~200 images on the real
+      // site) right in the middle of whatever triggered it - resize,
+      // scroll-driven lazy-load, filter, add/delete - on top of the
+      // repaint/recomposite this sidebar's own blur(80px) and this strip's
+      // blur/saturate need once that's done. That one forced reflow is
+      // what was behind "maximizing/resizing the browser causes a 1-2
+      // second laggy period" (2026-08-02): a resize only ever debounces
+      // down to a single layoutGallery() call, but that one call was still
+      // doing an O(images) forced-reflow read immediately after an
+      // O(images) write. Since layoutGallery() already knows every row's
+      // height and position from its own packing pass, it now hands that
+      // straight in as `precomputedPicks` instead, and no DOM read beyond
+      // the two rect reads above (gallery + art, not per-image) is needed
+      // at all. `galleryOffsetFromArtTop` is the gallery's own top edge
+      // measured from art's top, in page-content coordinates rather than
+      // viewport-relative ones (adding scrollTop back cancels out the
+      // browser's current scroll position) - an invariant that holds
+      // regardless of where the page happens to be scrolled to, so it only
+      // needs computing once per call, not once per pick.
+      let picks;
+      if (precomputedPicks) {
+        const galleryOffsetFromArtTop = (galleryRect.top + scrollTop) - artRect.top;
+        picks = precomputedPicks.map(pick => ({
+          container: pick.el,
+          top: galleryOffsetFromArtTop + pick.top,
+          height: pick.height
+        }));
+      } else {
+        picks = getFirstColumnContainers().map(container => {
+          const rect = container.getBoundingClientRect();
+          return {
+            container,
+            top: Math.round(rect.top - artRect.top + scrollTop),
+            height: Math.round(rect.height)
+          };
+        });
+      }
 
       // Reuse existing tiles by identity instead of wiping and rebuilding
       // the whole strip on every call. layoutGallery() (and so this) reruns
@@ -4375,16 +4424,10 @@
       // the gallery the way a membership-only rebuild key could leave it.
       const nextTilesByKey = new Map();
       const fragment = document.createDocumentFragment();
-      picks.forEach(container => {
+      picks.forEach(({ container, top: pickTop, height: pickHeight }) => {
         const key = container.dataset.docId || container.dataset.url;
-        // Place each tile over its image's own real box within the
-        // gallery's full scrollable content (not just the currently-visible
-        // viewport) - rect.top is relative to the current scroll position,
-        // so adding scrollTop back gives a position that stays correct
-        // regardless of where the page happens to be scrolled to right now.
-        const rect = container.getBoundingClientRect();
-        const top = Math.round(rect.top - artRect.top + scrollTop) - FROST_TILE_BLEED;
-        const height = Math.round(rect.height) + (FROST_TILE_BLEED * 2);
+        const top = pickTop - FROST_TILE_BLEED;
+        const height = pickHeight + (FROST_TILE_BLEED * 2);
 
         let tile = frostTilesByKey.get(key);
         if (!tile) {
@@ -4889,6 +4932,14 @@
       let row = [];
       let aspectSum = 0;
 
+      // Tracks each row's first image + the top/height this pass is about
+      // to give it, purely from arithmetic (no DOM read) - handed to
+      // buildSidebarFrostStrip() below instead of it re-measuring every
+      // image's rendered position itself. See that function's own comment
+      // for why that matters.
+      let frostCumulativeTop = 0;
+      const frostFirstColumnPicks = [];
+
       // Every full row is stretched to fill the full container width.
       // Rounding each image's width individually can leave the row a pixel
       // or two short of the container, so the remainder is folded into the
@@ -4905,19 +4956,24 @@
       // just off-screen rather than absent.
       const flushRow = (isTrailingRow) => {
         if (row.length === 0) return;
+        const firstEl = row[0].el;
         const gaps = GALLERY_GAP * (row.length - 1);
         const naturalWidth = aspectSum * targetRowHeight + gaps;
         if (isTrailingRow && naturalWidth < containerWidth) {
+          const height = Math.round(targetRowHeight);
           row.forEach(item => {
-            item.el.style.height = `${Math.round(targetRowHeight)}px`;
+            item.el.style.height = `${height}px`;
             item.el.style.width = `${Math.round(targetRowHeight * item.aspect)}px`;
           });
+          frostFirstColumnPicks.push({ el: firstEl, top: frostCumulativeTop, height });
+          frostCumulativeTop += height + GALLERY_GAP;
           row = [];
           aspectSum = 0;
           return;
         }
         const availableWidth = containerWidth - gaps - 1;
         const rowHeight = availableWidth / aspectSum;
+        const height = Math.round(rowHeight);
         let widthSum = 0;
         row.forEach(item => {
           item.width = Math.round(rowHeight * item.aspect);
@@ -4925,9 +4981,11 @@
         });
         row[row.length - 1].width += availableWidth - widthSum;
         row.forEach(item => {
-          item.el.style.height = `${Math.round(rowHeight)}px`;
+          item.el.style.height = `${height}px`;
           item.el.style.width = `${item.width}px`;
         });
+        frostFirstColumnPicks.push({ el: firstEl, top: frostCumulativeTop, height });
+        frostCumulativeTop += height + GALLERY_GAP;
         row = [];
         aspectSum = 0;
       };
@@ -4940,7 +4998,7 @@
         if (projectedWidth >= containerWidth) flushRow(false);
       });
       flushRow(true);
-      buildSidebarFrostStrip();
+      buildSidebarFrostStrip(frostFirstColumnPicks);
     }
 
     window.addEventListener("resize", () => scheduleLayout());
