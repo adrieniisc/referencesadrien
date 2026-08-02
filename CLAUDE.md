@@ -1368,6 +1368,94 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       "wood" + "rustic" into the chip input then clicking Add saves `keywords` as
       `"wood, rustic, brown"` (the typed tags plus a stubbed `brown` color tag) on the resulting
       gallery image.
+  - **2026-08-02 batch: color-filter reset on navigation, admin-flash fix, contrast/shadow
+    tweaks, lightbox admin quick actions, admin-only filename debug aids, exact filename
+    search** — seven separate requests landed together.
+    - **Folder/"All"/aReference clicks now reset the color filter too** - previously only
+      `goToHomeAll()` (the brand click) cleared `currentColorFilter`; every other sidebar
+      navigation click (All, New This Week, a parent folder, a subfolder) left a previously-picked
+      color filter silently still applied, which could hide images with no visible explanation
+      after what reads as a full "go somewhere else" navigation. All of them now call a shared
+      `resetColorFilterForNavigation()` helper (clears `currentColorFilter` + re-renders the dots)
+      before applying the new folder filter; `goToHomeAll()` was refactored to call the same
+      helper instead of duplicating the two lines inline.
+    - **Admin sidebar buttons default to `display: none` in CSS now, not just via JS** - reported
+      as "briefly flashes all the admin buttons" on load. The JS hiding pass
+      (`editButtons.forEach(...)`) only runs once the big inline script tag executes, which sits
+      behind three synchronously-loaded Firebase SDK script tags - on a slow connection the
+      browser can paint the sidebar, buttons at their normal visible default, before that network
+      fetch finishes and the script reaches the line that hides them. A CSS default (`.sidebar-
+      footer button:not(#adminaccessbtn), .separator { display: none; }`) closes that gap since it
+      applies from first paint; the JS is unchanged and still overrides it via inline style once
+      the real signed-in/out state is known.
+    - **Contrast/visibility tweaks (explicit numeric requests)** - `.folder-count`'s color is now a
+      dedicated `#7f7f89` (20% brighter than `--text-faint`, scoped to just this element rather
+      than the shared variable); `.sidebar`'s background darkened another 30%
+      (`rgba(16,16,19,0.88)` → `rgba(11,11,13,0.88)`); `.top-search-bar`'s background (the strip
+      behind both the search input and the About/Submit/Contributors buttons) brightened 30%
+      (`rgba(15,15,17,0.92)` → `rgba(20,20,22,0.92)`); `--shadow-float` (the floating color/size
+      filter panels' shadow) gained a second, tighter/more-opaque near layer for real definition on
+      top of the existing soft far-glow layer, since a big diffuse shadow alone reads as faint
+      regardless of how dark it is.
+    - **Lightbox admin quick-action bar (`#enlargeAdminBar`)** - a fixed, centered-to-viewport bar
+      pinned near the top of the lightbox (`z-index: 15100`, above `#enlargeImageModal`'s own
+      15000), shown only while `auth.currentUser` is set, with Edit Tags/Move/Delete buttons for
+      just the currently-open image plus its exact filename (see the next bullet). Deliberately a
+      `position: fixed` overlay rather than a real flex sibling of `.enlarge-main-row` - the
+      image's vertical centering math (`updateEnlargedImageSize()`) is already fairly involved
+      (see its own extensive comments), and this way the bar never has to factor into it. The
+      three buttons reuse the exact same Firestore/DOM logic as the sidebar's bulk Delete/Move/
+      Edit Tags tools (`deleteSelectedImages()`'s pattern inlined as `enlargeDeleteCurrentImage()`;
+      `enlargeMoveCurrentImage()`/`enlargeEditTagsForCurrentImage()` populate
+      `selectedImagesForMove`/`selectedImagesForTagEdit` with just `[currentEnlargedContainer]` and
+      reuse the existing move/edit-tags modals and their confirm functions
+      `moveImagesToDestination()`/`saveEditedTags()` directly) instead of duplicating the write
+      logic - scoped to a single-image array rather than requiring the admin to leave the
+      lightbox, enter a bulk select-then-act mode, and click the thumbnail again. Move/Edit Tags
+      close the lightbox first since both target modals are `.modal-backdrop` (z-index 1150), well
+      below the lightbox's 15000 - opening one while the lightbox stayed open would render it
+      completely obscured underneath. `moveImagesToDestination()`/`saveEditedTags()` both used to
+      unconditionally call `toggleMoveMode()`/`toggleTagEditMode()` at the end (safe before this,
+      since those arrays could previously only be populated by actually being in that bulk mode) -
+      both are now guarded (`if (isMoveMode) { toggleMoveMode(); } else { selectedImagesForMove =
+      []; }`, same shape for tag edit) so a single-image action from the lightbox doesn't
+      accidentally flip bulk Move Images/Edit Tags mode *on* instead of just cleaning up its own
+      one-item array. The buttons' click handlers are bound exactly once at script load, reading
+      `currentEnlargedContainer` at click time - same "don't accumulate a new listener on every
+      open" reasoning `enlargedDownloadBtn`'s own handler already documents.
+    - **Admin-only exact filename debug aids** - a gallery thumbnail's `<img>` gets a `title`
+      attribute (native hover tooltip) set to its real uploaded filename, but only while
+      `auth.currentUser` is truthy; the filename is always stashed on `img.dataset.filename`
+      regardless of auth state, so `auth.onAuthStateChanged` can re-sync every thumbnail's `title`
+      immediately on sign-in/out without needing to re-create them. The lightbox admin bar (above)
+      shows the same exact filename in `#enlargeAdminFilename`, monospace/muted, populated by
+      `enlargeImage()` whenever `auth.currentUser` is set.
+    - **Exact/precise filename search** - typing a camera-style filename like "637A0971" or
+      "IMG_2758" now surfaces only that one image. Real filenames are often separator-delimited
+      (underscores, dashes), which the general tag-matching logic in `performSearch()` handled
+      badly: tokenizing "IMG_2758.jpeg" splits it into `img`/`2758`/`jpeg`, and
+      `wordMatchesToken()`'s symmetric fallback (built for compound *tags* like "woodgrain"
+      matching a "wood" tag) let the typed word "img_2758" match on the "img" token alone for
+      *any* similarly-named photo - "img" being a common, meaningless prefix shared by every
+      "IMG_xxxx" file - the opposite of "show only the image". Fixed two ways: (1) filename tokens
+      (`imgNameTokens`) are now matched separately from the tag/category haystack, using only the
+      strict forward check (`token.startsWith(word)`), never the symmetric fallback; (2) a new
+      `matchesFilenameIdentifier` check compares the whole typed search text against the image's
+      base filename (extension stripped) with every separator removed from both sides
+      (`searchIdentifier`/`imgIdentifier`), so "IMG_2758", "img2758", and "IMG-2758" all resolve
+      identically and match as a prefix (not just exact), narrowing in as more of the name is
+      typed. This is an OR'd-in alternative to the normal multi-word AND matching, not a
+      replacement for it - a plain tag/keyword search still works exactly as before.
+    - **Sandbox caveat, same as everything else in this file**: no live Firebase/Cloudinary access
+      here, so all of the above was verified via the same Playwright + hand-rolled Firestore/Auth
+      stub pattern this file's Testing section documents (3 synthetic images with camera-style
+      filenames, admin and signed-out variants) - folder/brand clicks resetting the color filter,
+      the CSS default-hidden rule existing in the stylesheet itself (not just checked via computed
+      style after JS settles), the exact filename searches each matching only their one image, the
+      thumbnail title/lightbox admin bar both appearing for admin and absent for a signed-out
+      visitor, a full Edit Tags/Move/Delete round trip via the lightbox's quick-action buttons
+      confirming neither bulk mode gets left active afterward, and the new CSS values - all
+      confirmed passing (24 assertions) with zero console errors from app code.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to

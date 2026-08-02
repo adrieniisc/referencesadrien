@@ -48,8 +48,13 @@
          without reading as a hard/dark edge. Strengthened same day, second
          request - bigger spread and higher opacity than the original
          values (28px/70px/0.35), still softer than --shadow-md's own tight
-         hard-edged shadow. */
-      --shadow-float: 0 34px 92px rgba(0,0,0,0.48);
+         hard-edged shadow. Strengthened again (2026-08-02, explicit
+         request: "more visible") - a big diffuse shadow alone reads as
+         faint no matter how dark, since it has no hard edge to anchor on;
+         added a second, tighter/more-opaque layer close to the panel for
+         real definition, on top of (not instead of) the original soft
+         far-glow layer, which itself got a further opacity bump. */
+      --shadow-float: 0 10px 22px rgba(0,0,0,0.55), 0 34px 92px rgba(0,0,0,0.6);
       --gallery-gap: 6px;
       --row-height: 240px; /* default gallery size = M */
       --sidebar-width: 270px;
@@ -394,8 +399,10 @@
      Darkened + slightly more opaque than those panels' own shared value
      (2026-08-01, explicit request) - closer to --bg (#131316) than
      --bg-elevated (#1a1a1e) it started from, still translucent enough for
-     .sidebar-frost-art's reflection to read through underneath. */
-  background-color: rgba(16,16,19,0.88);
+     .sidebar-frost-art's reflection to read through underneath.
+     Darkened another 30% (2026-08-02, explicit request) - rgb channels
+     each *0.7, alpha unchanged: rgba(16,16,19) -> rgba(11,11,13). */
+  background-color: rgba(11,11,13,0.88);
   border-right: 1px solid var(--border-color);
   /* 2026-08-01: doubled from blur(20px) at explicit request - the frosted
      look was too subtle against .sidebar-frost-art's reflection underneath. */
@@ -598,7 +605,11 @@
       white-space: nowrap;
     }
     .folder-count {
-      color: var(--text-faint);
+      /* 20% brighter than --text-faint (2026-08-02, explicit request) -
+         #6a6a72 * 1.2 per channel, capped at 255 - scoped to just this
+         element rather than changing --text-faint itself, which is shared
+         by a lot of unrelated icons/placeholders elsewhere in the page. */
+      color: #7f7f89;
       font-size: 0.78em;
       font-variant-numeric: tabular-nums;
       flex-shrink: 0;
@@ -740,6 +751,22 @@
       height: 1px;
       background: var(--border-color);
       margin: 0.5rem 0;
+    }
+    /* Admin-only sidebar controls default to hidden here in CSS, not just
+       via the JS that runs later in the page (2026-08-02) - reported as
+       "briefly flashes all the admin buttons" on load. The JS hiding pass
+       (`editButtons.forEach(... display = "none")`) only runs once the big
+       inline script tag executes, which sits behind three synchronously-
+       loaded Firebase SDK script tags - on a slow connection the
+       browser can paint this sidebar, with these buttons at their normal
+       visible default, before that network fetch finishes and the script
+       ever reaches the line that hides them. A CSS default applies from
+       first paint, before any script runs, so there's no visible window at
+       all; the JS (still present, unchanged) simply overrides this via
+       inline style once it knows the real signed-in/out state. */
+    .sidebar-footer button:not(#adminaccessbtn),
+    .separator {
+      display: none;
     }
 
     /* --------------------------------------------------
@@ -1783,6 +1810,64 @@
   box-sizing: border-box;
 }
 
+/* Admin-only quick-action bar for the currently open lightbox image
+   (2026-08-02, explicit request: "put admin buttons in a top bar centered
+   to the screen, above the maxed image... to allow edits and changes when
+   opening an image too"). Fixed and centered independently of
+   .enlarge-main-row's own centering, rather than a real flex sibling of
+   it, so it never factors into updateEnlargedImageSize()'s already fairly
+   involved image-centering math (see that function's own comments on how
+   carefully-tuned that is) - this just floats on top of everything else in
+   the lightbox instead. Hidden by default (display: none); enlargeImage()
+   toggles it via inline style, gated on auth.currentUser, same as every
+   other admin-only control in this file - a public visitor has no
+   Firestore write access to act on these anyway. */
+.enlarge-admin-bar {
+  display: none;
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  max-width: calc(100vw - 24px);
+  padding: 0.5rem 0.8rem;
+  background-color: rgba(26,26,30,0.92);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md);
+  z-index: 15100; /* above #enlargeImageModal's own 15000 */
+}
+/* Exact uploaded filename, shown only inside the admin bar above - a debug
+   aid (2026-08-02, explicit request), not user-facing copy, hence the
+   monospace/muted treatment distinct from the tags pill below the image. */
+.enlarge-admin-filename {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 0.2rem;
+}
+.enlarge-admin-bar button {
+  border: none;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+}
+.enlarge-admin-bar button.tag-btn { background-color: var(--tag-accent); }
+.enlarge-admin-bar button.move-btn { background-color: var(--move-accent); }
+.enlarge-admin-bar button.delete-btn { background-color: var(--danger); }
+
 @supports not (backdrop-filter: blur(18px)) {
   #enlargeImageModal {
     background: rgba(6,6,8,0.95);
@@ -2197,7 +2282,11 @@
   display: flex;
   align-items: center;
   gap: 1.2rem;
-  background-color: rgba(15, 15, 17, 0.92);
+  /* 30% brighter (2026-08-02, explicit request) - rgb channels each *1.3,
+     capped at 255, alpha unchanged: rgba(15,15,17) -> rgba(20,20,22). This
+     is the strip sitting behind both the search input and the About/
+     Submit/Contributors buttons (they're position:absolute on top of it). */
+  background-color: rgba(20, 20, 22, 0.92);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-color);
@@ -3114,6 +3203,17 @@
 
   
  <div id="enlargeImageModal">
+  <!-- Admin-only quick actions for the currently open image (2026-08-02) -
+       edit/move/delete this one image without leaving the lightbox, plus
+       its exact filename for debugging. Hidden entirely for a signed-out
+       visitor; populated/shown by enlargeImage() - see that function and
+       .enlarge-admin-bar's own CSS comment. -->
+  <div class="enlarge-admin-bar" id="enlargeAdminBar">
+    <span class="enlarge-admin-filename" id="enlargeAdminFilename" title="Exact filename (admin/debug only)"></span>
+    <button type="button" id="enlargeEditTagsBtn" class="tag-btn">Edit Tags</button>
+    <button type="button" id="enlargeMoveBtn" class="move-btn">Move</button>
+    <button type="button" id="enlargeDeleteBtn" class="delete-btn">Delete</button>
+  </div>
   <button id="enlargePrevBtn" class="enlarge-nav-btn enlarge-nav-prev" aria-label="Previous image" type="button">&#8249;</button>
   <button id="enlargeNextBtn" class="enlarge-nav-btn enlarge-nav-next" aria-label="Next image" type="button">&#8250;</button>
   <!-- Image (+ its tags) and the "Similar" panel are flex siblings in one
@@ -3466,6 +3566,21 @@
         <div class="color-dot${s.color === currentColorFilter ? " selected" : ""}" data-color="${s.color}" style="background-color:${s.hex};" title="${s.title}"></div>
       `).join("");
       if (panel) panel.style.display = visibleSwatches.length ? "" : "none";
+    }
+
+    // Switching to a different folder/category view is a navigation action,
+    // not a narrowing of the current one - a color filter picked while
+    // browsing one folder shouldn't silently keep applying (and hiding
+    // images with no explanation) after clicking to a totally different
+    // folder, "All", or the aReference home link. goToHomeAll() already did
+    // this for itself; every folder-list click handler (All, New This Week,
+    // parent, child) now goes through this shared helper too instead of
+    // only clearing search text/nothing at all.
+    function resetColorFilterForNavigation() {
+      if (currentColorFilter !== null) {
+        currentColorFilter = null;
+        renderColorFilterDots();
+      }
     }
 
     /********************************************************
@@ -4196,6 +4311,20 @@
       adminAccessBtn.textContent = isSignedIn ? "SIGN OUT" : "Admin Log In";
       adminAccessBtn.style.display = "block";
       setSubmissionsBadgeWatching(isSignedIn);
+
+      // Admin-only filename debug aids (2026-08-02, explicit request) -
+      // thumbnail hover tooltip and the lightbox's admin bar (see
+      // addImageToGallery()/enlargeImage()). Re-synced here too, not just
+      // at thumbnail-render/lightbox-open time, so signing out mid-session
+      // hides them immediately instead of leaving stale state showing
+      // until the next thumbnail render or lightbox open.
+      document.querySelectorAll(".image-container img[data-filename]").forEach(imgEl => {
+        imgEl.title = isSignedIn ? imgEl.dataset.filename : "";
+      });
+      if (!isSignedIn) {
+        const enlargeAdminBar = document.getElementById("enlargeAdminBar");
+        if (enlargeAdminBar) enlargeAdminBar.style.display = "none";
+      }
     });
 
     /********************************************************
@@ -4426,6 +4555,9 @@
     // derived.
     const translatedKeywords = (imgContainer.dataset.translatedKeywords || "").toLowerCase();
     const synonymKeywords = synonymTagsEnabled ? (imgContainer.dataset.synonymKeywords || "").toLowerCase() : "";
+    // Filename tokens are kept separate from the tag/category haystack
+    // below (2026-08-02) - see matchesFilenameIdentifier's comment for why.
+    const imgNameTokens = imgName.split(/[^a-z0-9]+/).filter(Boolean);
     // Matching is token-based (prefix, via wordMatchesToken), not "does the
     // search word appear anywhere as a raw substring of the whole
     // concatenated haystack string" - that older approach was reported as
@@ -4437,7 +4569,7 @@
     // prefix match rules that out while still matching a real partial word
     // like "wood" against a "woodgrain" tag (a prefix, not a mid-word
     // coincidence).
-    const haystackTokens = `${imgName} ${keywords} ${category} ${translatedKeywords} ${synonymKeywords}`
+    const haystackTokens = `${keywords} ${category} ${translatedKeywords} ${synonymKeywords}`
       .split(/[^a-z0-9]+/).filter(Boolean);
     // Typo tolerance (fuzzyWordMatchesToken) is scoped to just the real,
     // visible tags - keywords + the folder/category name - rather than
@@ -4450,7 +4582,26 @@
     // unchanged - only the new edit-distance fallback is scoped down.
     const fuzzyTokens = `${keywords} ${category}`.split(/[^a-z0-9]+/).filter(Boolean);
 
-    const matchesSearch = searchWords.every(word =>
+    // Precise filename search (2026-08-02, explicit request: typing an
+    // exact image filename like "637A0971" or "IMG_2758" should surface
+    // only that image). Real camera/export filenames are often separator-
+    // delimited (underscores, dashes) - tokenizing "IMG_2758.jpeg" splits it
+    // into "img"/"2758"/"jpeg", and wordMatchesToken's symmetric fallback
+    // (meant for compound *tags* like "woodgrain" matching a "wood" tag)
+    // would otherwise let the typed word "img_2758" match on the "img"
+    // token alone for ANY similarly-named photo ("img" is a common,
+    // meaningless prefix shared by every "IMG_xxxx" file) - the opposite of
+    // "show only the image". Compares the whole typed search text against
+    // this image's base filename (extension stripped) with every separator
+    // removed from both sides, so "IMG_2758", "img2758", and "IMG-2758" all
+    // resolve identically, and matches as a prefix (not just exact) so
+    // results narrow in as more of the name is typed.
+    const searchIdentifier = searchTerm.replace(/[^a-z0-9]/g, "");
+    const imgIdentifier = imgName.replace(/\.[a-z0-9]+$/i, "").replace(/[^a-z0-9]/g, "");
+    const matchesFilenameIdentifier = searchIdentifier.length >= 3 && imgIdentifier.startsWith(searchIdentifier);
+
+    const matchesSearch = matchesFilenameIdentifier || searchWords.every(word =>
+      imgNameTokens.some(token => token.startsWith(word)) ||
       haystackTokens.some(token => wordMatchesToken(word, token)) ||
       fuzzyTokens.some(token => fuzzyWordMatchesToken(word, token))
     );
@@ -4559,9 +4710,8 @@
     // page load's default view.
     function goToHomeAll() {
       mainImageSearch.value = "";
-      currentColorFilter = null;
       hideAllSubfolders();
-      renderColorFilterDots();
+      resetColorFilterForNavigation();
       currentFolderFilter = "all";
       const allFolder = document.querySelector('.folder-list li[data-filter="all"]');
       if (allFolder) highlightSelected(allFolder);
@@ -5524,6 +5674,15 @@ contributorsModal.addEventListener("click", (e) => {
       // but still far smaller than a multi-MB original - keeps the gallery snappy.
       img.src = cloudinaryDisplayUrl(url, { width: 1200 });
       img.alt = filename;
+      // Exact filename shown as a hover tooltip, admin-only (2026-08-02,
+      // explicit request, "for debug") - stashed on the dataset regardless
+      // of current auth state (so it's there the moment an admin signs in
+      // without needing every thumbnail re-created), title only actually
+      // set while already signed in. auth.onAuthStateChanged re-syncs
+      // title on every sign-in/out for thumbnails that were rendered while
+      // in the other state - see that handler.
+      img.dataset.filename = filename;
+      if (auth.currentUser) img.title = filename;
       if (img.complete && img.naturalWidth) {
         updateAspect();
       }
@@ -5623,6 +5782,7 @@ downloadLink.addEventListener("click", function(e) {
       allItem.addEventListener("click", () => {
         highlightSelected(allItem);
         hideAllSubfolders();
+        resetColorFilterForNavigation();
         currentFolderFilter = "all";
         filterImages("all");
         resetGalleryScroll();
@@ -5647,6 +5807,7 @@ downloadLink.addEventListener("click", function(e) {
       newThisWeekItem.addEventListener("click", () => {
         highlightSelected(newThisWeekItem);
         hideAllSubfolders();
+        resetColorFilterForNavigation();
         currentFolderFilter = NEW_THIS_WEEK_FILTER;
         filterImages(NEW_THIS_WEEK_FILTER);
         resetGalleryScroll();
@@ -5710,6 +5871,7 @@ downloadLink.addEventListener("click", function(e) {
             childLi.addEventListener("click", (e) => {
               e.stopPropagation();
               highlightSelected(childLi);
+              resetColorFilterForNavigation();
               currentFolderFilter = parent + "/" + child;
               filterImages(parent + "/" + child);
               resetGalleryScroll();
@@ -5721,6 +5883,7 @@ downloadLink.addEventListener("click", function(e) {
         parentLi.addEventListener("click", () => {
   highlightSelected(parentLi);
   toggleSubfolders(subUl, parentLi);  // Updated to pass parentLi
+  resetColorFilterForNavigation();
   currentFolderFilter = parent;
   filterImages(parent);
   resetGalleryScroll();
@@ -6156,7 +6319,13 @@ downloadLink.addEventListener("click", function(e) {
         await Promise.all(movePromises);
         updateFolderCounts();
         moveDestinationModal.classList.remove("active");
-        toggleMoveMode();
+        // Only actually turn Move Images mode off if it was the thing that
+        // populated selectedImagesForMove in the first place - a single-
+        // image move triggered from the lightbox (see
+        // enlargeMoveCurrentImage()) populates this same array without ever
+        // turning bulk Move mode on, and calling toggleMoveMode() there
+        // unconditionally would incorrectly flip it *on* instead.
+        if (isMoveMode) { toggleMoveMode(); } else { selectedImagesForMove = []; }
         filterImages(currentFolderFilter);
       } catch (error) {
         console.error('Error moving images:', error);
@@ -6398,7 +6567,11 @@ downloadLink.addEventListener("click", function(e) {
         renderColorFilterDots();
         performSearch();
         editTagsModal.classList.remove("active");
-        toggleTagEditMode();
+        // Same reasoning as moveImagesToDestination()'s own guard above - a
+        // single-image tag edit triggered from the lightbox (see
+        // enlargeEditTagsForCurrentImage()) never turned bulk Edit Tags
+        // mode on, so this shouldn't turn it on either.
+        if (isTagEditMode) { toggleTagEditMode(); } else { selectedImagesForTagEdit = []; }
       } catch (error) {
         console.error('Error saving tags:', error);
         alert(`Error saving tags: ${error.message}`);
@@ -6915,6 +7088,24 @@ downloadLink.addEventListener("click", function(e) {
   downloadBtn.href = url;
   downloadBtn.download = filename;
   downloadBtn.style.display = "block";
+
+  // Admin-only quick-action bar (Edit Tags/Move/Delete for just this one
+  // image) + exact-filename debug label (2026-08-02, explicit request) -
+  // see .enlarge-admin-bar's CSS comment for why this is a fixed overlay
+  // rather than a layout participant. Hidden entirely for a signed-out
+  // visitor, same gate as every other admin-only control in this file -
+  // not just visually de-emphasized, since a public visitor has no
+  // Firestore write access to act on these anyway. Their click handlers are
+  // bound exactly once, below (same "read currentEnlargedContainer at click
+  // time instead of closing over this call's container" reasoning as the
+  // download button above), so this only ever needs to set visibility/text.
+  const adminBar = document.getElementById("enlargeAdminBar");
+  const adminFilenameEl = document.getElementById("enlargeAdminFilename");
+  if (adminBar) {
+    const isAdminMode = !!auth.currentUser;
+    adminBar.style.display = isAdminMode ? "flex" : "none";
+    if (isAdminMode && adminFilenameEl) adminFilenameEl.textContent = filename || "";
+  }
 }
 
 // Bound once at script load (not from inside enlargeImage(), which runs on
@@ -6968,6 +7159,7 @@ function closeEnlargeModal() {
   const enlargeModal = document.getElementById("enlargeImageModal");
   const downloadBtn = document.getElementById("enlargedDownloadBtn");
   const similarPanel = document.getElementById("enlargeSimilarPanel");
+  const adminBar = document.getElementById("enlargeAdminBar");
 
   enlargeModal.style.display = "none";
   if (downloadBtn) {
@@ -6976,9 +7168,82 @@ function closeEnlargeModal() {
   if (similarPanel) {
     similarPanel.style.display = "none";
   }
+  if (adminBar) {
+    adminBar.style.display = "none";
+  }
   currentEnlargedContainer = null;
   activeEnlargedLayoutRefresh = null;
 }
+
+// Admin quick actions for whichever image is currently open in the lightbox
+// (2026-08-02) - reuse the exact same Firestore/DOM logic the sidebar's
+// bulk Delete/Move/Edit Tags tools already use, just scoped to a
+// single-image array instead of requiring the admin to leave the lightbox,
+// enter a bulk select-then-act mode, and click the thumbnail again. Bound
+// exactly once below (not from inside enlargeImage()), reading
+// currentEnlargedContainer at click time - same "don't accumulate a new
+// listener on every open" reasoning as the download button above.
+async function enlargeDeleteCurrentImage() {
+  const container = currentEnlargedContainer;
+  if (!container) return;
+  if (!confirm("Delete this image? This cannot be undone.")) return;
+  try {
+    const imageId = await getImageDocId(container);
+    if (imageId) {
+      await db.collection('images').doc(imageId).delete();
+      container.remove();
+      updateFolderCounts();
+      renderColorFilterDots();
+      performSearch();
+      scheduleLayout();
+    }
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    alert(`Error deleting image: ${error.message}`);
+    return;
+  }
+  closeEnlargeModal();
+}
+
+// Move/Edit Tags reuse the existing bulk modals (moveDestinationModal/
+// editTagsModal) and their existing confirm functions
+// (moveImagesToDestination()/saveEditedTags()) by populating the same
+// selectedImagesForMove/selectedImagesForTagEdit arrays those already read
+// - see the "if (isMoveMode) ... else ..." / "if (isTagEditMode) ... else
+// ..." tails on those functions for why that's safe to do outside of
+// actually turning Move Images/Edit Tags mode on. The lightbox itself has
+// to close first: both modals are .modal-backdrop (z-index 1150), well
+// below #enlargeImageModal's 15000, so opening one while the lightbox
+// stayed open would render it completely obscured underneath.
+function enlargeMoveCurrentImage() {
+  const container = currentEnlargedContainer;
+  if (!container) return;
+  selectedImagesForMove = [container];
+  closeEnlargeModal();
+  showMoveDestinationModal();
+}
+
+function enlargeEditTagsForCurrentImage() {
+  const container = currentEnlargedContainer;
+  if (!container) return;
+  selectedImagesForTagEdit = [container];
+  closeEnlargeModal();
+  populateEditTagsModal();
+  editTagsModal.classList.add("active");
+}
+
+document.getElementById("enlargeDeleteBtn")?.addEventListener("click", function(e) {
+  e.stopPropagation();
+  enlargeDeleteCurrentImage();
+});
+document.getElementById("enlargeMoveBtn")?.addEventListener("click", function(e) {
+  e.stopPropagation();
+  enlargeMoveCurrentImage();
+});
+document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", function(e) {
+  e.stopPropagation();
+  enlargeEditTagsForCurrentImage();
+});
 
 
     document.getElementById("enlargeImageModal").addEventListener("click", function(e) {
