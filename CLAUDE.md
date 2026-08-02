@@ -2203,6 +2203,33 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     checkmark, disabled-button opacity, overall layout) - same sandbox caveat as everything else
     touching Cloudinary in this repo: the upload endpoint itself was mocked, not exercised against
     real Cloudinary/Firebase.
+  - **Fixed: maximizing/resizing the browser caused a 1-2 second freeze (2026-08-02)** — root
+    cause was a forced-synchronous-layout ("layout thrashing") pattern in `layoutGallery()` /
+    `buildSidebarFrostStrip()`, not anything resize-listener-specific. `layoutGallery()` (which
+    `scheduleLayout()` debounces every resize down to a single call, 60ms after it settles) writes
+    a fresh inline width/height to every visible gallery image during its own row-packing pass,
+    then immediately called `buildSidebarFrostStrip()`, which read `getBoundingClientRect()` for
+    every single gallery image again (via `getFirstColumnContainers()`) just to work out where the
+    sidebar's decorative reflection strip's tiles belong. Writing to ~200 elements and then
+    immediately reading a layout-dependent property back forces the browser to do a synchronous
+    full reflow of the whole gallery right there in the resize handler, on top of repainting/
+    recompositing the sidebar's own `blur(80px)` and the strip's own blur/saturate once that's
+    done - confirmed via a Playwright harness (220 synthetic images) instrumenting
+    `Element.prototype.getBoundingClientRect`: one resize triggered **530** calls to it before this
+    fix, versus **9** after. Fixed by having `layoutGallery()` hand `buildSidebarFrostStrip()` the
+    first-column images' top/height directly as a `precomputedPicks` array, computed for free
+    (pure arithmetic - each row's height/position is already known from the packing pass itself,
+    accumulated as `frostCumulativeTop`) instead of measured via a second DOM pass -
+    `buildSidebarFrostStrip(precomputedPicks)` only falls back to the old
+    `getFirstColumnContainers()` DOM-measurement path for its other two callers
+    (`openMobileDrawer()`, init), which don't have fresh row-packing data lying around when they
+    call it. Verified the analytical positions exactly match real DOM-measured ground truth (0px
+    max diff across 42 first-column tiles in the same harness) and that scroll-sync
+    (`syncSidebarFrostStripPosition()`, unrelated to this change) still tracks correctly. If a
+    similar "expensive on resize" report comes up again elsewhere, check for this same write-then-
+    read-the-whole-DOM shape first, particularly around anything that (like this strip) reruns
+    inside `layoutGallery()`, since that function's own row-packing writes to every visible image
+    on every call.
 - **Firestore** — three collections: `folders` (name, parent), `images` (url, folder, keywords,
   filename, timestamp), and `submissions` (link, imageUrls, note, timestamp — see "Submit" above).
   Access is controlled by real Firestore security rules now — see "Admin access" below and
