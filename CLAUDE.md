@@ -1705,6 +1705,75 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       a color then confirming the button only wrote updates for the containers actually tagged with
       that color (a same-count, same-id check against a small mixed-color fake gallery) - not the
       other loaded images.
+  - **Mobile navigation rebuilt as a slide-in drawer (2026-08-02, "current mobile version is
+    impossible to navigate")** - before changing anything, took an actual screenshot (Playwright,
+    375×667 viewport, the repo's usual stubbed-Firestore harness) of the *shipped* site rather than
+    guessing at the cause from the CSS alone, and it confirmed the report was not an exaggeration:
+    `.sidebar` was an always-visible flex column that only ever *shrank* at narrower breakpoints
+    (270px → 230px → 200px → 140px), never left the layout - at 375px wide that left barely ~215px
+    (under 60% of the screen) for the actual gallery, folder names truncated to 1-2 characters
+    ("cre...", "c..."), and the floating size-selector panel overlapped the gallery on top of that.
+    Every piece of navigation was crammed into a sliver too narrow for a thumb to reliably hit.
+    Replaced with a standard off-canvas drawer pattern below a new `768px` breakpoint (chosen to
+    cover real phones in portrait - including the wider ones like the 430px-CSS-width iPhone Pro
+    Max - while leaving 769-900px, an in-between tablet range, on the existing reduced-but-still-
+    inline sidebar unchanged):
+    - `.sidebar` becomes `position: fixed`, off-screen by default (`transform: translateX(-100%)`),
+      sliding in via a new `.mobile-open` class - `--mobile-drawer-width: min(82vw, 300px)` caps it
+      so it never eats the *entire* screen even on the narrowest phones. `--sidebar-width` itself
+      drops to `0` for the whole `<=768px` range (replacing the old 200px/140px shrink-steps) since
+      the sidebar no longer participates in `.main-container`'s flex layout at all here - every
+      other rule that reads `var(--sidebar-width)` for offsetting content (the search bar's `left`,
+      `#imageModal`'s `padding-left`, etc.) collapses to "no reserved space" for free, without
+      having to touch each of those individually.
+    - A new hamburger button (`#mobileMenuBtn`, hidden above the breakpoint) opens it;
+      `#sidebarBackdrop` (a permanently-in-DOM but inert `opacity:0; pointer-events:none` overlay,
+      gated purely by an `.active` class so it costs nothing outside mobile) dims the gallery behind
+      it and doubles as a tap-anywhere-to-close target; `#sidebarMobileCloseBtn` is a dedicated close
+      affordance inside the drawer itself. `openMobileDrawer()`/`closeMobileDrawer()` are the only
+      two functions that ever touch these classes, so every trigger goes through one shared path
+      rather than each toggling state independently and risking drift. Also locks `.main-content`'s
+      own scroll (`overflow: hidden`, not `document.body` - `.main-content` is the actual scrolling
+      element here) while open, so the gallery can't be scrolled "through" the dimmed backdrop on a
+      touch device.
+    - Closing is wired into the actions that make sense to auto-dismiss for, rather than requiring
+      an explicit tap every time: picking a folder (delegated on `#folderList`, since
+      `renderFolders()` rebuilds its `<li>`s from scratch), any admin action button in
+      `.sidebar-footer` (Add Image, Delete Images, Re-tag Colors, Admin Log In, etc. - all of them
+      open a modal or a select-then-act mode against the gallery, which the drawer would otherwise
+      sit on top of), and the brand's own `goToHomeAll()`. A `resize` listener also closes it if the
+      viewport crosses back above 768px (e.g. rotating a phone to landscape) - without this, the
+      backdrop's `.active` class would have nothing to ever clear it, since `.sidebar`'s drawer CSS
+      simply stops applying once the media query no longer matches, leaving a stuck dark overlay
+      over the whole page.
+    - The About/Submit/Contributors floating pills (see earlier entries in this file for their
+      history) are hidden outright below 768px rather than shrunk further or dropped to their own
+      row - three separate absolutely-positioned pills (plus, at the 769-900px tablet tier, an
+      entire extra row just to fit them) was exactly the kind of "eating vertical space the gallery
+      needed more, and fussier to tap accurately than a normal list item" pattern this whole rework
+      was meant to fix. They're not gone, just relocated: `.sidebar-mobile-links` inside the drawer
+      (`#mobileAboutBtn`/`#mobileContributorsBtn`/`#mobileSubmitBtn`) are separate buttons wired to
+      the exact same modal-opening logic as the originals, rather than the same DOM elements
+      physically moved (which would have required either duplicating unique ids or fighting to keep
+      one element's position in sync across two entirely different layout contexts - both worse
+      options than two small buttons doing the same thing).
+    - `.main-content`'s `padding-top` at `<=768px` collapses to `calc(var(--header-height) + 16px)`
+      (was 156px/154px at the old 640px/420px tiers) - reclaiming the vertical space that used to be
+      spent on the About/Submit/Contributors "own row" layout, now that they're not in the top bar
+      at all on mobile.
+    - **Verified end-to-end via Playwright** (375×667 viewport, `hasTouch`/`isMobile`, the repo's
+      usual stubbed-Firestore harness): a before/after screenshot comparison (the gallery's own
+      rendered width went from ~214px/57% of viewport to ~354px/94%, and `main-content`'s top
+      padding from 154px to 68px); the drawer starts closed, opens via the hamburger with the
+      backdrop active and background scroll locked, and closes via a folder click, a backdrop click,
+      the drawer's own close button, an admin action button (confirmed it also still opens that
+      button's own modal correctly), and a mobile-only About link (confirmed it also still opens the
+      real About modal); no `document.body` horizontal overflow at any point; and the rotate/resize
+      edge case (drawer open, then resized past 768px) leaves the backdrop cleared rather than stuck
+      on screen. The lightbox was also spot-checked open at this viewport width - unaffected, no
+      horizontal overflow, nav arrows and caption pills still visible (the caption pill row's own
+      content already ran slightly past the viewport edge before this change at very narrow widths -
+      pre-existing and unrelated to the sidebar, out of scope for this rework).
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
