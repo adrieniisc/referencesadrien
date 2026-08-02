@@ -646,17 +646,31 @@
        baseline in most fonts (it's drawn to span close to the font's full
        ascender-to-descender range), so even perfectly baseline-aligned it
        still visually hung lower than "aReference"'s letters, which have no
-       descenders of their own. A plain box has no such glyph metrics: its
-       flex "baseline" (having no text/baseline of its own) is its own
-       bottom margin edge per the flex baseline-alignment spec, so aligning
-       it via .sidebar-brand-typing's align-items:baseline plants its
-       bottom exactly on the text's baseline instead of below it. */
+       descenders of their own. A plain box has no such glyph metrics, and
+       the previous version of this comment assumed align-items:baseline
+       would therefore plant its bottom margin edge exactly on the text's
+       true baseline for free - that turned out not to hold in practice
+       (2026-08-02, reported live via screenshot as "weirdly placed").
+       Measured directly (Range.getBoundingClientRect() on the text node,
+       for a tight glyph box rather than the line box's own descender
+       padding): the flex-synthesized baseline for this empty box actually
+       sat ~0.22em ABOVE the real baseline, so a plain height:1em box both
+       floated above the baseline and overshot the cap-height at the top.
+       Corrected with an explicit downward nudge sized to that measurement,
+       plus a height re-tuned to the glyphs' own measured cap-to-baseline
+       span (~1.11em here) instead of the full 1em em-square - verified
+       (same Range-based measurement) to land within ~1px of the true
+       baseline/cap-top. transform is paint-only, so it doesn't touch the
+       box's reserved flex-layout space - the no-jump-when-hidden fix
+       elsewhere in this file still holds. Also thickened 2px -> 3px per
+       explicit request ("make it thicker"). */
     .sidebar-brand-cursor {
       display: inline-block;
-      width: 2px;
-      height: 1em;
+      width: 3px;
+      height: 1.11em;
       margin-left: 2px;
       background-color: currentColor;
+      transform: translateY(0.22em);
     }
     .sidebar-brand-cursor.blinking {
       animation: searchPlaceholderBlink 0.8s step-end infinite;
