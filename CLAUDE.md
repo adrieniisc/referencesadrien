@@ -1565,6 +1565,66 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       hidden ~2.5s later and an actual click then navigating home, and the doubled blur value - all
       confirmed passing (15 new assertions, 39 total across both 2026-08-02 batches) with zero
       console errors from app code.
+  - **Third 2026-08-02 batch: brand hover cursor, bigger brand text, contributors alphabetical,
+    filename-pill click-to-copy, lightbox flash-on-navigate fix** — five more requests, landed
+    after the second 2026-08-02 batch above had already merged.
+    - **Brand cursor reappears on hover, after the intro is done** - the typewriter intro's
+      blinking cursor (`#sidebarBrandCursor`) used to disappear for good once `playBrandIntroAnimation()`
+      finished. Two listeners bound once at script load (same "bind once, read state at event time"
+      pattern as the download button and old upload-dock-minimize-button fixes) - `mouseenter`
+      re-adds `.blinking` and shows the cursor, gated on `isBrandIntroDone` so hovering *during* the
+      intro can't fight with its own cursor state; `mouseleave` hides it again after a 400ms delay
+      (`brandHoverCursorHideTimer`, cancelled if the pointer re-enters before it fires) rather than
+      instantly, so it reads as "still there for a moment" instead of flickering across small
+      cursor movements right at the element's edge.
+    - **Brand text enlarged** (`.sidebar-brand`, "doesn't utilize the space it has") - 1.75rem ->
+      2.1rem at the base tier, 1.35rem -> 1.6rem at the <=900px tier - both measured via a headless
+      render against each tier's real available content width (270px/230px sidebar minus
+      `.sidebar-scroll`'s 0.8rem padding) rather than guessed, with real headroom left in both
+      cases. The <=420px tier was **deliberately left at 1.15rem** - measured at ~101px rendered
+      width against only ~95px of available content width at that tier's 140px sidebar, i.e.
+      already at its limit before this change; scaling it up with the other tiers would make an
+      existing tightness worse, not fix anything.
+    - **Contributors sorted alphabetically** - `loadContributorsList()` now maps every line through
+      `parseContributorLine()` first and sorts the resulting `{name, link}` entries by name
+      (`localeCompare` with `sensitivity: "base"`, so case doesn't affect order) before rendering,
+      instead of rendering in whatever order `contributors.txt` happens to list them.
+    - **Filename pill click-to-copy** (`#enlargedFilename`) - clicking the lightbox's filename pill
+      copies the real filename to the clipboard and shows a small arrow-pointed "Name copied" pill
+      underneath it for 1.5s. Required restructuring the pill's markup: it now wraps the filename in
+      its own inner `#enlargedFilenameText` span (what `enlargeImage()` sets `.textContent` on) plus
+      a sibling `#filenameCopiedTooltip` span, since a plain `filenameElement.textContent = filename`
+      would have wiped out a tooltip child element on every navigation. The overflow/ellipsis
+      treatment moved down to `#enlargedFilenameText` for the same reason the outer pill dropped its
+      own `overflow: hidden` - the tooltip is `position: absolute`, positioned below the pill via
+      `top: 100%`, and `overflow: hidden` on its containing block would have clipped it regardless of
+      `position: absolute`, since it never leaves that containing block's box. The click handler is
+      bound once at script load (same reasoning as the download button's own fix) rather than
+      re-bound per `enlargeImage()` call, reading `#enlargedFilenameText`'s live text at click time.
+      `positionEnlargedTags()`'s `fixedPillsWidth` reservation was updated to check
+      `#enlargedFilenameText`'s own text (not the outer pill's `.textContent`, which now always
+      contains the tooltip's "Name copied" text too, just visually hidden - so it would never read as
+      empty even with no filename set).
+    - **Lightbox "flashes the current image bigger" when navigating without a full close/reopen
+      (a similar-grid thumb click, prev/next) - fixed.** Root cause: `enlargeImage()` clears
+      `enlargeImg`'s inline `width`/`height` (set for the *previous* image) before the new image has
+      loaded and JS can recompute its real size - and `#enlargeImage`'s CSS only ever capped
+      `max-width: 90vw`, with no `max-height` at all, so for that one frame the browser had nothing
+      bounding the still-visible old bitmap's height by except its own full intrinsic pixel size.
+      Fixed with a matching `max-height: 90vh` on `#enlargeImage` - both axes are now always bounded
+      regardless of inline-style state; JS still narrows this further once it knows the real
+      available space, same as before.
+    - **Verified via the same Playwright + hand-rolled Firestore/Auth stub pattern** as every other
+      entry in this file (no live Firebase/Cloudinary access in a sandboxed session): hovering
+      `#sidebarBrand` after the intro finishes shows the blinking cursor, moving away leaves it
+      visible immediately (delay pending) then hides it after the delay elapses; the brand's
+      computed font-size measurably increased; a real (unsorted) `contributors.txt` served over the
+      test's local HTTP server rendered alphabetically; clicking the filename pill wrote the exact
+      filename to a granted-permission clipboard, showed the tooltip immediately, and hid it again
+      after the 1.5s window; and `#enlargeImage`'s computed `max-height` resolved to exactly 90% of
+      the test viewport's height regardless of its inline width/height being cleared - the specific
+      state `enlargeImage()` puts it in right before a navigation, which is what the flash bug relied
+      on being unbounded.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
