@@ -2961,6 +2961,19 @@
    accurately than normal list items. They're not gone, just relocated:
    equivalent buttons inside the drawer (.sidebar-mobile-links) call the
    exact same modal-opening logic. */
+/* Base (non-media-query) default: these three exist unconditionally in the
+   DOM, but every rule that actually styles them - including their own
+   `display` - lived only inside the <=768px media query below, with
+   nothing declaring a default state above that width. That's the same
+   "flashes all the admin buttons" shape this file already hit once for the
+   sidebar's admin controls (see the CSS default-hidden fix noted elsewhere
+   in this stylesheet) - a real bug, not a hypothetical one: at desktop
+   widths these three fall back to plain unstyled buttons (no border-radius,
+   no background, default block sizing) sitting inline in the middle of the
+   normal sidebar, confirmed from a real screenshot. The <=768px block below
+   already sets `display` on all three when it wants them shown, so this
+   default only needs to cover the "otherwise" case. */
+.mobile-menu-btn, .sidebar-mobile-close, .sidebar-mobile-links { display: none; }
 @media (max-width: 768px) {
   :root {
     --sidebar-width: 0px;
@@ -6189,6 +6202,24 @@ contributorsModal.addEventListener("click", (e) => {
       return normalizeVector(Array.from(image_embeds.data));
     }
 
+    // RawImage.fromCanvas() doesn't exist on @xenova/transformers@2.17.2
+    // (confirmed live, 2026-08-02: "TypeError: RawImage.fromCanvas is not a
+    // function" - a real, verified mistake, not a hypothetical one) - that
+    // method was apparently a later addition, and pinning an older,
+    // more-established version was deliberate (see the block comment above
+    // this section) specifically to avoid depending on newer, less-certain
+    // API surface, which makes it worth fixing here rather than upgrading
+    // the pinned version blind. RawImage.fromBlob() is used instead - a
+    // long-standing, far more commonly documented entry point for this
+    // library (every "classify an uploaded file" browser example uses it) -
+    // fed via canvas.toBlob(), a plain standard browser API with no
+    // dependency-version uncertainty of its own.
+    function canvasToBlob(canvas) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('canvas.toBlob() returned null')), 'image/png');
+      });
+    }
+
     // Local File about to be uploaded (upload wizard step 2's "Suggest
     // Tags"). Mirrors detectDominantColorTag()'s exact shape: reuse
     // decodeToCanvas() (already handles the HEIC-detection/fallback-decode
@@ -6200,7 +6231,8 @@ contributorsModal.addEventListener("click", (e) => {
       try {
         const { RawImage } = await loadClipModule();
         const canvas = await decodeToCanvas(file);
-        return await embedRawImage(RawImage.fromCanvas(canvas), onProgress);
+        const rawImage = await RawImage.fromBlob(await canvasToBlob(canvas));
+        return await embedRawImage(rawImage, onProgress);
       } catch (err) {
         console.warn(`Could not compute tag-suggestion embedding for ${file.name}:`, err);
         return null;
@@ -6228,7 +6260,8 @@ contributorsModal.addEventListener("click", (e) => {
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         canvas.getContext('2d').drawImage(img, 0, 0);
-        return await embedRawImage(RawImage.fromCanvas(canvas), onProgress);
+        const rawImage = await RawImage.fromBlob(await canvasToBlob(canvas));
+        return await embedRawImage(rawImage, onProgress);
       } catch (err) {
         console.warn(`Could not compute tag-suggestion embedding for ${url}:`, err);
         return null;
