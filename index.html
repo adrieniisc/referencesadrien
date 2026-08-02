@@ -5254,7 +5254,15 @@
         if (tick >= totalTicks) {
           clearInterval(cursorEl._blinkOutTimer);
           cursorEl._blinkOutTimer = null;
-          cursorEl.style.display = "none";
+          // Stay invisible via opacity, not display:none (2026-08-02 fix,
+          // confirmed via screenshot: "aReference" jumps left when the
+          // cursor disappears). The cursor sits in the same inline-flex row
+          // as the text (.sidebar-brand-typing) and .sidebar-brand centers
+          // that row as a unit - display:none removes the cursor's 2px+2px-
+          // margin box from the flex layout entirely, shrinking the row's
+          // content width and shifting the centered text. opacity:0 hides
+          // it just as completely while still reserving that space.
+          cursorEl.style.opacity = "0";
           if (onDone) onDone();
         }
       }, 220);
@@ -5308,7 +5316,6 @@
         clearInterval(cursorEl._blinkOutTimer);
         cursorEl._blinkOutTimer = null;
       }
-      cursorEl.style.display = "inline-block";
       cursorEl.style.opacity = "";
       cursorEl.classList.add("blinking");
     });
