@@ -2961,6 +2961,19 @@
    accurately than normal list items. They're not gone, just relocated:
    equivalent buttons inside the drawer (.sidebar-mobile-links) call the
    exact same modal-opening logic. */
+/* Base (non-media-query) default: these three exist unconditionally in the
+   DOM, but every rule that actually styles them - including their own
+   `display` - lived only inside the <=768px media query below, with
+   nothing declaring a default state above that width. That's the same
+   "flashes all the admin buttons" shape this file already hit once for the
+   sidebar's admin controls (see the CSS default-hidden fix noted elsewhere
+   in this stylesheet) - a real bug, not a hypothetical one: at desktop
+   widths these three fall back to plain unstyled buttons (no border-radius,
+   no background, default block sizing) sitting inline in the middle of the
+   normal sidebar, confirmed from a real screenshot. The <=768px block below
+   already sets `display` on all three when it wants them shown, so this
+   default only needs to cover the "otherwise" case. */
+.mobile-menu-btn, .sidebar-mobile-close, .sidebar-mobile-links { display: none; }
 @media (max-width: 768px) {
   :root {
     --sidebar-width: 0px;
