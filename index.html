@@ -2967,8 +2967,9 @@
     height: 100%;
     width: var(--mobile-drawer-width);
     /* Off-screen by default - .mobile-open (toggled by
-       toggleMobileDrawer() in the script) is the only thing that ever
-       slides it in, so it's always reachable through one code path. */
+       openMobileDrawer()/closeMobileDrawer() in the script) is the only
+       thing that ever slides it in, so it's always reachable through one
+       code path. */
     transform: translateX(-100%);
     transition: transform 0.28s ease;
     /* Above the gallery/top bar/floating panels/modals (up to 1200-ish)
@@ -2979,8 +2980,22 @@
        somehow were. */
     z-index: 5000;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+    /* No blur at all while off-screen (2026-08-02, "very poorly optimized,
+       lags with an A13 Bionic chip") - the base rule's backdrop-filter:
+       blur(80px) is one of the most GPU-expensive effects in CSS, and
+       .sidebar being fixed + always-mounted here meant it (and the
+       reflection strip constantly moving behind it - see
+       isMobileDrawerHidden()) kept recompositing on every gallery scroll
+       frame even though the drawer was fully off-screen and invisible the
+       entire time. Restored only while actually open, below. */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
-  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    backdrop-filter: blur(80px);
+    -webkit-backdrop-filter: blur(80px);
+  }
   .sidebar-mobile-close {
     display: flex;
     align-items: center;
@@ -4188,11 +4203,33 @@
       return candidates;
     }
 
+    // Below the mobile-drawer breakpoint (see .sidebar's own CSS), the
+    // sidebar - and so this whole reflection - is fully off-screen unless
+    // the drawer is actually open. buildSidebarFrostStrip()/
+    // syncSidebarFrostStripPosition() both check this before doing any
+    // work (2026-08-02, "very poorly optimized, lags with an A13 Bionic
+    // chip") - buildSidebarFrostStrip() runs on every layoutGallery() call,
+    // which itself reruns on every lazy-loaded thumbnail's own load event
+    // while scrolling (not just filter/search/add/delete), and
+    // syncSidebarFrostStripPosition() runs on every single gallery scroll
+    // frame - rebuilding/repositioning a strip of blurred reflection tiles
+    // nobody can see was real, continuous, entirely wasted work on every
+    // phone-width visit, exactly the kind of thing that reads as "lag"
+    // scrolling a long gallery on a real device. Skipping both here also
+    // means .sidebar's own backdrop-filter (blur(80px) - expensive on any
+    // device, more so on mobile GPUs) only has to be composited while the
+    // drawer is genuinely visible - see its own CSS for the matching
+    // .mobile-open gate.
+    function isMobileDrawerHidden() {
+      return window.innerWidth <= 768 && !document.querySelector(".sidebar")?.classList.contains("mobile-open");
+    }
+
     // Keyed by docId/url so a tile that's still a first-column image across
     // calls keeps its actual DOM node (and thus its already-loaded <img> and
     // faded-in opacity) instead of being torn down and recreated.
     let frostTilesByKey = new Map();
     function buildSidebarFrostStrip() {
+      if (isMobileDrawerHidden()) return;
       const art = document.getElementById("sidebarFrostArt");
       const galleryEl = document.getElementById("gallery");
       const viewport = document.querySelector(".main-content");
@@ -4290,6 +4327,7 @@
     // The only part of this that runs on every scroll event/frame, so it
     // has to stay this cheap - just a transform, no DOM rebuild.
     function syncSidebarFrostStripPosition() {
+      if (isMobileDrawerHidden()) return;
       const strip = document.querySelector("#sidebarFrostArt .sidebar-frost-strip");
       const viewport = document.querySelector(".main-content");
       if (!strip || !viewport) return;
@@ -5181,6 +5219,13 @@
       document.getElementById("sidebarBackdrop")?.classList.add("active");
       const mainContent = document.querySelector(".main-content");
       if (mainContent) mainContent.style.overflow = "hidden";
+      // buildSidebarFrostStrip()/syncSidebarFrostStripPosition() both skip
+      // their work while the drawer is closed on mobile (see
+      // isMobileDrawerHidden()) - the reflection may be stale, or never
+      // built at all, by the time it's actually opened. Catch it up now
+      // that .mobile-open is set (so isMobileDrawerHidden() no longer
+      // short-circuits these calls).
+      buildSidebarFrostStrip();
     }
     function closeMobileDrawer() {
       document.querySelector(".sidebar")?.classList.remove("mobile-open");
@@ -5248,11 +5293,17 @@ aboutModal.addEventListener("click", (e) => {
 // practical "once per user/pc" equivalent (persists per browser profile,
 // survives reloads and tab closes - unlike the admin auth's deliberately
 // session-only persistence, this is meant to stick).
+// Skipped on mobile entirely (2026-08-02, explicit request) - the flag is
+// still set either way (so a later desktop visit on the same browser
+// profile doesn't show it either - this is "seen it once, ever", not
+// "seen it once per screen size"), only *showing* the modal is gated on
+// viewport width, checked at the same <=768px breakpoint the mobile nav
+// drawer uses.
 try {
   const FIRST_VISIT_KEY = "hasVisitedReferencesAdrien";
   if (!localStorage.getItem(FIRST_VISIT_KEY)) {
     localStorage.setItem(FIRST_VISIT_KEY, "1");
-    aboutModal.classList.add("active");
+    if (window.innerWidth > 768) aboutModal.classList.add("active");
   }
 } catch (e) {
   // localStorage can throw (private-browsing storage restrictions,
