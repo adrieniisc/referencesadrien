@@ -653,9 +653,15 @@
        bottom exactly on the text's baseline instead of below it. */
     .sidebar-brand-cursor {
       display: inline-block;
-      width: 2px;
-      height: 1em;
-      margin-left: 2px;
+      /* Thicker and shorter (2026-08-02, "too tall, thin... a bit further
+         from the text") - 1em/2px matched the font's full em-box, taller
+         than "aReference"'s actual cap-height so it stuck up well above the
+         letters; 0.72em approximates a bold serif capital's cap-height
+         instead. Widened 2px -> 3px and given more breathing room via
+         margin-left 2px -> 8px. */
+      width: 3px;
+      height: 0.72em;
+      margin-left: 8px;
       background-color: currentColor;
     }
     .sidebar-brand-cursor.blinking {
