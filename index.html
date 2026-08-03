@@ -1454,7 +1454,11 @@
        long horizontally-wrapping strip. */
     .file-preview-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      /* Tile min-width and img max-height doubled (2026-08-03, "make upload
+         pics twice bigger for visibility") - 110px/180px was too small to
+         make out real detail before publishing, matched by the same doubling
+         on .wizard-pool-grid/.wizard-pool-tile img below. */
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: 10px;
       margin: 0 0 0.6rem;
       /* flex: 1 - .wizard-panel.active is a flex column, so this grows to
@@ -1478,7 +1482,7 @@
          contain (not cover) means that cap letterboxes rather than crops. */
       width: 100%;
       height: auto;
-      max-height: 180px;
+      max-height: 360px;
       object-fit: contain;
       background-color: rgba(0, 0, 0, 0.2);
       border-radius: 6px;
@@ -1521,6 +1525,73 @@
       z-index: 1;
     }
     .pool-tile-remove:hover { background: var(--danger); }
+    /* Magnifier button (2026-08-03, "add a little magnifier icon in the
+       corner of each to enlarge to clearly see in case") - sits in the
+       bottom-right corner, the one corner .pool-tile-remove (top-right on
+       .file-preview-item) and .wizard-pool-tile-check (top-left on
+       .wizard-pool-tile) don't already occupy on either tile type, so the
+       same class works unmodified on both. Opens #poolPreviewEnlargeModal
+       at the item's full original resolution (item.url), not the
+       downscaled thumbnail these tiles themselves display. */
+    .pool-tile-magnify {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+    .pool-tile-magnify:hover { background: rgba(0, 0, 0, 0.85); }
+    .pool-tile-magnify svg { width: 13px; height: 13px; }
+    /* Full-size preview opened by .pool-tile-magnify above - a plain image
+       overlay, not a real .modal-backdrop, since it needs to render on top
+       of the already-open Add Image wizard (.modal-backdrop, z-index 1150)
+       rather than behind/instead of it. */
+    .pool-preview-lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 15250;
+      background: rgba(0, 0, 0, 0.88);
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+    .pool-preview-lightbox.active { display: flex; }
+    .pool-preview-lightbox img {
+      max-width: 92vw;
+      max-height: 92vh;
+      object-fit: contain;
+      border-radius: var(--radius-md);
+      cursor: default;
+    }
+    .pool-preview-lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-size: 1.4rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pool-preview-lightbox-close:hover { background: rgba(255, 255, 255, 0.22); }
     .file-preview-empty, .publish-queue-empty, .wizard-pool-empty {
       padding: 0.8rem 1rem;
       border: 1px dashed var(--border-color);
@@ -1549,7 +1620,9 @@
     }
     .wizard-pool-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      /* Doubled alongside .file-preview-list above (2026-08-03, same
+         request/reasoning). */
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: 10px;
       flex: 1;
       min-height: 120px;
@@ -1574,7 +1647,7 @@
          img above, for the same reason. */
       width: 100%;
       height: auto;
-      max-height: 180px;
+      max-height: 360px;
       object-fit: contain;
       background-color: rgba(0, 0, 0, 0.2);
       border-radius: 4px;
@@ -3828,6 +3901,13 @@
       </div>
     </div>
   </div>
+  <!-- Full-size preview for a step 1/2 upload pool tile's magnifier button
+       (2026-08-03) - a plain overlay rather than a .modal-backdrop, since it
+       has to render on top of the Add Image modal above, not behind it. -->
+  <div class="pool-preview-lightbox" id="poolPreviewEnlargeModal">
+    <button type="button" class="pool-preview-lightbox-close" id="poolPreviewEnlargeCloseBtn" aria-label="Close">&times;</button>
+    <img id="poolPreviewEnlargeImg" src="" alt="">
+  </div>
   <!-- MODAL: Rename Folder -->
   <div class="modal-backdrop" id="renameFolderModal">
     <div class="modal-content">
@@ -4621,10 +4701,20 @@
           alert("Please add at least one image first.");
           return;
         }
-      } else if (wizardStep === 2 && uploadPool.length > 0) {
-        const word = uploadPool.length === 1 ? "image hasn't" : "images haven't";
-        const proceed = confirm(`${uploadPool.length} ${word} been sorted into a folder yet and won't be published. Continue to Review anyway?`);
-        if (!proceed) return;
+      } else if (wizardStep === 2) {
+        // If there's still an active selection when Next is clicked, queue
+        // it first, same as clicking "Confirm & Queue Selected" directly
+        // (2026-08-03, reported as "images are all selected and everything
+        // is ready" still triggering the unsorted-images warning below) -
+        // every image selected with a folder already chosen has already
+        // expressed the same intent that button does; requiring a separate
+        // click on top of that read as broken rather than a real extra step.
+        if (poolSelection.size > 0) confirmQueueSelection();
+        if (uploadPool.length > 0) {
+          const word = uploadPool.length === 1 ? "image hasn't" : "images haven't";
+          const proceed = confirm(`${uploadPool.length} ${word} been sorted into a folder yet and won't be published. Continue to Review anyway?`);
+          if (!proceed) return;
+        }
       }
       setWizardStep(Math.min(wizardStep + 1, 3));
     });
@@ -5316,13 +5406,25 @@
     // instead of running two tick loops on top of each other.
     function blinkCursorOutThenHide(cursorEl, blinkCount, onDone) {
       if (cursorEl._blinkOutTimer) clearInterval(cursorEl._blinkOutTimer);
+      // Pick up wherever the continuous CSS .blinking animation currently
+      // has the cursor (on or off) instead of forcing it to "1" (2026-08-03,
+      // reported as the post-hover blink "instantly cutting" rather than
+      // continuing smoothly) - forcing full opacity read as an abrupt jump
+      // whenever the mouse left mid-way through the "off" half of a blink.
+      const wasOn = cursorEl.classList.contains("blinking")
+        ? getComputedStyle(cursorEl).opacity !== "0"
+        : cursorEl.style.opacity !== "0";
       cursorEl.classList.remove("blinking");
-      cursorEl.style.opacity = "1";
+      cursorEl.style.opacity = wasOn ? "1" : "0";
       let tick = 0;
       const totalTicks = blinkCount * 2; // each blink = one off+on cycle
       cursorEl._blinkOutTimer = setInterval(() => {
         tick++;
-        cursorEl.style.opacity = tick % 2 === 0 ? "1" : "0";
+        // Alternates away from wasOn first, so the tail is a direct
+        // continuation of whichever phase the blink was already in, rather
+        // than always restarting from "on".
+        const isOn = tick % 2 === 0 ? wasOn : !wasOn;
+        cursorEl.style.opacity = isOn ? "1" : "0";
         if (tick >= totalTicks) {
           clearInterval(cursorEl._blinkOutTimer);
           cursorEl._blinkOutTimer = null;
@@ -5337,7 +5439,12 @@
           cursorEl.style.opacity = "0";
           if (onDone) onDone();
         }
-      }, 220);
+      // 400ms matches the CSS .blinking animation's own cadence
+      // (searchPlaceholderBlink runs at 0.8s, step-end, split 50/50 into two
+      // 0.4s on/off halves) - previously a faster, unrelated 220ms tick here
+      // made the blink visibly speed up right at the moment hovering ended
+      // (2026-08-03, same report as the "instant cut" fix above).
+      }, 400);
     }
     function playBrandIntroAnimation() {
       const brandEl = document.getElementById("sidebarBrand");
@@ -8638,6 +8745,33 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     const poolClearSelectionBtn = document.getElementById("poolClearSelectionBtn");
     const poolConfirmBtn = document.getElementById("poolConfirmBtn");
 
+    // Full-size preview overlay for a pool tile's magnifier button
+    // (2026-08-03) - always shows item.url (the original, full-resolution
+    // object URL), not whatever downscaled thumbUrl the tile itself is
+    // currently displaying, since the whole point is letting the admin
+    // check a detail the small tile can't show clearly.
+    const MAGNIFY_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M11 8v6M8 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 20l-3.6-3.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const poolPreviewEnlargeModal = document.getElementById("poolPreviewEnlargeModal");
+    const poolPreviewEnlargeImg = document.getElementById("poolPreviewEnlargeImg");
+    const poolPreviewEnlargeCloseBtn = document.getElementById("poolPreviewEnlargeCloseBtn");
+    function openPoolPreviewEnlarge(url) {
+      poolPreviewEnlargeImg.src = url;
+      poolPreviewEnlargeModal.classList.add("active");
+    }
+    function closePoolPreviewEnlarge() {
+      poolPreviewEnlargeModal.classList.remove("active");
+      poolPreviewEnlargeImg.src = "";
+    }
+    poolPreviewEnlargeCloseBtn.addEventListener("click", closePoolPreviewEnlarge);
+    poolPreviewEnlargeModal.addEventListener("click", (e) => {
+      if (e.target === poolPreviewEnlargeModal) closePoolPreviewEnlarge();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && poolPreviewEnlargeModal.classList.contains("active")) {
+        closePoolPreviewEnlarge();
+      }
+    });
+
     // Small downscaled thumbnail for a pool tile, instead of pointing the
     // <img> straight at the full-resolution file (2026-08-01, "still very
     // laggy in upload step 1&2 when more than 3 images"). The previous
@@ -8819,8 +8953,15 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
           removeBtn.title = "Remove";
           removeBtn.textContent = "×";
           removeBtn.addEventListener("click", () => discardPoolItem(item.id));
+          const magnifyBtn = document.createElement("button");
+          magnifyBtn.type = "button";
+          magnifyBtn.className = "pool-tile-magnify";
+          magnifyBtn.title = "Enlarge";
+          magnifyBtn.innerHTML = MAGNIFY_ICON_SVG;
+          magnifyBtn.addEventListener("click", () => openPoolPreviewEnlarge(item.url));
           tile.appendChild(thumb);
           tile.appendChild(removeBtn);
+          tile.appendChild(magnifyBtn);
           tile.appendChild(label);
         }
         // appendChild on a node already in the document moves it (not a
@@ -8867,9 +9008,18 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
           // underneath it.
           removeBtn.addEventListener("mousedown", (e) => e.stopPropagation());
           removeBtn.addEventListener("click", (e) => { e.stopPropagation(); discardPoolItem(item.id); });
+          const magnifyBtn = document.createElement("button");
+          magnifyBtn.type = "button";
+          magnifyBtn.className = "pool-tile-magnify";
+          magnifyBtn.title = "Enlarge";
+          magnifyBtn.innerHTML = MAGNIFY_ICON_SVG;
+          // Same drag-select guard as removeBtn above.
+          magnifyBtn.addEventListener("mousedown", (e) => e.stopPropagation());
+          magnifyBtn.addEventListener("click", (e) => { e.stopPropagation(); openPoolPreviewEnlarge(item.url); });
           tile.appendChild(thumb);
           tile.appendChild(check);
           tile.appendChild(removeBtn);
+          tile.appendChild(magnifyBtn);
           wireSelectPoolTile(tile, item.id);
         }
         tile.classList.toggle("selected", poolSelection.has(item.id));
@@ -8916,8 +9066,9 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     // own batch (files + this folder + these tags), then removes those
     // images from the working pool - "the selected images disappear in the
     // queue" - so the same select/tag/confirm cycle can repeat for whatever
-    // remains in the pool.
-    poolConfirmBtn.addEventListener("click", () => {
+    // remains in the pool. Named (not an inline arrow on poolConfirmBtn) so
+    // wizardNextBtn's own handler below can call it too.
+    function confirmQueueSelection() {
       const selectedItems = uploadPool.filter(item => poolSelection.has(item.id));
       if (selectedItems.length === 0) return;
       const folderValue = folderSelect.value || 'all';
@@ -8931,7 +9082,8 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
       suggestedTagsRow.innerHTML = "";
       renderPoolViews();
       renderUploadQueue();
-    });
+    }
+    poolConfirmBtn.addEventListener("click", confirmQueueSelection);
 
     fileInput.addEventListener("change", () => {
       addFilesToPool(fileInput.files);
