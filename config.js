@@ -107,7 +107,7 @@ window.SITE_CONFIG = {
     paragraphs: [
       "Here you'll find a bunch of reference images of about anything (filling with new images frequently), for your creative works or any other projects that could benefit from them.",
       "You can browse by folder, search by keywords, and easily download any images for your work, freely, without restrictions and absolutely no copyright or attributions needed.",
-      "Feel free to contribute and share your own images/textures with the \"SUBMIT\" button :)",
+      "Feel free to contribute and share your own images/textures with the \"SUBMIT\" button. But please no AI ! :)",
       "Have fun :)",
       "Adrien"
     ],
@@ -131,7 +131,7 @@ window.SITE_CONFIG = {
   // --------------------------------------------------------------------
   submitReference: {
     heading: "Submit your images/references",
-    description: "Either a google drive link or directly images here, I'll review them and add them as soon as possible",
+    description: "Either a google drive link or directly images here, I'll review them and add them as soon as possible (NO AI)",
     linkLabel: "Link (optional):",
     linkPlaceholder: "https://drive.google.com/...",
     imagesLabel: "Images (optional):",
