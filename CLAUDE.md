@@ -1822,6 +1822,72 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       a genuinely fresh profile (no seeded localStorage) at a 375px viewport does not show the About
       modal but does still set the flag, while the identical fresh-profile setup at a 1400px viewport
       still auto-opens it as before.
+  - **2026-08-03 batch: brand hover-cursor continuity, doubled upload pool tiles + magnifier,
+    "Next" no longer nags about an already-selected batch** — three requests landed together.
+    - **Post-hover cursor blink no longer cuts/speeds up** - `blinkCursorOutThenHide()` (used by
+      both the typewriter intro's own finish and the post-hover fade-out) used to unconditionally
+      force the cursor to `opacity: 1` before starting its 3-blink tail, and ticked every 220ms -
+      neither matched the continuous CSS `.blinking` animation it was taking over from
+      (`searchPlaceholderBlink`, 0.8s step-end, i.e. two real 0.4s on/off halves), so ending a hover
+      mid-way through the "off" half read as an abrupt jump to fully visible, and the tail itself
+      then blinked visibly faster than the hover blink it just replaced. Fixed by reading the
+      cursor's actual current opacity (`getComputedStyle` while `.blinking` is still applied) before
+      removing the class, using that as the tail's starting state instead of a hardcoded `"1"`, and
+      changing the tick interval to 400ms to match the CSS's own half-cycle. Verified directly (not
+      just reasoned through) by calling the real `blinkCursorOutThenHide()` from a Playwright page
+      with the cursor forced into a mid-"off" state first: it stays at `opacity: 0` synchronously
+      right after the call (no forced jump), and a 3-blink run now takes ~2400ms end-to-end
+      (400ms × 6 ticks) instead of the old ~1320ms (220ms × 6).
+    - **Upload pool tiles doubled + a magnifier button added** ("make upload pics twice bigger for
+      visibility, and add a little magnifier icon in the corner of each to enlarge to clearly see in
+      case") - `.file-preview-list`/`.wizard-pool-grid`'s grid `minmax()` floor and
+      `.file-preview-item img`/`.wizard-pool-tile img`'s `max-height` both doubled (110px→220px,
+      180px→360px) - the two tile types these grids hold (step 1's view-only confirmation list and
+      step 2's selectable sort/tag grid) are the only "upload pics" an admin actually looks at before
+      publishing, so this is scoped to just those two, not the step 3 review queue's small batch-
+      summary thumbnails or the separate Review Submissions panel. A new `.pool-tile-magnify` button
+      (bottom-right corner - the one corner neither tile type's existing overlay already occupies:
+      `.pool-tile-remove` sits top-right on `.file-preview-item`, `.wizard-pool-tile-check` sits
+      top-left on `.wizard-pool-tile`) opens a new dedicated `#poolPreviewEnlargeModal` overlay at
+      the item's full original resolution (`item.url`, not the downscaled `thumbUrl` the tile itself
+      shows) - a plain overlay (`.pool-preview-lightbox`, z-index 15250) rather than reusing
+      `.modal-backdrop`, since it has to render on top of the already-open Add Image wizard
+      (z-index 1150), not behind/instead of it, and reusing the main gallery lightbox
+      (`enlargeImage()`) wasn't an option either - that function is built entirely around
+      Firestore-backed gallery containers (tags, doc ids, prev/next navigation), none of which exist
+      for a file still sitting in the local `uploadPool` pre-upload. Closes via its own × button,
+      a backdrop click, or Escape - same three-way pattern every other modal in this file already
+      uses. On the step 2 selectable grid specifically, the magnify button's `mousedown` also stops
+      propagation (matching `.pool-tile-remove`'s own existing guard there) so clicking it doesn't
+      also start/toggle a drag-select on the tile underneath. Verified via Playwright with real
+      (non-data-URI) PNGs: both tile types' `img` `max-height` computes to 360px, every tile gets a
+      magnify button, clicking one opens the overlay with a real `blob:` src, all three close paths
+      work, and clicking a step-2 tile's magnify button leaves its `selected` state unchanged.
+    - **"Next" no longer warns about images that are actually already selected and ready** -
+      reported live via screenshot: all images in step 2 showing selected (checkmarks), a folder and
+      tags already filled in, yet clicking "Next" still showed "N images haven't been sorted into a
+      folder yet." Not a bug in the check itself - `uploadPool.length > 0` is genuinely accurate,
+      since selecting tiles alone doesn't move them out of the working pool, only clicking "Confirm &
+      Queue Selected" does that (see the Publish Queue / pool→sort→tag→review entries above) - but
+      requiring that extra explicit click on top of an already-fully-expressed selection (all
+      selected, folder chosen) read as broken rather than a real remaining step. Fixed by having
+      `wizardNextBtn`'s own click handler check `poolSelection.size > 0` first and, if so, run the
+      exact same queue-and-drain logic `poolConfirmBtn` already used (extracted into a shared
+      `confirmQueueSelection()` function so both call sites stay identical) *before* evaluating
+      whether anything's still left unsorted - so a fully-selected pool now queues itself
+      automatically and proceeds straight to Review, while a **partial** selection still queues just
+      what's selected and correctly warns about whatever's left over (this was deliberately checked,
+      not assumed - selecting only 1 of 2 newly-added images and clicking Next still queues that 1 as
+      its own batch, leaves the other in the pool, and still shows the "1 image hasn't been sorted"
+      warning). Verified end-to-end via Playwright: an all-selected pool with a folder+tag chosen now
+      advances straight to Review with zero `confirm()` dialogs and the correct folder/tags/file-count
+      on the resulting queued batch, while a same-session partial-selection case still fires exactly
+      one warning dialog mentioning the correct leftover count and only drains the selected item from
+      the pool.
+    - **Sandbox caveat, same as everything else in this file**: no live Firebase/Cloudinary access
+      here - all three verified via the same Playwright + hand-rolled Firestore/Auth stub pattern
+      this file's Testing section documents, using real generated PNG fixtures (not data-URI stubs)
+      through a local static server - 21 assertions total, zero console errors from app code.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
