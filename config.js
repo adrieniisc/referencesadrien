@@ -64,10 +64,10 @@ window.SITE_CONFIG = {
     hoverPhrases: ["Hmmm ?", "What ?", "Go away..", "I see you", "Yes ?", "Hm hmm ?", "And now ?" ],
     // Milliseconds of continuous hovering before the phrase-swap above
     // triggers.
-    hoverSwapDelayMs: 2000,
+    hoverSwapDelayMs: 500,
     // Milliseconds after the pointer leaves (while a phrase is showing)
     // before it's erased and "aReference" is typed back.
-    hoverRevertDelayMs: 2500,
+    hoverRevertDelayMs: 2000,
     // Milliseconds the cursor keeps blinking normally after the pointer
     // leaves (not in a swapped-phrase state) before it winds down and hides.
     hoverHideDelayMs: 2000,
