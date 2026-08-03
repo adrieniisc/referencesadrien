@@ -6061,7 +6061,15 @@ contributorsModal.addEventListener("click", (e) => {
     }
 
     // Classifies every sampled pixel (nameColorFromRgb()) and returns the
-    // name with the most total vote-weight. Reads from a small offscreen
+    // name with the most total vote-weight - or, 2026-08-03, two comma-
+    // joined names ("red, green") when a second color is also substantial
+    // enough to read as a real second subject rather than background noise
+    // (see the SECOND_COLOR_MIN_SHARE comment further down). Every call
+    // site already merges this return value into an image's keywords via
+    // mergeTagStrings() (or stores it directly when there are no other
+    // typed tags yet), and mergeTagStrings() already splits its input on
+    // commas, so a two-name return needs no special-casing anywhere else -
+    // it just becomes two ordinary keywords. Reads from a small offscreen
     // copy of the canvas, not the full-resolution original, purely for
     // speed. Each pixel always votes - unlike the previous version, there
     // is no chroma cutoff that excludes a pixel outright and no "almost
@@ -6193,42 +6201,88 @@ contributorsModal.addEventListener("click", (e) => {
       }
       if (votes.size === 0) return null;
 
-      let bestName = null, bestWeight = 0;
-      votes.forEach((weight, name) => { if (weight > bestWeight) { bestWeight = weight; bestName = name; } });
-
-      if (bestName === 'orange' || bestName === 'yellow') {
-        // 2026-08-02: when 'orange' is winning, pool its stats with
-        // 'yellow''s too (if any) before deciding brown/beige - orange and
-        // yellow are adjacent hue families that the *same* lit material
-        // commonly splits across (a lighting-driven few-degree hue shift,
-        // e.g. a painted surface reading ~44° in one patch and ~46° in
-        // another - not a different underlying color), and deciding
-        // "is this dark enough to be brown" from only the orange-hued
-        // half's own average ignores the material's own brighter,
-        // yellow-hued pixels sitting right next to it. Deliberately
-        // one-directional - a 'yellow' win never pools in 'orange' or
-        // becomes 'brown', preserving the existing dark-mustard/gold ->
-        // stays-yellow behavior exactly as before.
-        const yellowWeight = bestName === 'orange' ? (votes.get('yellow') || 0) : 0;
-        const poolWeight = bestWeight + yellowWeight;
-        const poolL = (lSum.get(bestName) || 0) + (bestName === 'orange' ? (lSum.get('yellow') || 0) : 0);
-        const poolS = (sSum.get(bestName) || 0) + (bestName === 'orange' ? (sSum.get('yellow') || 0) : 0);
+      // Resolves one hue-family's raw vote (weight, plus its own lSum/sSum)
+      // into brown/beige/orange/yellow - factored out of what used to be
+      // inline logic that only ever ran once, against whichever name had
+      // the single highest vote. Now called for the winning name AND
+      // (below) a possible second-place name, so both go through the exact
+      // same brown/beige carve-out instead of the second color skipping it.
+      // 2026-08-02: when resolving 'orange', pool its stats with 'yellow''s
+      // too (if any) before deciding brown/beige - orange and yellow are
+      // adjacent hue families that the *same* lit material commonly splits
+      // across (a lighting-driven few-degree hue shift, e.g. a painted
+      // surface reading ~44° in one patch and ~46° in another - not a
+      // different underlying color), and deciding "is this dark enough to
+      // be brown" from only the orange-hued half's own average ignores the
+      // material's own brighter, yellow-hued pixels sitting right next to
+      // it. Deliberately one-directional - resolving 'yellow' never pools
+      // in 'orange' or becomes 'brown', preserving the existing
+      // dark-mustard/gold -> stays-yellow behavior exactly as before.
+      function classifyHueFamily(name, weight) {
+        if (name !== 'orange' && name !== 'yellow') return name;
+        const yellowWeight = name === 'orange' ? (votes.get('yellow') || 0) : 0;
+        const poolWeight = weight + yellowWeight;
+        const poolL = (lSum.get(name) || 0) + (name === 'orange' ? (lSum.get('yellow') || 0) : 0);
+        const poolS = (sSum.get(name) || 0) + (name === 'orange' ? (sSum.get('yellow') || 0) : 0);
         const avgL = poolL / poolWeight;
         const avgS = poolS / poolWeight;
         // Matches the old per-pixel h-range coverage (brown: h in
         // [15,45); beige: h in [15,60)) as closely as an aggregate,
         // no-longer-per-pixel-hue check can - see nameColorFromRgb's
         // comment for why this moved from per-pixel to per-family.
-        if (bestName === 'orange' && avgL < 0.45) bestName = 'brown';
-        else if (avgL >= 0.45 && avgL < 0.88 && avgS < 0.35) bestName = 'beige';
+        if (name === 'orange' && avgL < 0.45) return 'brown';
+        if (avgL >= 0.45 && avgL < 0.88 && avgS < 0.35) return 'beige';
+        return name;
       }
 
-      if (debugLabel) {
-        const breakdown = Array.from(votes.entries()).sort((a, b) => b[1] - a[1])
-          .map(([name, weight]) => `${name}:${weight.toFixed(1)}`).join(', ');
-        console.debug(`[color detect] ${debugLabel} -> ${bestName} (${breakdown})`);
+      const ranked = Array.from(votes.entries()).sort((a, b) => b[1] - a[1]);
+      const [bestNameRaw, bestWeight] = ranked[0];
+      const bestName = classifyHueFamily(bestNameRaw, bestWeight);
+
+      // 2026-08-03: a second automatic color tag, for photos that are
+      // genuinely two-toned rather than one dominant material plus
+      // background/shadow noise - e.g. a red mineral specimen next to a
+      // green one, or an orange wall behind a smaller green door. A ratio
+      // against the *winner's* own weight (tried first) was too strict for
+      // that door case - the wall is most of the frame and the door only a
+      // modest fraction of it, so the door's weight is well under half the
+      // wall's even though it's obviously a real second color to a person
+      // looking at the photo. Judging against the image's *total* vote
+      // weight instead fits that shape: a second hue family only needs to
+      // account for a real, non-trivial slice of the whole photo
+      // (SECOND_COLOR_MIN_SHARE) to count, regardless of how much bigger
+      // the winner is. Also requires the candidate be actually distinct
+      // from the winner once classified - which is also why 'yellow' is
+      // skipped here when 'orange' won: its pixel weight was already
+      // pooled into the winner's own brown/beige decision above, so it
+      // isn't a separate color, just the same material's own lit half (the
+      // exact shadow/highlight-split-vote problem this file already fixed
+      // once for the single-tag case - see nameColorFromRgb's and
+      // classifyHueFamily's own comments). `ranked` is sorted by weight
+      // descending, so the first non-skipped entry is the only one that
+      // could possibly qualify - once it fails the share check, every
+      // later entry (smaller weight) fails it too.
+      const SECOND_COLOR_MIN_SHARE = 0.15;
+      const totalWeight = ranked.reduce((sum, [, weight]) => sum + weight, 0);
+      const pooledPartner = bestNameRaw === 'orange' ? 'yellow' : null;
+      let secondName = null;
+      for (let i = 1; i < ranked.length; i++) {
+        const [name, weight] = ranked[i];
+        if (name === bestNameRaw || name === pooledPartner) continue;
+        if (weight >= totalWeight * SECOND_COLOR_MIN_SHARE) {
+          const classified = classifyHueFamily(name, weight);
+          if (classified !== bestName) secondName = classified;
+        }
+        break;
       }
-      return bestName;
+
+      const result = secondName ? `${bestName}, ${secondName}` : bestName;
+
+      if (debugLabel) {
+        const breakdown = ranked.map(([name, weight]) => `${name}:${weight.toFixed(1)}`).join(', ');
+        console.debug(`[color detect] ${debugLabel} -> ${result} (${breakdown})`);
+      }
+      return result;
     }
 
     // For a local File about to be uploaded (admin upload dock / Publish
