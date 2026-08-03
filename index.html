@@ -5027,17 +5027,20 @@
     // flash, silently.
     // "Flashbang" staging (2026-08-03, explicit request) - a hard, instant
     // full-screen white flash first, held for LOGIN_FAIL_FLASH_WHITE_MS,
-    // THEN the meme appears underneath and eases in over 2 seconds - not
+    // THEN (after one more short beat, LOGIN_FAIL_FLASH_IMAGE_DELAY_MS) the
+    // meme appears underneath and eases in over 2 seconds - not
     // simultaneously with the white flash, which is why this is two
     // separate timers/elements (#loginFailFlashWhite on top of
     // #loginFailFlash) rather than one element with one transition. Total
     // on-screen time is comfortably longer than white-flash-duration +
-    // fade-in-duration so the meme is actually visible at full opacity for
-    // a moment before it goes away, not hidden again mid-fade.
+    // gap + fade-in-duration so the meme is actually visible at full
+    // opacity for a moment before it goes away, not hidden again mid-fade.
     const LOGIN_FAIL_FLASH_WHITE_MS = 200;
+    const LOGIN_FAIL_FLASH_IMAGE_DELAY_MS = 100;
     const LOGIN_FAIL_FLASH_DURATION_MS = 4000;
     let loginFailFlashHideTimer = null;
     let loginFailFlashWhiteTimer = null;
+    let loginFailFlashImageTimer = null;
     async function flashRandomMeme() {
       try {
         const response = await fetch("memes/manifest.txt", { cache: "no-store" });
@@ -5049,18 +5052,36 @@
 
         clearTimeout(loginFailFlashHideTimer);
         clearTimeout(loginFailFlashWhiteTimer);
-        // Reset to fully transparent before showing anything, so a second
-        // failed attempt landing mid-fade always restarts the whole
-        // sequence from the same starting point instead of fading in from
-        // wherever the previous attempt's opacity happened to be.
+        clearTimeout(loginFailFlashImageTimer);
+        // Instantly hide (no transition) before swapping .src, not just
+        // classList.remove("visible") alone - removing that class only
+        // *starts* a 2s fade back toward opacity 0, it doesn't snap there,
+        // so a second failed attempt landing while the previous meme was
+        // still mid-fade let the new image inherit whatever partial
+        // opacity the old one happened to be fading through, which showed
+        // as a brief flash of the *previous* meme before the new one took
+        // over (2026-08-03, reported live). Forcing a reflow between
+        // `transition = "none"` and the `.src` swap is what makes the
+        // instant-hide actually apply before the new image loads, instead
+        // of the browser batching both style changes into one paint.
+        loginFailFlashImg.style.transition = "none";
         loginFailFlashImg.classList.remove("visible");
+        loginFailFlashImg.offsetHeight;
         loginFailFlashImg.src = `memes/${file}`;
         loginFailFlash.classList.add("active");
         loginFailFlashWhite.classList.add("active");
 
         loginFailFlashWhiteTimer = setTimeout(() => {
           loginFailFlashWhite.classList.remove("active");
-          loginFailFlashImg.classList.add("visible");
+          // Restore the real (2s ease-out) transition now that the instant-
+          // hide above has done its job, then wait one more short beat
+          // before the meme actually starts appearing - explicit request:
+          // "the meme image... should appear 0.1 second after the bang",
+          // not the instant the white flash itself clears.
+          loginFailFlashImg.style.transition = "";
+          loginFailFlashImageTimer = setTimeout(() => {
+            loginFailFlashImg.classList.add("visible");
+          }, LOGIN_FAIL_FLASH_IMAGE_DELAY_MS);
         }, LOGIN_FAIL_FLASH_WHITE_MS);
 
         loginFailFlashHideTimer = setTimeout(() => {
@@ -5076,8 +5097,10 @@
     loginFailFlash.addEventListener("click", () => {
       clearTimeout(loginFailFlashHideTimer);
       clearTimeout(loginFailFlashWhiteTimer);
+      clearTimeout(loginFailFlashImageTimer);
       loginFailFlash.classList.remove("active");
       loginFailFlashImg.classList.remove("visible");
+      loginFailFlashImg.style.transition = "";
       loginFailFlashWhite.classList.remove("active");
     });
 
