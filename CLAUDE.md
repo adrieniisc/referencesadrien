@@ -2434,6 +2434,83 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   flashes until the owner both adds image files here **and** lists their filenames in
   `manifest.txt`; a failed fetch or an empty manifest just means no flash, silently, same as
   `contributors.txt`'s own "no live server" fallback.
+- **`config.js`** (2026-08-03, explicit request: "a global config text file... so I dont have to
+  dig in the code or come trhough you for simple operations") — a single `window.SITE_CONFIG`
+  object covering ~90 pieces of UI copy (every sidebar/modal/header button label, modal titles and
+  descriptions, form placeholders, the About modal's paragraphs and social links, every
+  alert()/confirm() message that isn't purely a developer-facing crash diagnostic) plus a handful of
+  timing/threshold knobs that had already come up as explicit numeric requests this same day (the
+  brand hover-Easter-egg delays, the meme flashbang's white-flash/gap/total-display durations, the
+  admin login cooldown's attempt count and duration, the bulk-delete warning threshold). Loaded via
+  a `<script src="config.js">` tag **before** the main inline `<script>` (see `index.html`'s own
+  comment on that tag) so `SITE_CONFIG` already exists by the time the brand's typewriter intro -
+  which starts immediately, not on `DOMContentLoaded` - needs it.
+  **Mechanism**: every config-driven value is read through `cfg("dotted.path", fallbackValue)` (a
+  small helper defined at the very top of the main script, right after the `firebase.apps.length`
+  check) - a safe nested lookup into `window.SITE_CONFIG` that returns `fallbackValue` if the path
+  is missing, the wrong type, or `SITE_CONFIG` doesn't exist at all (config.js failed to load, has a
+  syntax error, or the page was opened via `file://`). Every `cfg()` call site's fallback is the
+  exact string/number that was hardcoded in `index.html` before this change, so **config.js failing
+  in any way degrades to exactly the pre-config.js behavior, never a broken page** - verified via
+  Playwright by replacing config.js with deliberately invalid JavaScript and confirming the site
+  still rendered every button/label with its correct built-in English text. Dynamic messages that
+  need a runtime value spliced in (an error's `.message`, an image count, a countdown) use a small
+  `{token}`-based `formatMessage(template, vars)` helper instead of JS template literals, so
+  config.js only ever needs to contain plain strings - `"Try again in {seconds}s."`, not a function.
+  **Two implementation approaches, depending on the value's nature**: (1) purely static HTML text
+  (the large majority - sidebar/modal button labels, placeholders, headings) goes through one
+  centralized `applyGlobalConfig()` pass, called once at script-parse time, that looks up each DOM
+  element by id (or by `label[for="..."]`/scoped selector where no id exists) and sets its
+  `textContent`/`placeholder` - chosen over scattering a `cfg()` call across ~80 individual HTML
+  literals since it's far more mechanical to review/verify in one place, and a plain
+  `el.textContent =` would have silently wiped out a few elements' *nested* dynamic content (Review
+  Submissions' pending-count badge, Edit Tags' "(N selected)" span) - `setLeadingText()` handles
+  those by only touching the element's leading text node. (2) Values that are *also* driven
+  dynamically elsewhere in the script (the brand's own typed name/hover phrases, the color swatches'
+  hex/title merged into the existing `COLOR_FILTER_SWATCHES` array literal, the Admin Log In/SIGN
+  OUT toggle inside `auth.onAuthStateChanged`, every timing constant) are instead read via `cfg()`
+  directly at their own existing single declaration/call site, not duplicated into the DOM-pass
+  function - keeps each value's real source of truth singular.
+  **About modal rebuilt from config, not touched via `applyGlobalConfig()`** -
+  `applyAboutModalConfig()` (called once, right after `CONTRIBUTOR_SOCIAL_ICONS`/
+  `detectContributorSocialPlatform()` are defined, since it depends on both) clears `#aboutContent`
+  and rebuilds it entirely from `about.paragraphs`/`about.socialLinks` - one `<p>` per paragraph,
+  then (only if at least one social link exists) an `<hr>`, the "My links :" label, and one
+  `<a class="about-social-icon">` per link. Reuses the *exact* icon-autodetection mechanism
+  `contributors.txt`'s own list already has (`detectContributorSocialPlatform(url)` matching the
+  link's hostname), rather than keeping the About modal's social icons as a second, separately-
+  hardcoded set - `imdb.com` detection and its own icon (previously only hardcoded inline in the
+  About modal's markup) were added to that shared set specifically to make this unification
+  possible, so both places now share one mechanism instead of two nearly-identical ones drifting
+  independently.
+  **What's deliberately NOT in config.js** (all explained in the file's own header comment, so the
+  reasoning travels with the file, not just this doc): the actual admin account
+  (isakovicadrien@gmail.com - controlled by Firebase Auth/firestore.rules, editing a label here
+  doesn't change who can sign in), the 13 color-detector vocabulary words themselves (red/orange/.../
+  pink/black/white/gray - the detector's own code is hardcoded to produce exactly those English
+  words, so renaming one in config would make its filter dot stop matching any image actually tagged
+  with it; the swatches' hex colors and display titles ARE configurable), and fine-tuned
+  color-detection/compression algorithm thresholds (CHROMA_FLOOR/CAP, SECOND_COLOR_MIN_SHARE, the
+  1MB/850KB compression band, etc.) which went through many rounds of real debugging documented
+  elsewhere in this file and are left as code-only constants so a text-file edit can't silently
+  reintroduce an already-fixed bug. A handful of transient per-row progress indicators ("Re-tagging…
+  i/N", "N selected" counts) and genuinely internal crash diagnostics ("Upload system error: could
+  not find upload dock element", "Error initializing app: ...") were also left hardcoded - judged as
+  developer-facing debugging text rather than owner-facing customization copy, not worth the
+  clutter. If any of these turn out to be wanted after all, follow the same `cfg()`-with-fallback
+  pattern at that value's existing location - nothing about the mechanism is specific to what's
+  already been converted.
+  **Verified via Playwright + hand-rolled Firestore/Auth stub** (same pattern as this file's Testing
+  section) across three scenarios: (1) the real, unmodified config.js renders identically to the
+  site's pre-config.js text (button labels, modal titles, the About modal's 5 paragraphs and 4
+  social links, the search placeholder, the wrong-credentials message); (2) swapping in a config.js
+  with different values for every category above (brand name, header buttons, sidebar labels, About
+  content, admin messages) confirmed each one actually takes effect, including the brand's typed
+  name via its typewriter intro; (3) a config.js containing outright invalid JavaScript left
+  `window.SITE_CONFIG` undefined but didn't break anything else - every checked element still showed
+  its correct built-in default text and the gallery still initialized normally. No live Firebase/
+  Cloudinary access in this environment, so this hasn't been checked against a real deployed site
+  end-to-end - same standing sandbox caveat as everything else in this file.
 
 ## Environment variables (Netlify)
 

@@ -4125,11 +4125,224 @@
     <button id="confirmDeleteImagesBtn">Delete Selected</button>
     <button id="cancelDeleteImagesBtn" class="cancel">Cancel</button>
   </div>
+  <!-- Site-wide text/label/timing config (2026-08-03, explicit request -
+       "so I don't have to dig in the code... for simple operations and
+       customisations"). Loaded before everything else so SITE_CONFIG is
+       already defined by the time the main script runs its own top-level
+       init (e.g. the brand's typewriter intro, which starts immediately,
+       not on DOMContentLoaded). See config.js's own header comment for the
+       full editing guide and what's deliberately left out of it. -->
+  <script src="config.js"></script>
   <!-- Load Firebase SDKs via CDN -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script>
+    // Site-wide config accessor (2026-08-03) - safe nested lookup into
+    // window.SITE_CONFIG (config.js) with a fallback if that file failed
+    // to load, doesn't define a key, or a value along the path is
+    // missing/wrong type. Every piece of user-facing text/timing this file
+    // reads from config.js goes through this, so a bad hand-edit to
+    // config.js (a missing comma, a stray quote) - or it simply not
+    // loading at all, e.g. the page opened via file:// - never breaks the
+    // site; it just silently falls back to the value that already shipped
+    // in this file, same defensive shape as every other optional-external-
+    // file feature here (contributors.txt, memes/manifest.txt).
+    function cfg(path, fallback) {
+      try {
+        const value = path.split('.').reduce((obj, key) => (obj == null ? undefined : obj[key]), window.SITE_CONFIG);
+        return value === undefined ? fallback : value;
+      } catch (e) {
+        return fallback;
+      }
+    }
+    // Fills in a {token}-style template string from config.js with real
+    // values at display time, e.g. formatMessage("Try again in {seconds}s.",
+    // { seconds: 42 }) -> "Try again in 42s." Used for every dynamic
+    // alert/confirm/status message that has a piece of runtime data
+    // spliced into it, so config.js only ever needs plain strings, never
+    // JS template literals or functions.
+    function formatMessage(template, vars) {
+      return template.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? vars[key] : match));
+    }
+
+    // Applies every purely-static piece of UI copy from config.js (button
+    // labels, modal titles/descriptions, form placeholders/labels) onto the
+    // matching DOM element by id/selector - one central, mechanical pass
+    // instead of scattering a `cfg()` call across ~80 individual HTML
+    // elements. Values that are also driven dynamically by other JS
+    // elsewhere (the admin button's Sign In/Sign Out toggle, timing
+    // constants, the brand's own typed text, the About modal's rich
+    // paragraph/social-link content, the color swatch list) are instead
+    // read from config at their own existing declaration/call site, not
+    // here - see each of those for their own `cfg()` call.
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el && value != null) el.textContent = value;
+    }
+    function setPlaceholder(id, value) {
+      const el = document.getElementById(id);
+      if (el && value != null) el.placeholder = value;
+    }
+    function setLabelFor(forId, value) {
+      const el = document.querySelector(`label[for="${forId}"]`);
+      if (el && value != null) el.textContent = value;
+    }
+    // Updates only an element's leading text node, preserving any child
+    // elements after it (e.g. Review Submissions' pending-count badge, or
+    // Edit Tags' "(N)" count span) - a plain `.textContent =` would wipe
+    // those out along with the text.
+    function setLeadingText(id, value) {
+      if (value == null) return;
+      const el = document.getElementById(id);
+      if (!el) return;
+      for (const node of el.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) { node.textContent = value; return; }
+      }
+      el.insertBefore(document.createTextNode(value), el.firstChild);
+    }
+    function applyGlobalConfig() {
+      // Header
+      setText("aboutBtn", cfg("header.aboutButton", "About"));
+      setText("mobileAboutBtn", cfg("header.aboutButton", "About"));
+      setText("submitReferenceBtn", cfg("header.submitButton", "Submit"));
+      setText("mobileSubmitBtn", cfg("header.mobileSubmitButton", "Submit a Reference"));
+      setText("contributorsBtn", cfg("header.contributorsButton", "Contributors"));
+      setText("mobileContributorsBtn", cfg("header.contributorsButton", "Contributors"));
+
+      // Search bar (the typewriter placeholder cycles this back in on its
+      // own - see getSearchPlaceholderOptions() - this just seeds the
+      // initial/fallback text both it and the real <input> start with)
+      setPlaceholder("mainImageSearch", cfg("searchBar.placeholder", "Search images..."));
+      setText("searchPlaceholderText", cfg("searchBar.placeholder", "Search images..."));
+
+      // Contributors modal
+      document.querySelector("#contributorsModal h3")?.replaceChildren(
+        document.createTextNode(cfg("contributors.heading", "Images contributors"))
+      );
+
+      // Sidebar admin buttons (the Admin Log In / SIGN OUT toggle itself is
+      // handled in the auth.onAuthStateChanged listener below, not here,
+      // since it has to re-apply on every sign-in/out, not just once at load)
+      setText("newFolderAdminBtn", cfg("sidebar.addFolderButton", "Add Folder"));
+      setText("addImageAdminBtn", cfg("sidebar.addImageButton", "Add Image"));
+      setText("moveImageBtn", cfg("sidebar.moveImagesButton", "Move Images"));
+      setText("editTagsBtn", cfg("sidebar.editTagsButton", "Edit Tags"));
+      setText("renameFolderBtn", cfg("sidebar.renameFolderButton", "Rename Folder"));
+      setText("deleteImageBtn", cfg("sidebar.deleteImagesButton", "Delete Images"));
+      setText("deleteFolderBtn", cfg("sidebar.deleteFolderButton", "Delete Folder"));
+      setText("findDuplicatesBtn", cfg("sidebar.findDuplicatesButton", "Find Duplicates"));
+      setText("retagColorsBtn", cfg("sidebar.retagColorsButton", "Re-tag Colors"));
+      setText("retagFilteredColorsBtn", cfg("sidebar.retagCurrentColorFilterButton", "Re-tag Current Color Filter"));
+      setText("retagSynonymsBtn", cfg("sidebar.retagSynonymsButton", "Re-tag Synonyms"));
+      setText("buildTagSuggestionIndexBtn", cfg("sidebar.buildTagSuggestionsIndexButton", "Build Tag Suggestions Index"));
+      setLeadingText("reviewSubmissionsBtn", cfg("sidebar.reviewSubmissionsButton", "Review Submissions"));
+
+      // Create Folder modal
+      document.querySelector("#folderModal h3")?.replaceChildren(document.createTextNode(cfg("modals.createFolder.title", "Create New")));
+      setLabelFor("newFolderName", cfg("modals.createFolder.nameLabel", "Name:"));
+      setPlaceholder("newFolderName", cfg("modals.createFolder.namePlaceholder", "e.g., My Textures"));
+      setLabelFor("parentFolderSelect", cfg("modals.createFolder.parentLabel", "Parent (optional):"));
+      const noParentOption = document.querySelector('#parentFolderSelect option[value=""]');
+      if (noParentOption) noParentOption.textContent = cfg("modals.createFolder.noParentOption", "No Parent");
+      setText("addFolderBtn", cfg("modals.createFolder.addButton", "Add"));
+
+      // Add Images wizard
+      document.querySelector("#imageModal h3")?.replaceChildren(document.createTextNode(cfg("modals.addImages.title", "Add Images")));
+      const wizardStepLabels = document.querySelectorAll("#wizardStepsIndicator .wizard-step-label");
+      const stepLabelKeys = ["step1Label", "step2Label", "step3Label"];
+      const stepLabelDefaults = ["Add Images", "Sort & Tag", "Review & Publish"];
+      wizardStepLabels.forEach((el, i) => {
+        if (stepLabelKeys[i]) el.textContent = cfg(`modals.addImages.${stepLabelKeys[i]}`, stepLabelDefaults[i]);
+      });
+      const dropzoneTextEl = document.querySelector(".wizard-dropzone-text");
+      if (dropzoneTextEl) dropzoneTextEl.textContent = cfg("modals.addImages.dropzoneText", dropzoneTextEl.textContent);
+      setText("fileInputHint", cfg("modals.addImages.noImagesAddedYetText", "No images added yet"));
+      document.querySelector("#imageModal .wizard-panel[data-panel=\"1\"] .image-modal-preview-label")
+        ?.replaceChildren(document.createTextNode(cfg("modals.addImages.imagesAddedLabel", "Images added")));
+      setText("poolEmptyStep1", cfg("modals.addImages.step1EmptyText", "Nothing added yet - use the dropzone above."));
+      const step2HintEl = document.querySelector("#imageModal .wizard-panel[data-panel=\"2\"] .modal-hint");
+      if (step2HintEl) step2HintEl.textContent = cfg("modals.addImages.step2HintText", step2HintEl.textContent);
+      setText("selectPoolEmpty", cfg("modals.addImages.step2EmptyText", "Every added image has been sorted - continue to Step 3 to review the queue, or go back to Step 1 to add more."));
+      setPlaceholder("imageKeywords", cfg("modals.addImages.tagsPlaceholder", "Tags (optional) - e.g., red, green"));
+      setText("poolSelectAllBtn", cfg("modals.addImages.selectAllButton", "Select All"));
+      setText("poolClearSelectionBtn", cfg("modals.addImages.clearSelectionButton", "Clear Selection"));
+      setText("suggestTagsBtn", cfg("modals.addImages.suggestTagsButton", "Suggest Tags"));
+      setText("poolConfirmBtn", cfg("modals.addImages.confirmQueueSelectedButton", "Confirm & Queue Selected"));
+      document.querySelector("#imageModal .wizard-panel[data-panel=\"3\"] .image-modal-preview-label")
+        ?.replaceChildren(document.createTextNode(cfg("modals.addImages.step3QueuedLabel", "Queued — not published yet")));
+      setText("publishQueueEmpty", cfg("modals.addImages.step3EmptyText", "Nothing queued yet - go back to Step 2 and confirm a selection to stage it here."));
+      setText("publishQueueBtn", cfg("modals.addImages.publishAllButton", "Publish All"));
+      setText("wizardBackBtn", cfg("modals.addImages.backButton", "← Back"));
+      setText("wizardNextBtn", cfg("modals.addImages.nextButton", "Next →"));
+
+      // Rename Folder modal
+      document.querySelector("#renameFolderModal h3")?.replaceChildren(document.createTextNode(cfg("modals.renameFolder.title", "Rename Folder")));
+      setLabelFor("renameFolderInput", cfg("modals.renameFolder.nameLabel", "New Name:"));
+      setPlaceholder("renameFolderInput", cfg("modals.renameFolder.namePlaceholder", "Enter new folder name"));
+      setText("confirmRenameFolderBtn", cfg("modals.renameFolder.renameButton", "Rename"));
+
+      // Move Images (destination) modal
+      document.querySelector("#moveDestinationModal h3")?.replaceChildren(document.createTextNode(cfg("modals.moveImages.title", "Move Images")));
+      const moveDescEl = document.querySelector("#moveDestinationModal p");
+      if (moveDescEl) moveDescEl.textContent = cfg("modals.moveImages.description", "Select destination folder:");
+      setText("confirmMoveDestinationBtn", cfg("modals.moveImages.moveButton", "Move"));
+
+      // Edit Tags modal - the h3 has no id of its own (its trailing
+      // "(N selected)" count lives in the separate #editTagsCount span,
+      // managed independently by saveEditedTags()'s own code elsewhere),
+      // so only its leading text node is touched here, same reasoning as
+      // setLeadingText() above.
+      const editTagsHeading = document.querySelector("#editTagsModal h3");
+      if (editTagsHeading) {
+        for (const node of editTagsHeading.childNodes) {
+          if (node.nodeType === Node.TEXT_NODE) { node.textContent = cfg("modals.editTags.title", "Edit Tags "); break; }
+        }
+      }
+      const editTagsDescEl = document.querySelector("#editTagsModal p");
+      if (editTagsDescEl) editTagsDescEl.textContent = cfg("modals.editTags.description", editTagsDescEl.textContent);
+      setPlaceholder("editTagsInput", cfg("modals.editTags.tagsPlaceholder", "Edit or add tags..."));
+      setText("saveEditTagsBtn", cfg("modals.editTags.saveAllButton", "Save All"));
+
+      // Duplicate Images modal
+      document.querySelector("#duplicatesModal h3")?.replaceChildren(document.createTextNode(cfg("modals.duplicateImages.title", "Duplicate Images")));
+      const duplicatesDescEl = document.querySelector("#duplicatesModal p");
+      if (duplicatesDescEl) duplicatesDescEl.textContent = cfg("modals.duplicateImages.description", duplicatesDescEl.textContent);
+
+      // Review Submissions modal
+      document.querySelector("#reviewSubmissionsModal h3")?.replaceChildren(document.createTextNode(cfg("modals.reviewSubmissions.title", "Review Submissions")));
+      const reviewSubmissionsDescEl = document.querySelector("#reviewSubmissionsModal p");
+      if (reviewSubmissionsDescEl) reviewSubmissionsDescEl.textContent = cfg("modals.reviewSubmissions.description", reviewSubmissionsDescEl.textContent);
+
+      // Admin Sign In modal
+      document.querySelector("#adminLoginModal h3")?.replaceChildren(document.createTextNode(cfg("modals.adminSignIn.title", "Admin Sign In")));
+      setPlaceholder("adminEmailInput", cfg("modals.adminSignIn.usernamePlaceholder", "Username"));
+      setPlaceholder("adminPasswordInput", cfg("modals.adminSignIn.passwordPlaceholder", "Password"));
+      setText("adminLoginBtn", cfg("modals.adminSignIn.signInButton", "Sign In"));
+
+      // Submit Reference modal
+      document.querySelector("#submitReferenceModal h3")?.replaceChildren(document.createTextNode(cfg("submitReference.heading", "Submit your images/references")));
+      const submitDescEl = document.querySelector("#submitReferenceModal p");
+      if (submitDescEl) submitDescEl.textContent = cfg("submitReference.description", submitDescEl.textContent);
+      setLabelFor("submitReferenceLink", cfg("submitReference.linkLabel", "Link (optional):"));
+      setPlaceholder("submitReferenceLink", cfg("submitReference.linkPlaceholder", "https://drive.google.com/..."));
+      setLabelFor("submitReferenceFiles", cfg("submitReference.imagesLabel", "Images (optional):"));
+      setText("submitReferenceFileHint", cfg("submitReference.noFilesSelectedText", "No files selected"));
+      setText("confirmSubmitReferenceBtn", cfg("submitReference.sendButton", "Send"));
+
+      // Generic buttons reused across several modals/bars
+      setText("confirmMoveImagesBtn", cfg("buttons.selectDestination", "Select Destination"));
+      setText("cancelMoveImagesBtn", cfg("buttons.cancel", "Cancel"));
+      setText("confirmTagEditBtn", cfg("buttons.editTags", "Edit Tags"));
+      setText("cancelTagEditBtn", cfg("buttons.cancel", "Cancel"));
+      setText("confirmDeleteImagesBtn", cfg("buttons.deleteSelected", "Delete Selected"));
+      setText("cancelDeleteImagesBtn", cfg("buttons.cancel", "Cancel"));
+      setText("enlargeEditTagsBtn", cfg("buttons.editTags", "Edit Tags"));
+      setText("enlargeMoveBtn", cfg("buttons.move", "Move"));
+      setText("enlargeDeleteBtn", cfg("buttons.delete", "Delete"));
+    }
+    applyGlobalConfig();
+
     // Initialize Firebase with your configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBs3677kNG_MnZVqeou0zR-a_p3DGgHa5k",
@@ -4198,21 +4411,28 @@
     // Every color the dominant-color auto-tagger can produce, in the
     // gallery's display order. The floating color filter panel (below)
     // renders dots from this list, not static HTML - see
-    // renderColorFilterDots().
+    // renderColorFilterDots(). The `color` keys themselves are NOT
+    // config-driven (see config.js's own top-of-file warning) - the
+    // detector's code is hardcoded to produce exactly these 13 English
+    // words, so renaming one here would make its dot stop matching any
+    // image actually tagged with it. Each swatch's `hex`/`title` (the dot's
+    // display color and hover tooltip) come from config.js's
+    // colorSwatches.<name> if present, falling back to the value that
+    // already shipped here.
     const COLOR_FILTER_SWATCHES = [
-      { color: "black", hex: "#1a1a1a", title: "Black" },
-      { color: "white", hex: "#f5f5f0", title: "White" },
-      { color: "gray", hex: "#8e8e93", title: "Gray" },
-      { color: "brown", hex: "#8b5e34", title: "Brown" },
-      { color: "beige", hex: "#d9c7a3", title: "Beige" },
-      { color: "red", hex: "#e5484d", title: "Red" },
-      { color: "orange", hex: "#f2994a", title: "Orange" },
-      { color: "yellow", hex: "#f0c419", title: "Yellow" },
-      { color: "green", hex: "#34a853", title: "Green" },
-      { color: "cyan", hex: "#17c3b2", title: "Cyan" },
-      { color: "blue", hex: "#3b82f6", title: "Blue" },
-      { color: "purple", hex: "#8b5cf6", title: "Purple" },
-      { color: "pink", hex: "#ec4899", title: "Pink" },
+      { color: "black", hex: cfg("colorSwatches.black.hex", "#1a1a1a"), title: cfg("colorSwatches.black.title", "Black") },
+      { color: "white", hex: cfg("colorSwatches.white.hex", "#f5f5f0"), title: cfg("colorSwatches.white.title", "White") },
+      { color: "gray", hex: cfg("colorSwatches.gray.hex", "#8e8e93"), title: cfg("colorSwatches.gray.title", "Gray") },
+      { color: "brown", hex: cfg("colorSwatches.brown.hex", "#8b5e34"), title: cfg("colorSwatches.brown.title", "Brown") },
+      { color: "beige", hex: cfg("colorSwatches.beige.hex", "#d9c7a3"), title: cfg("colorSwatches.beige.title", "Beige") },
+      { color: "red", hex: cfg("colorSwatches.red.hex", "#e5484d"), title: cfg("colorSwatches.red.title", "Red") },
+      { color: "orange", hex: cfg("colorSwatches.orange.hex", "#f2994a"), title: cfg("colorSwatches.orange.title", "Orange") },
+      { color: "yellow", hex: cfg("colorSwatches.yellow.hex", "#f0c419"), title: cfg("colorSwatches.yellow.title", "Yellow") },
+      { color: "green", hex: cfg("colorSwatches.green.hex", "#34a853"), title: cfg("colorSwatches.green.title", "Green") },
+      { color: "cyan", hex: cfg("colorSwatches.cyan.hex", "#17c3b2"), title: cfg("colorSwatches.cyan.title", "Cyan") },
+      { color: "blue", hex: cfg("colorSwatches.blue.hex", "#3b82f6"), title: cfg("colorSwatches.blue.title", "Blue") },
+      { color: "purple", hex: cfg("colorSwatches.purple.hex", "#8b5cf6"), title: cfg("colorSwatches.purple.title", "Purple") },
+      { color: "pink", hex: cfg("colorSwatches.pink.hex", "#ec4899"), title: cfg("colorSwatches.pink.title", "Pink") },
     ];
 
     // Which of the colors above at least one currently-loaded image is
@@ -4830,7 +5050,7 @@
     wizardNextBtn.addEventListener("click", () => {
       if (wizardStep === 1) {
         if (uploadPool.length === 0) {
-          alert("Please add at least one image first.");
+          alert(cfg("uploads.addAtLeastOneImageMessage", "Please add at least one image first."));
           return;
         }
       } else if (wizardStep === 2) {
@@ -4844,7 +5064,10 @@
         if (poolSelection.size > 0) confirmQueueSelection();
         if (uploadPool.length > 0) {
           const word = uploadPool.length === 1 ? "image hasn't" : "images haven't";
-          const proceed = confirm(`${uploadPool.length} ${word} been sorted into a folder yet and won't be published. Continue to Review anyway?`);
+          const proceed = confirm(formatMessage(
+            cfg("modals.addImages.unsortedImagesWarningTemplate", "{count} {plural} been sorted into a folder yet and won't be published. Continue to Review anyway?"),
+            { count: uploadPool.length, plural: word }
+          ));
           if (!proceed) return;
         }
       }
@@ -5027,17 +5250,20 @@
     // flash, silently.
     // "Flashbang" staging (2026-08-03, explicit request) - a hard, instant
     // full-screen white flash first, held for LOGIN_FAIL_FLASH_WHITE_MS,
-    // THEN the meme appears underneath and eases in over 2 seconds - not
+    // THEN (after one more short beat, LOGIN_FAIL_FLASH_IMAGE_DELAY_MS) the
+    // meme appears underneath and eases in over 2 seconds - not
     // simultaneously with the white flash, which is why this is two
     // separate timers/elements (#loginFailFlashWhite on top of
     // #loginFailFlash) rather than one element with one transition. Total
     // on-screen time is comfortably longer than white-flash-duration +
-    // fade-in-duration so the meme is actually visible at full opacity for
-    // a moment before it goes away, not hidden again mid-fade.
-    const LOGIN_FAIL_FLASH_WHITE_MS = 200;
-    const LOGIN_FAIL_FLASH_DURATION_MS = 4000;
+    // gap + fade-in-duration so the meme is actually visible at full
+    // opacity for a moment before it goes away, not hidden again mid-fade.
+    const LOGIN_FAIL_FLASH_WHITE_MS = cfg("meme.whiteFlashMs", 200);
+    const LOGIN_FAIL_FLASH_IMAGE_DELAY_MS = cfg("meme.imageAppearDelayMs", 100);
+    const LOGIN_FAIL_FLASH_DURATION_MS = cfg("meme.totalDisplayMs", 4000);
     let loginFailFlashHideTimer = null;
     let loginFailFlashWhiteTimer = null;
+    let loginFailFlashImageTimer = null;
     async function flashRandomMeme() {
       try {
         const response = await fetch("memes/manifest.txt", { cache: "no-store" });
@@ -5049,18 +5275,36 @@
 
         clearTimeout(loginFailFlashHideTimer);
         clearTimeout(loginFailFlashWhiteTimer);
-        // Reset to fully transparent before showing anything, so a second
-        // failed attempt landing mid-fade always restarts the whole
-        // sequence from the same starting point instead of fading in from
-        // wherever the previous attempt's opacity happened to be.
+        clearTimeout(loginFailFlashImageTimer);
+        // Instantly hide (no transition) before swapping .src, not just
+        // classList.remove("visible") alone - removing that class only
+        // *starts* a 2s fade back toward opacity 0, it doesn't snap there,
+        // so a second failed attempt landing while the previous meme was
+        // still mid-fade let the new image inherit whatever partial
+        // opacity the old one happened to be fading through, which showed
+        // as a brief flash of the *previous* meme before the new one took
+        // over (2026-08-03, reported live). Forcing a reflow between
+        // `transition = "none"` and the `.src` swap is what makes the
+        // instant-hide actually apply before the new image loads, instead
+        // of the browser batching both style changes into one paint.
+        loginFailFlashImg.style.transition = "none";
         loginFailFlashImg.classList.remove("visible");
+        loginFailFlashImg.offsetHeight;
         loginFailFlashImg.src = `memes/${file}`;
         loginFailFlash.classList.add("active");
         loginFailFlashWhite.classList.add("active");
 
         loginFailFlashWhiteTimer = setTimeout(() => {
           loginFailFlashWhite.classList.remove("active");
-          loginFailFlashImg.classList.add("visible");
+          // Restore the real (2s ease-out) transition now that the instant-
+          // hide above has done its job, then wait one more short beat
+          // before the meme actually starts appearing - explicit request:
+          // "the meme image... should appear 0.1 second after the bang",
+          // not the instant the white flash itself clears.
+          loginFailFlashImg.style.transition = "";
+          loginFailFlashImageTimer = setTimeout(() => {
+            loginFailFlashImg.classList.add("visible");
+          }, LOGIN_FAIL_FLASH_IMAGE_DELAY_MS);
         }, LOGIN_FAIL_FLASH_WHITE_MS);
 
         loginFailFlashHideTimer = setTimeout(() => {
@@ -5076,8 +5320,10 @@
     loginFailFlash.addEventListener("click", () => {
       clearTimeout(loginFailFlashHideTimer);
       clearTimeout(loginFailFlashWhiteTimer);
+      clearTimeout(loginFailFlashImageTimer);
       loginFailFlash.classList.remove("active");
       loginFailFlashImg.classList.remove("visible");
+      loginFailFlashImg.style.transition = "";
       loginFailFlashWhite.classList.remove("active");
     });
 
@@ -5097,8 +5343,8 @@
     // this file, a technical visitor can still clear localStorage/use a
     // different browser to reset it, which is an inherent limit of any
     // purely client-side mechanism on a backend-less static site.
-    const ADMIN_LOGIN_MAX_ATTEMPTS = 3;
-    const ADMIN_LOGIN_COOLDOWN_MS = 60 * 1000;
+    const ADMIN_LOGIN_MAX_ATTEMPTS = cfg("admin.maxLoginAttempts", 3);
+    const ADMIN_LOGIN_COOLDOWN_MS = cfg("admin.cooldownDurationMs", 60 * 1000);
     const ADMIN_LOGIN_FAILCOUNT_KEY = "adminLoginFailCount";
     const ADMIN_LOGIN_COOLDOWN_UNTIL_KEY = "adminLoginCooldownUntil";
     let adminLoginCooldownInterval = null;
@@ -5168,7 +5414,10 @@
       adminLoginBtn.disabled = true;
       adminEmailInput.disabled = true;
       adminPasswordInput.disabled = true;
-      adminLoginError.textContent = `Too many failed attempts. Try again in ${Math.ceil(remainingMs / 1000)}s.`;
+      adminLoginError.textContent = formatMessage(
+        cfg("admin.cooldownMessageTemplate", "Too many failed attempts. Try again in {seconds}s."),
+        { seconds: Math.ceil(remainingMs / 1000) }
+      );
       adminLoginError.style.display = "block";
       adminLoginError.dataset.cooldown = "true";
       if (!adminLoginCooldownInterval) {
@@ -5183,7 +5432,7 @@
       const password = adminPasswordInput.value;
       adminLoginError.style.display = "none";
       if (!email || !password) {
-        adminLoginError.textContent = "Enter both an email and a password.";
+        adminLoginError.textContent = cfg("admin.enterBothFieldsMessage", "Enter both an email and a password.");
         adminLoginError.style.display = "block";
         return;
       }
@@ -5206,7 +5455,7 @@
       } catch (error) {
         // Deliberately vague - doesn't confirm/deny whether the email is a
         // real account, just whether these particular credentials worked.
-        adminLoginError.textContent = "Are you really the admin?";
+        adminLoginError.textContent = cfg("admin.wrongCredentialsMessage", "Are you really the admin?");
         adminLoginError.style.display = "block";
         flashRandomMeme();
         recordAdminLoginFailure();
@@ -5278,7 +5527,9 @@
       const isSignedIn = !!user;
       editButtons.forEach(button => { button.style.display = isSignedIn ? "block" : "none"; });
       separators.forEach(separator => { separator.style.display = isSignedIn ? "block" : "none"; });
-      adminAccessBtn.textContent = isSignedIn ? "SIGN OUT" : "Admin Log In";
+      adminAccessBtn.textContent = isSignedIn
+        ? cfg("sidebar.adminSignOutButton", "SIGN OUT")
+        : cfg("sidebar.adminLoginButton", "Admin Log In");
       adminAccessBtn.style.display = "block";
       setSubmissionsBadgeWatching(isSignedIn);
 
@@ -5797,19 +6048,24 @@
       }
       scheduleTick(firstTickDelay);
     }
+    // The site's name, as typed out by the brand intro/hover-revert below -
+    // a single source of truth (config.js's brand.name) so both places that
+    // ever type "aReference" back out can't drift out of sync with each
+    // other.
+    const BRAND_NAME = cfg("brand.name", "aReference");
     function playBrandIntroAnimation() {
       const brandEl = document.getElementById("sidebarBrand");
       const textEl = document.getElementById("sidebarBrandText");
       const cursorEl = document.getElementById("sidebarBrandCursor");
       if (!brandEl || !textEl || !cursorEl) { isBrandIntroDone = true; return; }
-      const fullText = "aReference";
+      const fullText = BRAND_NAME;
       startCursorBlinking(cursorEl);
       let i = 0;
       function typeStep() {
         i++;
         textEl.textContent = fullText.slice(0, i);
         if (i < fullText.length) {
-          setTimeout(typeStep, 65);
+          setTimeout(typeStep, cfg("brand.typewriterCharMs", 65));
         } else {
           blinkCursorOutThenHide(cursorEl, 3, () => {
             brandEl.classList.add("brand-active");
@@ -5833,10 +6089,10 @@
     // is what lets a fast re-hover/un-hover cleanly cancel whichever
     // sequence was still mid-flight instead of two of them fighting over
     // the same text node.
-    const BRAND_HOVER_PHRASES = ["Hmmm ?", "What ?", "Go away..", "I see you", "Yes ?", "Hm hmm ?"];
-    const BRAND_HOVER_SWAP_DELAY_MS = 2500;
-    const BRAND_HOVER_REVERT_DELAY_MS = 2500;
-    const BRAND_TYPEWRITER_CHAR_MS = 65; // matches playBrandIntroAnimation()'s own typing speed
+    const BRAND_HOVER_PHRASES = cfg("brand.hoverPhrases", ["Hmmm ?", "What ?", "Go away..", "I see you", "Yes ?", "Hm hmm ?"]);
+    const BRAND_HOVER_SWAP_DELAY_MS = cfg("brand.hoverSwapDelayMs", 2500);
+    const BRAND_HOVER_REVERT_DELAY_MS = cfg("brand.hoverRevertDelayMs", 2500);
+    const BRAND_TYPEWRITER_CHAR_MS = cfg("brand.typewriterCharMs", 65); // matches playBrandIntroAnimation()'s own typing speed
     let brandAnimToken = 0;
     let brandIsSwapped = false;
 
@@ -5880,7 +6136,7 @@
       if (!textEl || !cursorEl) return;
       const erased = await brandTypewriterErase(textEl, token);
       if (!erased) return;
-      const typed = await brandTypewriterType(textEl, "aReference", token);
+      const typed = await brandTypewriterType(textEl, BRAND_NAME, token);
       if (!typed) return;
       brandIsSwapped = false;
       // Only settle the cursor back to hidden if the pointer genuinely
@@ -5914,7 +6170,7 @@
     // (blinkCursorOutThenHide(), itself now phase-locked to that same
     // animation - see its own comment) take over. The pending hide is
     // cancelled if the pointer re-enters before it fires.
-    const BRAND_HOVER_HIDE_DELAY_MS = 2000;
+    const BRAND_HOVER_HIDE_DELAY_MS = cfg("brand.hoverHideDelayMs", 2000);
     let brandHoverCursorHideTimer = null;
     let brandSwapTimer = null;
     let brandRevertTimer = null;
@@ -6089,11 +6345,17 @@ const contributorsList = document.getElementById("contributorsList");
 // One small hand-drawn monochrome glyph per platform (2026-08-02, explicit
 // request), reusing the exact same paths as the About modal's own social
 // icons for visual consistency - "website" is the fallback for anything
-// that isn't LinkedIn/ArtStation/Instagram (e.g. a personal portfolio).
+// that isn't LinkedIn/ArtStation/Instagram/IMDb (e.g. a personal portfolio).
+// `imdb` added 2026-08-03 when the About modal's own social links moved to
+// being config-driven (applyAboutModalConfig() below) - it's the one
+// platform the About modal already had a dedicated icon for that this
+// shared set didn't yet cover, so both now go through one mechanism
+// instead of the About modal keeping a second, separate hardcoded set.
 const CONTRIBUTOR_SOCIAL_ICONS = {
   linkedin: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="8" r="1.6"/><rect x="6.2" y="10.5" width="2.6" height="7.5"/><path d="M11.5 10.5h2.5v1.2c.6-.9 1.6-1.4 2.9-1.4 2.4 0 3.6 1.6 3.6 4.4v4.8h-2.6v-4.3c0-1.3-.5-2.2-1.7-2.2-1 0-1.6.7-1.9 1.3-.1.2-.1.6-.1 1v4.2h-2.6v-8.9z"/></svg>',
   artstation: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 17.723l2.027 3.505h.001a2.424 2.424 0 0 0 2.164 1.333h13.457l-2.792-4.838H0zm24 .025c0-.484-.143-.935-.388-1.314L15.728 2.728a2.424 2.424 0 0 0-2.142-1.289H9.419L21.598 22.54l1.92-3.325c.378-.637.482-.919.482-1.467zM14.795 13.685H2.766L8.783 3.24l6.012 10.445z"/></svg>',
   instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6"/><circle cx="12" cy="12" r="5"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>',
+  imdb: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="6" width="21" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="12" y="14.3" text-anchor="middle" font-size="6.5" font-weight="700" fill="currentColor" font-family="Arial, sans-serif">IMDb</text></svg>',
   website: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 6 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-6-3.8-9s1.3-6.3 3.8-9z"/></svg>',
 };
 
@@ -6103,11 +6365,64 @@ function detectContributorSocialPlatform(url) {
     if (host.includes("linkedin.com")) return { platform: "linkedin", label: "LinkedIn" };
     if (host.includes("artstation.com")) return { platform: "artstation", label: "ArtStation" };
     if (host.includes("instagram.com")) return { platform: "instagram", label: "Instagram" };
+    if (host.includes("imdb.com")) return { platform: "imdb", label: "IMDb" };
     return { platform: "website", label: "Website" };
   } catch (e) {
     return { platform: "website", label: "Website" };
   }
 }
+
+// About modal content (2026-08-03) - rebuilt entirely from config.js's
+// about.* values instead of the hardcoded paragraphs/social-links markup
+// this modal used to ship with, reusing the exact same icon-detection
+// mechanism as the Contributors list just above (see the imdb addition to
+// CONTRIBUTOR_SOCIAL_ICONS/detectContributorSocialPlatform). Runs once at
+// init, not on every modal open - unlike Contributors' own list (which
+// re-fetches a plain text file, cheap to redo), this content only ever
+// changes when someone edits config.js, which needs a page reload to pick
+// up regardless.
+function applyAboutModalConfig() {
+  const aboutHeading = document.querySelector("#aboutModal h3");
+  if (aboutHeading) aboutHeading.textContent = cfg("about.heading", aboutHeading.textContent);
+  const aboutContent = document.getElementById("aboutContent");
+  if (!aboutContent) return;
+  const paragraphs = cfg("about.paragraphs", null);
+  if (!Array.isArray(paragraphs)) return; // config missing/malformed - leave the shipped-in markup as-is
+  aboutContent.innerHTML = "";
+  paragraphs.forEach((text) => {
+    const p = document.createElement("p");
+    p.textContent = text;
+    aboutContent.appendChild(p);
+  });
+  const socialLinks = cfg("about.socialLinks", []);
+  if (Array.isArray(socialLinks) && socialLinks.length > 0) {
+    const hr = document.createElement("hr");
+    hr.className = "about-social-separator";
+    aboutContent.appendChild(hr);
+    const labelP = document.createElement("p");
+    labelP.className = "about-social-label";
+    labelP.textContent = cfg("about.socialLinksLabel", "My links :");
+    aboutContent.appendChild(labelP);
+    const linksDiv = document.createElement("div");
+    linksDiv.className = "about-social-links";
+    socialLinks.forEach(({ url, label }) => {
+      if (!url) return;
+      const { platform, label: detectedLabel } = detectContributorSocialPlatform(url);
+      const displayLabel = label || detectedLabel;
+      const a = document.createElement("a");
+      a.className = "about-social-icon";
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.title = displayLabel;
+      a.setAttribute("aria-label", displayLabel);
+      a.innerHTML = CONTRIBUTOR_SOCIAL_ICONS[platform] || CONTRIBUTOR_SOCIAL_ICONS.website;
+      linksDiv.appendChild(a);
+    });
+    aboutContent.appendChild(linksDiv);
+  }
+}
+applyAboutModalConfig();
 
 // A contributors.txt line is either just a name, or a name followed by a
 // link on the *same* line with at least a space between them (2026-08-02,
@@ -6250,7 +6565,7 @@ contributorsModal.addEventListener("click", (e) => {
       submitReferenceFilePreview.innerHTML = "";
       const files = Array.from(submitReferenceFiles.files || []);
       if (files.length === 0) {
-        submitReferenceFileHint.textContent = "No files selected";
+        submitReferenceFileHint.textContent = cfg("submitReference.noFilesSelectedText", "No files selected");
         return;
       }
       submitReferenceFileHint.textContent = files.length === 1 ? "1 image selected" : `${files.length} images selected`;
@@ -6319,12 +6634,12 @@ contributorsModal.addEventListener("click", (e) => {
       const files = Array.from(submitReferenceFiles.files || []);
 
       if (!linkValue && files.length === 0) {
-        showSubmitReferenceStatus("Please add a link or at least one image.", true);
+        showSubmitReferenceStatus(cfg("submitReference.missingContentMessage", "Please add a link or at least one image."), true);
         return;
       }
 
       confirmSubmitReferenceBtn.disabled = true;
-      showSubmitReferenceStatus("Sending...", false);
+      showSubmitReferenceStatus(cfg("submitReference.sendingMessage", "Sending..."), false);
 
       try {
         const imageUrls = [];
@@ -6350,14 +6665,14 @@ contributorsModal.addEventListener("click", (e) => {
         sendSubmissionEmailNotification({ link: linkValue, imageUrls })
           .catch(error => console.warn('Submission saved, but the email notification failed to send:', error));
 
-        showSubmitReferenceStatus("Thanks! Your submission was received.", false);
+        showSubmitReferenceStatus(cfg("submitReference.successMessage", "Thanks! Your submission was received."), false);
         setTimeout(() => {
           resetSubmitReferenceForm();
           submitReferenceModal.classList.remove("active");
         }, 1800);
       } catch (error) {
         console.error('Error sending submission:', error);
-        showSubmitReferenceStatus(`Something went wrong: ${error.message}`, true);
+        showSubmitReferenceStatus(formatMessage(cfg("submitReference.errorMessageTemplate", "Something went wrong: {error}"), { error: error.message }), true);
       } finally {
         confirmSubmitReferenceBtn.disabled = false;
       }
@@ -7513,7 +7828,7 @@ contributorsModal.addEventListener("click", (e) => {
 // Replace your existing download link creation code with this:
 const downloadLink = document.createElement('a');
 downloadLink.classList.add('download-btn');
-downloadLink.textContent = 'Download';
+downloadLink.textContent = cfg('buttons.download', 'Download');
 downloadLink.href = url;
 downloadLink.download = filename; // Set the download attribute
 downloadLink.target = "_blank"; 
@@ -7587,7 +7902,7 @@ downloadLink.addEventListener("click", function(e) {
       allLabel.classList.add("folder-label");
       const allNameSpan = document.createElement("span");
       allNameSpan.classList.add("folder-name");
-      allNameSpan.textContent = "All";
+      allNameSpan.textContent = cfg("sidebar.allLabel", "All");
       const allCountSpan = document.createElement("span");
       allCountSpan.classList.add("folder-count");
       allLabel.appendChild(allCountSpan);
@@ -7612,7 +7927,7 @@ downloadLink.addEventListener("click", function(e) {
       newThisWeekLabel.classList.add("folder-label");
       const newThisWeekNameSpan = document.createElement("span");
       newThisWeekNameSpan.classList.add("folder-name");
-      newThisWeekNameSpan.textContent = "New This Week";
+      newThisWeekNameSpan.textContent = cfg("sidebar.newThisWeekLabel", "New This Week");
       const newThisWeekCountSpan = document.createElement("span");
       newThisWeekCountSpan.classList.add("folder-count");
       newThisWeekLabel.appendChild(newThisWeekCountSpan);
@@ -7872,13 +8187,13 @@ downloadLink.addEventListener("click", function(e) {
 
     function addFolder() {
   const name = newFolderName.value.trim();
-  if (!name) { alert("Please enter a folder name."); return; }
-  
+  if (!name) { alert(cfg("folders.enterFolderNameMessage", "Please enter a folder name.")); return; }
+
   const parent = parentFolderSelect.value;
   const folderPath = parent ? parent + "/" + name : name;
-  
+
   if (folders.includes(folderPath)) {
-    alert("This folder already exists.");
+    alert(cfg("folders.folderAlreadyExistsMessage", "This folder already exists."));
     return;
   }
   
@@ -8000,18 +8315,18 @@ downloadLink.addEventListener("click", function(e) {
     // and this is specifically to prevent an accidental mass-delete of the
     // gallery (a fat-fingered "select all" style click, or forgetting
     // Delete Images mode is still on from a previous session).
-    const BULK_DELETE_WARNING_THRESHOLD = 20;
+    const BULK_DELETE_WARNING_THRESHOLD = cfg("gallery.bulkDeleteWarningThreshold", 20);
 
     async function deleteSelectedImages() {
       if (selectedImages.length === 0) return;
       if (selectedImages.length >= BULK_DELETE_WARNING_THRESHOLD) {
-        const proceed = confirm(
-          `⚠️ You're about to delete ${selectedImages.length} images at once.\n\n` +
-          `This is a large chunk of the gallery and cannot be undone. Are you SURE you want to continue?`
-        );
+        const proceed = confirm(formatMessage(
+          cfg("gallery.bulkDeleteExtraWarningTemplate", "⚠️ You're about to delete {count} images at once.\n\nThis is a large chunk of the gallery and cannot be undone. Are you SURE you want to continue?"),
+          { count: selectedImages.length }
+        ));
         if (!proceed) return;
       }
-      if (!confirm(`Are you sure you want to delete ${selectedImages.length} image(s)?`)) { return; }
+      if (!confirm(formatMessage(cfg("gallery.confirmDeleteMultipleTemplate", "Are you sure you want to delete {count} image(s)?"), { count: selectedImages.length }))) { return; }
       try {
         const deletePromises = selectedImages.map(async (container) => {
           const imageId = await getImageDocId(container);
@@ -8032,7 +8347,7 @@ downloadLink.addEventListener("click", function(e) {
         scheduleLayout();
       } catch (error) {
         console.error('Error deleting images:', error);
-        alert(`Error deleting images: ${error.message}`);
+        alert(formatMessage(cfg("gallery.deleteErrorTemplate", "Error deleting images: {error}"), { error: error.message }));
       }
     }
 
@@ -8082,7 +8397,7 @@ downloadLink.addEventListener("click", function(e) {
 
     function showMoveDestinationModal() {
       if (selectedImagesForMove.length === 0) {
-        alert("Please select at least one image to move.");
+        alert(cfg("gallery.selectImagesToMoveMessage", "Please select at least one image to move."));
         return;
       }
       populateMoveDestinationSelect();
@@ -8093,7 +8408,7 @@ downloadLink.addEventListener("click", function(e) {
       moveDestinationSelect.innerHTML = "";
       const allOption = document.createElement("option");
       allOption.value = "all";
-      allOption.textContent = "All";
+      allOption.textContent = cfg("sidebar.allLabel", "All");
       moveDestinationSelect.appendChild(allOption);
       const structure = buildFolderStructure();
       const parents = Object.keys(structure).sort();
@@ -8117,7 +8432,7 @@ downloadLink.addEventListener("click", function(e) {
       if (selectedImagesForMove.length === 0) return;
       const destinationFolder = moveDestinationSelect.value;
       if (!destinationFolder) {
-        alert("Please select a destination folder.");
+        alert(cfg("gallery.selectDestinationFolderMessage", "Please select a destination folder."));
         return;
       }
       try {
@@ -8145,7 +8460,7 @@ downloadLink.addEventListener("click", function(e) {
         filterImages(currentFolderFilter);
       } catch (error) {
         console.error('Error moving images:', error);
-        alert(`Error moving images: ${error.message}`);
+        alert(formatMessage(cfg("gallery.moveErrorTemplate", "Error moving images: {error}"), { error: error.message }));
       }
     }
 
@@ -8195,7 +8510,7 @@ downloadLink.addEventListener("click", function(e) {
 
     function showEditTagsModal() {
       if (selectedImagesForTagEdit.length === 0) {
-        alert("Please select at least one image to edit tags for.");
+        alert(cfg("gallery.selectImagesToTagMessage", "Please select at least one image to edit tags for."));
         return;
       }
       populateEditTagsModal();
@@ -8402,7 +8717,7 @@ downloadLink.addEventListener("click", function(e) {
         }
       } catch (error) {
         console.error('Error saving tags:', error);
-        alert(`Error saving tags: ${error.message}`);
+        alert(formatMessage(cfg("gallery.saveTagsErrorTemplate", "Error saving tags: {error}"), { error: error.message }));
       }
     }
 
@@ -9084,7 +9399,7 @@ function refreshEnlargedTagsFromContainer(container) {
 async function enlargeDeleteCurrentImage() {
   const container = currentEnlargedContainer;
   if (!container) return;
-  if (!confirm("Delete this image? This cannot be undone.")) return;
+  if (!confirm(cfg("gallery.confirmDeleteSingleMessage", "Delete this image? This cannot be undone."))) return;
   try {
     const imageId = await getImageDocId(container);
     if (imageId) {
@@ -9097,7 +9412,7 @@ async function enlargeDeleteCurrentImage() {
     }
   } catch (error) {
     console.error('Error deleting image:', error);
-    alert(`Error deleting image: ${error.message}`);
+    alert(formatMessage(cfg("gallery.deleteImageErrorTemplate", "Error deleting image: {error}"), { error: error.message }));
     return;
   }
   closeEnlargeModal();
@@ -9558,7 +9873,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     // their neighbor-tag votes are combined into one ranked list.
     suggestTagsBtn.addEventListener("click", () => {
       const selectedItems = uploadPool.filter(item => poolSelection.has(item.id));
-      if (selectedItems.length === 0) { alert("Select at least one image first."); return; }
+      if (selectedItems.length === 0) { alert(cfg("gallery.selectAtLeastOneImageMessage", "Select at least one image first.")); return; }
       runSuggestTags(suggestTagsBtn, suggestedTagsRow, imageKeywords, async (onProgress) => {
         const embeddings = [];
         for (const item of selectedItems) {
@@ -9630,7 +9945,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
       const folderPath = (name || "").trim();
       if (!folderPath) { folderSelect.value = previousValue; return; }
       if (folders.includes(folderPath)) {
-        alert("This folder already exists.");
+        alert(cfg("folders.folderAlreadyExistsMessage", "This folder already exists."));
         folderSelect.value = folderPath;
         lastFolderSelectValue = folderPath;
         return;
@@ -9645,10 +9960,10 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     // Rename Folder Modal handling
     renameFolderBtn.addEventListener("click", () => {
       const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) { alert("Please select a folder to rename."); return; }
+      if (!selectedEl) { alert(cfg("folders.selectFolderToRenameMessage", "Please select a folder to rename.")); return; }
       const filterValue = selectedEl.getAttribute("data-filter");
       if (filterValue === "all" || filterValue === NEW_THIS_WEEK_FILTER) {
-        alert("Cannot rename 'All' or 'New This Week' - they aren't real folders.");
+        alert(cfg("folders.cannotRenameVirtualFolderMessage", "Cannot rename 'All' or 'New This Week' - they aren't real folders."));
         return;
       }
       renameFolderInput.value = selectedEl.querySelector(".folder-name").textContent;
@@ -9661,9 +9976,9 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
    deleteFolderBtn.addEventListener("click", async () => {
   // Get the selected folder
   const selectedEl = document.querySelector(".folder-list li.selected");
-  if (!selectedEl) { 
-    alert("Please select a folder to delete."); 
-    return; 
+  if (!selectedEl) {
+    alert(cfg("folders.selectFolderToDeleteMessage", "Please select a folder to delete."));
+    return;
   }
   
   // Get the folder name to delete
@@ -9678,7 +9993,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
   // "delete" it, which is confusing and not actually impossible like it
   // should be).
   if (folderToDelete === "all" || folderToDelete === NEW_THIS_WEEK_FILTER) {
-    alert("Cannot delete 'All' or 'New This Week' - they aren't real folders.");
+    alert(cfg("folders.cannotDeleteVirtualFolderMessage", "Cannot delete 'All' or 'New This Week' - they aren't real folders."));
     return;
   }
 
@@ -9687,7 +10002,10 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
   // "All", per deleteFolderFromFirebase()'s batch .update({folder:'all'})
   // below) since "delete folder" reads ambiguously otherwise and this was
   // reported as a point of confusion.
-  if (!confirm(`Delete folder "${folderToDelete}"?\n\nThis only removes the folder itself. Its images are NOT deleted - they'll stay in the gallery, moved to "All".`)) {
+  if (!confirm(formatMessage(
+    cfg("folders.confirmDeleteFolderTemplate", "Delete folder \"{folder}\"?\n\nThis only removes the folder itself. Its images are NOT deleted - they'll stay in the gallery, moved to \"All\"."),
+    { folder: folderToDelete }
+  ))) {
     return;
   }
   
@@ -9755,7 +10073,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     console.log(`Folder "${folderToDelete}" deleted successfully`);
   } catch (error) {
     console.error('Error deleting folder:', error);
-    alert(`Error deleting folder: ${error.message}`);
+    alert(formatMessage(cfg("folders.deleteFolderErrorTemplate", "Error deleting folder: {error}"), { error: error.message }));
   }
 });
 
@@ -9850,7 +10168,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     // - same sequential detect-then-overwrite loop either way, just handed a
     // different container list and button to show progress on.
     async function retagColorsForContainers(containers, buttonEl, confirmLabel) {
-      if (!confirm(`Re-run color detection on ${confirmLabel}? This rewrites each image's color tag and may take a while.`)) return;
+      if (!confirm(formatMessage(cfg("maintenance.confirmRetagColorsTemplate", "Re-run color detection on {label}? This rewrites each image's color tag and may take a while."), { label: confirmLabel }))) return;
 
       const colorWords = new Set(COLOR_FILTER_SWATCHES.map(s => s.color));
       const originalLabel = buttonEl.textContent;
@@ -9885,12 +10203,16 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
       buttonEl.textContent = originalLabel;
       renderColorFilterDots();
       performSearch();
-      alert(`Re-tagged colors for ${containers.length} image(s): ${changed} changed${failed ? `, ${failed} failed` : ""}.`);
+      alert(formatMessage(cfg("maintenance.retagColorsDoneTemplate", "Re-tagged colors for {total} image(s): {changed} changed{failedSuffix}."), {
+        total: containers.length,
+        changed,
+        failedSuffix: failed ? `, ${failed} failed` : "",
+      }));
     }
 
     async function reevaluateAllImageColors() {
       const containers = Array.from(document.querySelectorAll(".image-container"));
-      if (containers.length === 0) { alert("No images to re-tag."); return; }
+      if (containers.length === 0) { alert(cfg("maintenance.noImagesToRetagMessage", "No images to re-tag.")); return; }
       await retagColorsForContainers(containers, retagColorsBtn, `all ${containers.length} image(s)`);
     }
     retagColorsBtn?.addEventListener("click", reevaluateAllImageColors);
@@ -9907,10 +10229,10 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     // clicks this with no color dot active - there'd be nothing to scope
     // the retag to.
     async function reevaluateFilteredImageColors() {
-      if (!currentColorFilter) { alert("No color selected."); return; }
+      if (!currentColorFilter) { alert(cfg("maintenance.noColorSelectedMessage", "No color selected.")); return; }
       const containers = Array.from(document.querySelectorAll(".image-container"))
         .filter(imageMatchesColorFilter);
-      if (containers.length === 0) { alert(`No images currently tagged "${currentColorFilter}".`); return; }
+      if (containers.length === 0) { alert(formatMessage(cfg("maintenance.noImagesForColorTemplate", "No images currently tagged \"{color}\"."), { color: currentColorFilter })); return; }
       await retagColorsForContainers(containers, retagFilteredColorsBtn, `the ${containers.length} image(s) currently tagged "${currentColorFilter}"`);
     }
     retagFilteredColorsBtn?.addEventListener("click", reevaluateFilteredImageColors);
@@ -9928,8 +10250,8 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     // computed values actually changed.
     async function reevaluateAllSynonymTags() {
       const containers = Array.from(document.querySelectorAll(".image-container"));
-      if (containers.length === 0) { alert("No images to re-tag."); return; }
-      if (!confirm(`Recompute synonym and translated tags for all ${containers.length} image(s) from their current keywords?`)) return;
+      if (containers.length === 0) { alert(cfg("maintenance.noImagesToRetagMessage", "No images to re-tag.")); return; }
+      if (!confirm(formatMessage(cfg("maintenance.confirmRetagSynonymsTemplate", "Recompute synonym and translated tags for all {count} image(s) from their current keywords?"), { count: containers.length }))) return;
 
       const originalLabel = retagSynonymsBtn.textContent;
       retagSynonymsBtn.disabled = true;
@@ -9959,7 +10281,11 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
 
       retagSynonymsBtn.disabled = false;
       retagSynonymsBtn.textContent = originalLabel;
-      alert(`Re-tagged synonyms/translations for ${containers.length} image(s): ${changed} changed${failed ? `, ${failed} failed` : ""}.`);
+      alert(formatMessage(cfg("maintenance.retagSynonymsDoneTemplate", "Re-tagged synonyms/translations for {total} image(s): {changed} changed{failedSuffix}."), {
+        total: containers.length,
+        changed,
+        failedSuffix: failed ? `, ${failed} failed` : "",
+      }));
     }
     retagSynonymsBtn?.addEventListener("click", reevaluateAllSynonymTags);
 
@@ -9984,8 +10310,8 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     async function buildMissingImageEmbeddings() {
       const containers = Array.from(document.querySelectorAll(".image-container"))
         .filter(container => container.dataset.docId && !imageEmbeddingsById.has(container.dataset.docId));
-      if (containers.length === 0) { alert("Every loaded image already has a tag-suggestion embedding."); return; }
-      if (!confirm(`Compute tag-suggestion embeddings for ${containers.length} image(s) that don't have one yet? This loads an ML model in your browser (larger one-time download) and processes one image at a time - for a large batch this can take several minutes, and can be safely re-run later to pick up wherever it left off.`)) return;
+      if (containers.length === 0) { alert(cfg("maintenance.allEmbeddingsAlreadyComputedMessage", "Every loaded image already has a tag-suggestion embedding.")); return; }
+      if (!confirm(formatMessage(cfg("maintenance.confirmBuildTagSuggestionsTemplate", "Compute tag-suggestion embeddings for {count} image(s) that don't have one yet? This loads an ML model in your browser (larger one-time download) and processes one image at a time - for a large batch this can take several minutes, and can be safely re-run later to pick up wherever it left off."), { count: containers.length }))) return;
 
       const originalLabel = buildTagSuggestionIndexBtn.textContent;
       buildTagSuggestionIndexBtn.disabled = true;
@@ -10019,7 +10345,10 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
 
       buildTagSuggestionIndexBtn.disabled = false;
       buildTagSuggestionIndexBtn.textContent = originalLabel;
-      alert(`Indexed ${done} image(s) for tag suggestions${failed ? `, ${failed} failed` : ""}.`);
+      alert(formatMessage(cfg("maintenance.buildTagSuggestionsDoneTemplate", "Indexed {done} image(s) for tag suggestions{failedSuffix}."), {
+        done,
+        failedSuffix: failed ? `, ${failed} failed` : "",
+      }));
     }
     buildTagSuggestionIndexBtn?.addEventListener("click", buildMissingImageEmbeddings);
 
@@ -10133,12 +10462,12 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
 
           const addBtn = document.createElement("button");
           addBtn.type = "button";
-          addBtn.textContent = "Add";
+          addBtn.textContent = cfg("reviewSubmissions.addButton", "Add");
           addBtn.addEventListener("click", async () => {
             const folder = folderSelectEl.value;
-            if (!folder) { alert("Choose a folder first."); return; }
+            if (!folder) { alert(cfg("reviewSubmissions.chooseFolderFirstMessage", "Choose a folder first.")); return; }
             addBtn.disabled = true;
-            addBtn.textContent = "Adding…";
+            addBtn.textContent = cfg("reviewSubmissions.addingButton", "Adding…");
             try {
               // Submitted images never went through the admin upload dock's
               // detectDominantColorTag() (they were never a local File on
@@ -10166,15 +10495,15 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
               }
               updateFolderCounts();
               renderColorFilterDots();
-              addBtn.textContent = "Added";
+              addBtn.textContent = cfg("reviewSubmissions.addedButton", "Added");
               folderSelectEl.disabled = true;
               tagInputEl.disabled = true;
               suggestTagsBtnEl.disabled = true;
             } catch (error) {
               console.error("Error adding submitted image:", error);
               addBtn.disabled = false;
-              addBtn.textContent = "Add";
-              alert(`Error adding image: ${error.message}`);
+              addBtn.textContent = cfg("reviewSubmissions.addButton", "Add");
+              alert(formatMessage(cfg("reviewSubmissions.addImageErrorTemplate", "Error adding image: {error}"), { error: error.message }));
             }
           });
           item.appendChild(addBtn);
@@ -10187,15 +10516,15 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
       const dismissBtn = document.createElement("button");
       dismissBtn.type = "button";
       dismissBtn.className = "submission-dismiss-btn";
-      dismissBtn.textContent = "Dismiss";
+      dismissBtn.textContent = cfg("reviewSubmissions.dismissButton", "Dismiss");
       dismissBtn.addEventListener("click", async () => {
-        if (!confirm("Dismiss this submission? This can't be undone.")) return;
+        if (!confirm(cfg("reviewSubmissions.confirmDismissMessage", "Dismiss this submission? This can't be undone."))) return;
         try {
           await db.collection("submissions").doc(id).delete();
           row.remove();
         } catch (error) {
           console.error("Error dismissing submission:", error);
-          alert(`Error dismissing submission: ${error.message}`);
+          alert(formatMessage(cfg("reviewSubmissions.dismissErrorTemplate", "Error dismissing submission: {error}"), { error: error.message }));
         }
       });
       row.appendChild(dismissBtn);
@@ -10229,11 +10558,11 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     // Confirm Rename Folder button
     confirmRenameFolderBtn.addEventListener("click", async () => {
       const newName = renameFolderInput.value.trim();
-      if (!newName) { alert("Please enter a new name."); return; }
+      if (!newName) { alert(cfg("folders.enterNewFolderNameMessage", "Please enter a new name.")); return; }
       const selectedEl = document.querySelector(".folder-list li.selected");
-      if (!selectedEl) { alert("No folder selected."); return; }
+      if (!selectedEl) { alert(cfg("folders.noFolderSelectedMessage", "No folder selected.")); return; }
       const currentFullName = selectedEl.getAttribute("data-filter");
-      if (currentFullName === "all") { alert("Cannot rename 'All'."); return; }
+      if (currentFullName === "all") { alert(cfg("folders.cannotRenameAllMessage", "Cannot rename 'All'.")); return; }
       let updatedFolders = [];
       if (!currentFullName.includes("/")) {
         updatedFolders = folders.map(f => {
@@ -10346,7 +10675,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     document.getElementById("publishQueueBtn").addEventListener("click", () => {
       const isAdminMode = !!auth.currentUser;
       if (!isAdminMode) {
-        alert("You need admin access to upload files.");
+        alert(cfg("uploads.needAdminAccessMessage", "You need admin access to upload files."));
         return;
       }
       const batches = uploadQueue.slice();
