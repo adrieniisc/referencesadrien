@@ -1933,6 +1933,72 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     vice versa), get its `[color detect]` console line or extend the harness with a case shaped like
     the failure before retuning `SECOND_COLOR_MIN_SHARE` blind, same standing advice as every pass
     before this one.
+  - **2026-08-03 batch: brand cursor 2s continuation + phase-lock, "Hmmm ?" hover Easter egg,
+    thumbnail resolution pill, searchbar brightness** - four requests landed together.
+    - **Brand cursor post-hover transition, second pass** - reported again as "still transitions
+      weirdly" after the same-day earlier fix (see the "brand hover-cursor continuity" entry above).
+      Root cause, found by reasoning through the actual timing rather than retuning blind: the
+      hover-out wind-down (`blinkCursorOutThenHide()`) already picked up the *right opacity value*
+      when it took over from the continuous CSS `.blinking` animation (no jump), but it always
+      waited a flat, fresh 400ms for its own first tick regardless of *when in the CSS animation's
+      own 800ms cycle* it was called - since that cycle flips on a fixed clock relative to whenever
+      `.blinking` was last added, a call landing soon after a real flip meant the tail's first flip
+      arrived up to ~400ms late, a hold-then-catch-up stutter in the *cadence* even though no value
+      ever jumped. Fixed by having `startCursorBlinking()` (new - now the single place that ever
+      adds `.blinking`, replacing three separate `classList.add("blinking")` call sites) stamp
+      `cursorEl._blinkStartTime`, so `blinkCursorOutThenHide()` can compute exactly how far into the
+      current 400ms half-cycle "now" is and schedule its first tick for exactly when the real
+      animation would have flipped next - a genuine continuation of the same clock, not a fresh one.
+      Separately, per the explicit request ("think of it as a continuation of the original animation
+      delayed by two seconds"), the mouseleave-to-wind-down delay itself was bumped from 400ms to a
+      full 2 seconds (`BRAND_HOVER_HIDE_DELAY_MS`) - during that whole 2s window nothing about the
+      cursor changes at all (the real CSS animation just keeps running untouched), which is what
+      makes the eventual wind-down read as a natural continuation rather than an abrupt cutoff the
+      moment the pointer leaves.
+    - **"Hmmm ?" hover Easter egg** (explicit request, exact phrase list and delays given) - stay
+      hovered on the brand for more than `BRAND_HOVER_SWAP_DELAY_MS` (2.5s) and `swapBrandToPhrase()`
+      erases "aReference" and types out one of six random phrases ("Hmmm ?", "What ?", "Go away..",
+      "I see you", "Yes ?", "Hm hmm ?"), typewriter-style, reusing the exact same char-by-char timing
+      `playBrandIntroAnimation()` already established (`BRAND_TYPEWRITER_CHAR_MS`, 65ms/char). Holds
+      for as long as the pointer stays on it - only once it leaves does `revertBrandToName()` wait
+      `BRAND_HOVER_REVERT_DELAY_MS` (2.5s, per "when cursor off it: Delay 2.5 seconds") and then erase
+      the phrase and type "aReference" back, at which point it also runs the normal
+      `blinkCursorOutThenHide()` wind-down (only if the pointer is *still* off the brand by then - it
+      might have come back mid-wait or mid-retype). `brandAnimToken`, bumped by every top-level call
+      to `swapBrandToPhrase()`/`revertBrandToName()`, is what lets a fast re-hover/un-hover cleanly
+      cancel whichever character-by-character sequence was still mid-flight (each step checks its own
+      captured token against the live one and quietly stops if it's gone stale) instead of two
+      sequences fighting over the same text node - the same token/generation-counter shape this file
+      already reaches for whenever an earlier async sequence needs to be abortable by a newer one.
+    - **Thumbnail resolution pill on hover** (explicit request) - `.thumb-resolution-pill`, a small
+      bottom-left pill on every gallery thumbnail (mirrors `.download-btn`'s own top-right hover-reveal
+      treatment exactly - same dark/blur pill look, opposite corner), showing e.g. "1920 × 1080".
+      Populated once by `addImageToGallery()`'s existing `updateAspect()` the moment the thumbnail's
+      own `<img>` reports real `naturalWidth`/`naturalHeight` - same "whatever the loaded image itself
+      reports" approximation the lightbox's own `#enlargedResolution` pill already documents (exact
+      for an original at or under the thumbnail's own `width:1200` Cloudinary transform, that capped
+      size otherwise), not a second network request just to read true original dimensions. `:empty`
+      hides the pill outright before that text is populated, so a very fast hover right as a
+      lazy-loaded thumbnail is still decoding never reveals a blank capsule.
+    - **Searchbar text/icon brightness** (explicit request: "20% brighter") - `#mainImageSearch`'s
+      typed-text color moved from `var(--text)` (#ededf0) to `var(--highlight)` (#ffffff, pure white) -
+      `--text` × 1.2 clamps to exactly `--highlight`'s existing value, so this reuses that token rather
+      than introducing a second one for the same color. The placeholder/typewriter overlay
+      (`.search-placeholder-fade`, and its blinking `|` cursor via `currentColor`) moved from
+      `var(--text-faint)` (#6a6a72) to a dedicated `#7f7f89` scoped to just that selector - the exact
+      same ~20%-brighter-than-`--text-faint` value `.folder-count`'s own color already uses (see its
+      2026-08-01 entry above), not a change to the shared `--text-faint` token itself, which stays
+      unchanged everywhere else it's used. `.search-bar-icon` was **not** touched - it already reads
+      `var(--highlight)` (pure white, opacity 1) from the 2026-07-31 rework, which is already the
+      maximum brightness representable, so there's no further "brighter" to apply there.
+    - **Verified via the same Playwright + hand-rolled Firestore/Auth stub pattern** as every other
+      entry in this file: the search input's and placeholder's computed colors match the values above
+      exactly; a synthetic thumbnail's resolution pill shows the correct text, stays at `opacity: 0`
+      until actually hovered, and reaches `opacity: 1` on hover; the brand cursor stays doing its
+      normal continuous blink for a full second after the pointer leaves (confirming the 2s delay) and
+      only starts its wind-down after that, ending fully hidden; and hovering the brand past 2.5s swaps
+      to a real phrase from the list, holds it while still hovered, and reverts to "aReference" only
+      after leaving plus the 2.5s delay - all confirmed passing with zero console errors from app code.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
@@ -2446,6 +2512,24 @@ itself was verified separately (a wrong attempt sets `#loginFailFlash`'s `active
 its `<img>` at one of two synthetic test images, then auto-hides after
 `LOGIN_FAIL_FLASH_DURATION_MS`) - real memes weren't available to test against, same sandbox
 caveat as every other network/asset-dependent feature in this file.
+
+**Meme flash reworked into a "flashbang" (2026-08-03, same day, explicit request)** - "go huge
+complete screen white flash for 0.2 seconds with the image appearing right after and ease out fade
+in 2 seconds." Previously the meme `<img>` just rode the dark backdrop's own quick 0.12s opacity
+fade alongside everything else. Now staged in two separate steps across two elements:
+`#loginFailFlashWhite` (a new solid-white full-viewport layer, `z-index: 20600` - above
+`#loginFailFlash`'s own 20500 - snaps to full opacity instantly while `.active`, `transition: none`
+during that phase so the "bang" itself doesn't ramp up, restored to a quick 0.15s ease-out the
+moment `.active` is removed, so only the *clearing* eases) covers everything for
+`LOGIN_FAIL_FLASH_WHITE_MS` (200ms), and only once that timer fires does `flashRandomMeme()` remove
+the white layer and add `.visible` to the `<img>` itself, which has its own independent `opacity: 0
+-> 1, transition: opacity 2s ease-out` - deliberately much slower than any other transition in this
+file, since the slow reveal is the whole point of the effect rather than incidental UI polish. The
+overall auto-hide window (`LOGIN_FAIL_FLASH_DURATION_MS`) was bumped 1.8s -> 4s to comfortably clear
+the white flash + 2s fade-in with the meme still fully visible for a moment before it goes away,
+rather than being hidden again mid-fade. Verified via the same Playwright pattern: immediately after
+a failed attempt the white layer is active and the image is not yet `.visible`; ~300ms later (past
+the 200ms white-flash window) the white layer has cleared and the image is `.visible` (mid-fade).
 
 The client-side button-hiding (`auth.onAuthStateChanged` toggling `editButtons`/`separators`) is
 **cosmetic only** — it exists so a random visitor doesn't see admin controls cluttering the page,

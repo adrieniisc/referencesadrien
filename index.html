@@ -988,6 +988,45 @@
       pointer-events: auto;
       transform: translateY(0);
     }
+    /* Thumbnail resolution pill (2026-08-03, explicit request) - same
+       hover-reveal treatment as .download-btn just above (same dark/blur
+       pill look, opposite corner), showing e.g. "1920 x 1080" for the
+       thumbnail currently being hovered. Populated once by
+       addImageToGallery()'s updateAspect() the moment the thumbnail's own
+       <img> reports real naturalWidth/Height - same "whatever the loaded
+       image itself reports" approximation the lightbox's own
+       #enlargedResolution pill already documents (exact for an original at
+       or under the thumbnail's own Cloudinary transform width, the
+       thumbnail's capped size otherwise) - not a second network request
+       just to read true original dimensions. :empty hides it outright
+       before that happens (in practice only reachable via a very fast
+       hover right as a lazy-loaded thumbnail is still decoding), so
+       hovering never reveals a blank capsule with nothing in it yet. */
+    .thumb-resolution-pill {
+      position: absolute;
+      bottom: 6px;
+      left: 6px;
+      background-color: rgba(19,19,22,0.75);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(3px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .thumb-resolution-pill:empty {
+      display: none;
+    }
+    .image-container:hover .thumb-resolution-pill {
+      opacity: 1;
+      transform: translateY(0);
+    }
     .hidden {
   display: none !important;
 }
@@ -1170,7 +1209,13 @@
        admin login modal it's triggered from. A plain fixed dim backdrop +
        centered image, faded in/out via the .active class - not reusing
        .modal-backdrop, since that's meant for a small centered form/dialog
-       (max-width: 400px) and this is a full-viewport image flash. */
+       (max-width: 400px) and this is a full-viewport image flash.
+       "Flashbang" (2026-08-03, explicit request): the backdrop itself still
+       just snaps active/inactive (its 0.12s transition barely matters - the
+       solid-white layer below covers it completely for the first instant
+       anyway), but the <img> now has its own slow opacity transition,
+       toggled via .visible instead of riding the backdrop's own fade - see
+       flashRandomMeme()'s comment for why the two are staged separately. */
     .login-fail-flash {
       position: fixed;
       inset: 0;
@@ -1178,7 +1223,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.85);
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
@@ -1195,6 +1240,36 @@
       max-height: 82vh;
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-md);
+      /* Starts invisible and only fades in once flashRandomMeme() adds
+         .visible, right after the white flash below clears - "ease out
+         fade in 2 seconds" is deliberately much slower than every other
+         transition in this file, since it's the whole point of the effect
+         rather than an incidental UI polish transition. */
+      opacity: 0;
+      transition: opacity 2s ease-out;
+    }
+    .login-fail-flash img.visible {
+      opacity: 1;
+    }
+    /* The "bang" itself: a separate solid-white layer, above
+       .login-fail-flash's own 20500, so it fully covers the dim backdrop
+       and the (still-transparent) image beneath while active. Snaps to
+       full opacity instantly (transition: none while .active, restored the
+       moment .active is removed) - the flash itself shouldn't ramp up, only
+       its clearing eases out, per the same "instant on, gentle off" logic a
+       real camera flash reads as. */
+    .login-fail-flash-white {
+      position: fixed;
+      inset: 0;
+      z-index: 20600;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease-out;
+    }
+    .login-fail-flash-white.active {
+      opacity: 1;
+      transition: none;
     }
     .modal-content {
       background: var(--bg-elevated);
@@ -2682,7 +2757,12 @@
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background-color: rgba(15, 15, 17, 0.82);
-  color: var(--text);
+  /* var(--highlight) rather than the usual var(--text) (2026-08-03,
+     "make searchbar text... 20% brighter") - --text (#ededf0) x1.2 clamps
+     to pure white, which is exactly what --highlight already is, so this
+     reuses that existing "brightest text in the app" token instead of
+     introducing a second one for the same value. */
+  color: var(--highlight);
   font-size: 0.95rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease;
@@ -2725,7 +2805,14 @@
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-faint);
+  /* #7f7f89, not var(--text-faint) directly (2026-08-03, "make searchbar
+     text... 20% brighter") - a dedicated ~20%-brighter-than-text-faint
+     value scoped to just this element, same pattern .folder-count's own
+     color already uses (see its own comment) rather than brightening the
+     shared --text-faint token everywhere it's used sitewide. The blinking
+     .search-placeholder-cursor "|" inherits this via currentColor, so it
+     brightens along with the rest of the placeholder text for free. */
+  color: #7f7f89;
   font-size: 0.95rem;
   white-space: nowrap;
   overflow: hidden;
@@ -4031,6 +4118,7 @@
 <div class="login-fail-flash" id="loginFailFlash">
   <img id="loginFailFlashImg" src="" alt="">
 </div>
+<div class="login-fail-flash-white" id="loginFailFlashWhite"></div>
   <!-- Delete Controls -->
   <div class="delete-controls" id="deleteControls">
     <span id="selectedCount">0 selected</span>
@@ -4857,6 +4945,7 @@
     const adminLoginBtn = document.getElementById("adminLoginBtn");
     const loginFailFlash = document.getElementById("loginFailFlash");
     const loginFailFlashImg = document.getElementById("loginFailFlashImg");
+    const loginFailFlashWhite = document.getElementById("loginFailFlashWhite");
 
     // Belt-and-suspenders alongside the <form> wrapper itself: the Sign In
     // button is already `type="button"` so a click can't trigger a native
@@ -4936,8 +5025,19 @@
     // blocks the normal "Are you really the admin?" error path - an empty
     // manifest (nothing uploaded yet) or a failed fetch just means no
     // flash, silently.
-    const LOGIN_FAIL_FLASH_DURATION_MS = 1800;
+    // "Flashbang" staging (2026-08-03, explicit request) - a hard, instant
+    // full-screen white flash first, held for LOGIN_FAIL_FLASH_WHITE_MS,
+    // THEN the meme appears underneath and eases in over 2 seconds - not
+    // simultaneously with the white flash, which is why this is two
+    // separate timers/elements (#loginFailFlashWhite on top of
+    // #loginFailFlash) rather than one element with one transition. Total
+    // on-screen time is comfortably longer than white-flash-duration +
+    // fade-in-duration so the meme is actually visible at full opacity for
+    // a moment before it goes away, not hidden again mid-fade.
+    const LOGIN_FAIL_FLASH_WHITE_MS = 200;
+    const LOGIN_FAIL_FLASH_DURATION_MS = 4000;
     let loginFailFlashHideTimer = null;
+    let loginFailFlashWhiteTimer = null;
     async function flashRandomMeme() {
       try {
         const response = await fetch("memes/manifest.txt", { cache: "no-store" });
@@ -4946,10 +5046,27 @@
         const files = text.split("\n").map(line => line.trim()).filter(Boolean);
         if (files.length === 0) return;
         const file = files[Math.floor(Math.random() * files.length)];
+
+        clearTimeout(loginFailFlashHideTimer);
+        clearTimeout(loginFailFlashWhiteTimer);
+        // Reset to fully transparent before showing anything, so a second
+        // failed attempt landing mid-fade always restarts the whole
+        // sequence from the same starting point instead of fading in from
+        // wherever the previous attempt's opacity happened to be.
+        loginFailFlashImg.classList.remove("visible");
         loginFailFlashImg.src = `memes/${file}`;
         loginFailFlash.classList.add("active");
-        clearTimeout(loginFailFlashHideTimer);
-        loginFailFlashHideTimer = setTimeout(() => loginFailFlash.classList.remove("active"), LOGIN_FAIL_FLASH_DURATION_MS);
+        loginFailFlashWhite.classList.add("active");
+
+        loginFailFlashWhiteTimer = setTimeout(() => {
+          loginFailFlashWhite.classList.remove("active");
+          loginFailFlashImg.classList.add("visible");
+        }, LOGIN_FAIL_FLASH_WHITE_MS);
+
+        loginFailFlashHideTimer = setTimeout(() => {
+          loginFailFlash.classList.remove("active");
+          loginFailFlashImg.classList.remove("visible");
+        }, LOGIN_FAIL_FLASH_DURATION_MS);
       } catch (e) {
         console.warn("Could not load a meme to flash:", e);
       }
@@ -4958,7 +5075,10 @@
     // this file already uses.
     loginFailFlash.addEventListener("click", () => {
       clearTimeout(loginFailFlashHideTimer);
+      clearTimeout(loginFailFlashWhiteTimer);
       loginFailFlash.classList.remove("active");
+      loginFailFlashImg.classList.remove("visible");
+      loginFailFlashWhite.classList.remove("active");
     });
 
     // Cooldown after 3 failed sign-in attempts (2026-08-03, explicit
@@ -5597,16 +5717,26 @@
     // element actually become clickable (see the click handler just above
     // and .brand-active in the CSS).
     let isBrandIntroDone = false;
+    // Marks the moment .blinking last started on a cursor element (set by
+    // startCursorBlinking() below), so blinkCursorOutThenHide() can work
+    // out exactly where in the CSS animation's own 800ms cycle "now" falls,
+    // instead of guessing. Every place that adds .blinking goes through
+    // startCursorBlinking() rather than adding the class directly, or this
+    // clock silently goes stale and the phase-lock fix below stops working.
+    function startCursorBlinking(cursorEl) {
+      cursorEl.classList.add("blinking");
+      cursorEl._blinkStartTime = performance.now();
+    }
     // Shared "settle to a stop" sequence: a fixed number of on/off ticks
     // (separate from the continuous CSS .blinking animation), ending
     // hidden - reused by both the intro's own finish (below) and the
     // post-hover fade-out (further down), since both are literally the same
     // "stop blinking continuously, blink N more times, then hide" behavior.
-    // Tracks its own interval on the cursor element's dataset so a second
-    // call (e.g. re-entering mid-blink-out) can cancel an in-flight one
-    // instead of running two tick loops on top of each other.
+    // Tracks its own timer on the cursor element's dataset so a second call
+    // (e.g. re-entering mid-blink-out) can cancel an in-flight one instead
+    // of running two tick sequences on top of each other.
     function blinkCursorOutThenHide(cursorEl, blinkCount, onDone) {
-      if (cursorEl._blinkOutTimer) clearInterval(cursorEl._blinkOutTimer);
+      if (cursorEl._blinkOutTimer) clearTimeout(cursorEl._blinkOutTimer);
       // Pick up wherever the continuous CSS .blinking animation currently
       // has the cursor (on or off) instead of forcing it to "1" (2026-08-03,
       // reported as the post-hover blink "instantly cutting" rather than
@@ -5615,37 +5745,57 @@
       const wasOn = cursorEl.classList.contains("blinking")
         ? getComputedStyle(cursorEl).opacity !== "0"
         : cursorEl.style.opacity !== "0";
+      // 2026-08-03, second pass: the *value* handoff above was already
+      // jump-free, but the *timing* wasn't - this used to always wait a
+      // flat 400ms for its first tick regardless of when in the CSS
+      // animation's own 800ms cycle it was called, which could add up to
+      // ~400ms of extra hold time right at the handoff (called soon after
+      // a real flip -> the tail's first flip arrives late) - a stutter in
+      // the cadence even though no value ever jumped. startCursorBlinking()
+      // stamps _blinkStartTime whenever .blinking begins, so the first tick
+      // here can be scheduled for exactly when the real animation would
+      // have flipped next, making the tail a genuine continuation of the
+      // same clock instead of a fresh, arbitrarily-phased one.
+      const elapsedInCycle = cursorEl._blinkStartTime != null
+        ? (performance.now() - cursorEl._blinkStartTime) % 400
+        : 0;
+      const firstTickDelay = 400 - elapsedInCycle;
       cursorEl.classList.remove("blinking");
       cursorEl.style.opacity = wasOn ? "1" : "0";
       let tick = 0;
       const totalTicks = blinkCount * 2; // each blink = one off+on cycle
-      cursorEl._blinkOutTimer = setInterval(() => {
-        tick++;
-        // Alternates away from wasOn first, so the tail is a direct
-        // continuation of whichever phase the blink was already in, rather
-        // than always restarting from "on".
-        const isOn = tick % 2 === 0 ? wasOn : !wasOn;
-        cursorEl.style.opacity = isOn ? "1" : "0";
-        if (tick >= totalTicks) {
-          clearInterval(cursorEl._blinkOutTimer);
-          cursorEl._blinkOutTimer = null;
-          // Stay invisible via opacity, not display:none (2026-08-02 fix,
-          // confirmed via screenshot: "aReference" jumps left when the
-          // cursor disappears). The cursor sits in the same inline-flex row
-          // as the text (.sidebar-brand-typing) and .sidebar-brand centers
-          // that row as a unit - display:none removes the cursor's 2px+2px-
-          // margin box from the flex layout entirely, shrinking the row's
-          // content width and shifting the centered text. opacity:0 hides
-          // it just as completely while still reserving that space.
-          cursorEl.style.opacity = "0";
-          if (onDone) onDone();
-        }
-      // 400ms matches the CSS .blinking animation's own cadence
-      // (searchPlaceholderBlink runs at 0.8s, step-end, split 50/50 into two
-      // 0.4s on/off halves) - previously a faster, unrelated 220ms tick here
-      // made the blink visibly speed up right at the moment hovering ended
-      // (2026-08-03, same report as the "instant cut" fix above).
-      }, 400);
+      function scheduleTick(delay) {
+        cursorEl._blinkOutTimer = setTimeout(() => {
+          tick++;
+          // Alternates away from wasOn first, so the tail is a direct
+          // continuation of whichever phase the blink was already in,
+          // rather than always restarting from "on".
+          const isOn = tick % 2 === 0 ? wasOn : !wasOn;
+          cursorEl.style.opacity = isOn ? "1" : "0";
+          if (tick >= totalTicks) {
+            cursorEl._blinkOutTimer = null;
+            // Stay invisible via opacity, not display:none (2026-08-02 fix,
+            // confirmed via screenshot: "aReference" jumps left when the
+            // cursor disappears). The cursor sits in the same inline-flex
+            // row as the text (.sidebar-brand-typing) and .sidebar-brand
+            // centers that row as a unit - display:none removes the
+            // cursor's 2px+2px-margin box from the flex layout entirely,
+            // shrinking the row's content width and shifting the centered
+            // text. opacity:0 hides it just as completely while still
+            // reserving that space.
+            cursorEl.style.opacity = "0";
+            if (onDone) onDone();
+          } else {
+            // 400ms matches the CSS .blinking animation's own cadence
+            // (searchPlaceholderBlink runs at 0.8s, step-end, split 50/50
+            // into two 0.4s on/off halves) - every tick after the first
+            // (which is phase-aligned above) just continues at that same
+            // steady rate.
+            scheduleTick(400);
+          }
+        }, delay);
+      }
+      scheduleTick(firstTickDelay);
     }
     function playBrandIntroAnimation() {
       const brandEl = document.getElementById("sidebarBrand");
@@ -5653,7 +5803,7 @@
       const cursorEl = document.getElementById("sidebarBrandCursor");
       if (!brandEl || !textEl || !cursorEl) { isBrandIntroDone = true; return; }
       const fullText = "aReference";
-      cursorEl.classList.add("blinking");
+      startCursorBlinking(cursorEl);
       let i = 0;
       function typeStep() {
         i++;
@@ -5671,6 +5821,80 @@
     }
     playBrandIntroAnimation();
 
+    // "Hmmm ?" hover Easter egg (2026-08-03, explicit request) - stay
+    // hovered on the brand for more than BRAND_HOVER_SWAP_DELAY_MS and it
+    // erases "aReference" and types out a random phrase instead, typewriter
+    // style, holding for as long as the pointer stays on it; once the
+    // pointer leaves, it waits BRAND_HOVER_REVERT_DELAY_MS and then erases
+    // the phrase and types "aReference" back. `brandAnimToken` is bumped by
+    // every top-level call to swapBrandToPhrase()/revertBrandToName() -
+    // each character-by-character step below checks its own captured token
+    // against the current one and quietly stops if it's gone stale, which
+    // is what lets a fast re-hover/un-hover cleanly cancel whichever
+    // sequence was still mid-flight instead of two of them fighting over
+    // the same text node.
+    const BRAND_HOVER_PHRASES = ["Hmmm ?", "What ?", "Go away..", "I see you", "Yes ?", "Hm hmm ?"];
+    const BRAND_HOVER_SWAP_DELAY_MS = 2500;
+    const BRAND_HOVER_REVERT_DELAY_MS = 2500;
+    const BRAND_TYPEWRITER_CHAR_MS = 65; // matches playBrandIntroAnimation()'s own typing speed
+    let brandAnimToken = 0;
+    let brandIsSwapped = false;
+
+    function brandTypewriterType(textEl, text, token) {
+      return new Promise((resolve) => {
+        let i = 0;
+        (function step() {
+          if (token !== brandAnimToken) { resolve(false); return; }
+          i++;
+          textEl.textContent = text.slice(0, i);
+          if (i < text.length) setTimeout(step, BRAND_TYPEWRITER_CHAR_MS);
+          else resolve(true);
+        })();
+      });
+    }
+    function brandTypewriterErase(textEl, token) {
+      return new Promise((resolve) => {
+        (function step() {
+          if (token !== brandAnimToken) { resolve(false); return; }
+          const current = textEl.textContent;
+          if (current.length === 0) { resolve(true); return; }
+          textEl.textContent = current.slice(0, -1);
+          setTimeout(step, BRAND_TYPEWRITER_CHAR_MS);
+        })();
+      });
+    }
+    async function swapBrandToPhrase() {
+      brandIsSwapped = true;
+      const token = ++brandAnimToken;
+      const textEl = document.getElementById("sidebarBrandText");
+      if (!textEl) return;
+      const erased = await brandTypewriterErase(textEl, token);
+      if (!erased) return;
+      const phrase = BRAND_HOVER_PHRASES[Math.floor(Math.random() * BRAND_HOVER_PHRASES.length)];
+      await brandTypewriterType(textEl, phrase, token);
+    }
+    async function revertBrandToName() {
+      const token = ++brandAnimToken;
+      const textEl = document.getElementById("sidebarBrandText");
+      const cursorEl = document.getElementById("sidebarBrandCursor");
+      if (!textEl || !cursorEl) return;
+      const erased = await brandTypewriterErase(textEl, token);
+      if (!erased) return;
+      const typed = await brandTypewriterType(textEl, "aReference", token);
+      if (!typed) return;
+      brandIsSwapped = false;
+      // Only settle the cursor back to hidden if the pointer genuinely
+      // isn't on the brand any more by the time this finishes - it might
+      // have come back during the 2.5s wait or the retyping itself, in
+      // which case brandIsHovering's own mouseenter handler already
+      // cancelled this call before it got this far... except when it
+      // didn't (the retype started before a fast re-hover), so check the
+      // live flag rather than assuming.
+      if (!brandIsHovering) {
+        blinkCursorOutThenHide(cursorEl, 3);
+      }
+    }
+
     // Hovering the brand after the intro has finished briefly re-shows the
     // blinking cursor (2026-08-02, explicit request) - a small "still
     // alive" affordance now that it's clickable. Bound once here rather
@@ -5678,34 +5902,65 @@
     // once, read state at event time" pattern this file already uses for
     // the download button and the old upload-dock minimize button), gated
     // on isBrandIntroDone so hovering during the intro itself can't fight
-    // with the typing animation's own cursor state. A short delay on
-    // mouseleave (rather than hiding immediately) is what makes it read as
-    // "still there for a moment" instead of flickering on/off across small
-    // cursor movements right at the element's edge; the pending hide is
-    // cancelled if the pointer re-enters before it fires. Once it does
-    // start leaving, the cursor blinks three times (2026-08-02, explicit
-    // request) via the same blinkCursorOutThenHide() sequence the intro's
-    // own finish uses, rather than just disappearing outright.
+    // with the typing animation's own cursor state. A delay on mouseleave
+    // (rather than hiding immediately) is what makes it read as "still
+    // there for a moment" instead of flickering on/off across small cursor
+    // movements right at the element's edge - bumped from an initial 400ms
+    // to a full 2 seconds (2026-08-03, reported as "still transitions
+    // weirdly") specifically so nothing about the cursor changes for those
+    // 2 seconds: it's the exact same continuous CSS .blinking animation
+    // still running, untouched, the whole time, and only once that delay
+    // elapses does the deliberate "blink 3 times then hide" wind-down
+    // (blinkCursorOutThenHide(), itself now phase-locked to that same
+    // animation - see its own comment) take over. The pending hide is
+    // cancelled if the pointer re-enters before it fires.
+    const BRAND_HOVER_HIDE_DELAY_MS = 2000;
     let brandHoverCursorHideTimer = null;
+    let brandSwapTimer = null;
+    let brandRevertTimer = null;
+    let brandIsHovering = false;
     document.getElementById("sidebarBrand")?.addEventListener("mouseenter", () => {
       if (!isBrandIntroDone) return;
+      brandIsHovering = true;
       const cursorEl = document.getElementById("sidebarBrandCursor");
       if (!cursorEl) return;
       clearTimeout(brandHoverCursorHideTimer);
+      clearTimeout(brandRevertTimer);
       if (cursorEl._blinkOutTimer) {
-        clearInterval(cursorEl._blinkOutTimer);
+        clearTimeout(cursorEl._blinkOutTimer);
         cursorEl._blinkOutTimer = null;
       }
       cursorEl.style.opacity = "";
-      cursorEl.classList.add("blinking");
+      startCursorBlinking(cursorEl);
+      if (!brandIsSwapped) {
+        clearTimeout(brandSwapTimer);
+        brandSwapTimer = setTimeout(() => {
+          if (brandIsHovering) swapBrandToPhrase();
+        }, BRAND_HOVER_SWAP_DELAY_MS);
+      }
     });
     document.getElementById("sidebarBrand")?.addEventListener("mouseleave", () => {
       if (!isBrandIntroDone) return;
+      brandIsHovering = false;
+      clearTimeout(brandSwapTimer);
       const cursorEl = document.getElementById("sidebarBrandCursor");
       if (!cursorEl) return;
+      if (brandIsSwapped) {
+        // Holds the phrase exactly as-is (and keeps the cursor blinking
+        // normally the whole time, untouched) until the pointer has been
+        // off the brand for a full BRAND_HOVER_REVERT_DELAY_MS, then erases
+        // it and types "aReference" back - revertBrandToName() itself
+        // handles settling the cursor afterward, so the plain idle-hide
+        // path below is intentionally skipped for this branch.
+        clearTimeout(brandRevertTimer);
+        brandRevertTimer = setTimeout(() => {
+          if (!brandIsHovering) revertBrandToName();
+        }, BRAND_HOVER_REVERT_DELAY_MS);
+        return;
+      }
       brandHoverCursorHideTimer = setTimeout(() => {
-        blinkCursorOutThenHide(cursorEl, 3);
-      }, 400);
+        if (!brandIsHovering) blinkCursorOutThenHide(cursorEl, 3);
+      }, BRAND_HOVER_HIDE_DELAY_MS);
     });
 
     /** MOBILE NAVIGATION DRAWER (2026-08-02) **/
@@ -7202,11 +7457,15 @@ contributorsModal.addEventListener("click", (e) => {
       container.dataset.url = url;
       
       const img = document.createElement('img');
+      // Thumbnail resolution pill (2026-08-03) - see its own CSS comment.
+      const resolutionPill = document.createElement('div');
+      resolutionPill.classList.add('thumb-resolution-pill');
       // Fallback aspect ratio used until the real image dimensions are known.
       container.dataset.aspect = "1.5";
       const updateAspect = () => {
         if (img.naturalWidth && img.naturalHeight) {
           container.dataset.aspect = (img.naturalWidth / img.naturalHeight).toFixed(4);
+          resolutionPill.textContent = `${img.naturalWidth} × ${img.naturalHeight}`;
         }
         scheduleLayout();
       };
@@ -7294,6 +7553,7 @@ downloadLink.addEventListener("click", function(e) {
 
       container.appendChild(img);
       container.appendChild(downloadLink);
+      container.appendChild(resolutionPill);
       gallery.appendChild(container);
       scheduleLayout();
       return container;
