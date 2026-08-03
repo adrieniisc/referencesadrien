@@ -61,10 +61,10 @@ window.SITE_CONFIG = {
     // Hover the brand for longer than hoverSwapDelayMs and it erases its
     // name and types one of these instead, picked at random. Add, remove,
     // or reword any of these freely - any number of phrases works.
-    hoverPhrases: ["Hmmm ?", "What ?", "Go away..", "I see you", "Yes ?", "Hm hmm ?"],
+    hoverPhrases: ["Hmmm ?", "What ?", "Go away..", "I see you", "Yes ?", "Hm hmm ?", "And now ?" ],
     // Milliseconds of continuous hovering before the phrase-swap above
     // triggers.
-    hoverSwapDelayMs: 2500,
+    hoverSwapDelayMs: 2000,
     // Milliseconds after the pointer leaves (while a phrase is showing)
     // before it's erased and "aReference" is typed back.
     hoverRevertDelayMs: 2500,
@@ -177,7 +177,7 @@ window.SITE_CONFIG = {
     buildTagSuggestionsIndexButton: "Build Tag Suggestions Index",
     reviewSubmissionsButton: "Review Submissions",
     // Shown on the admin button when signed out / signed in.
-    adminLoginButton: "Admin Log In",
+    adminLoginButton: "Not for you",
     adminSignOutButton: "SIGN OUT",
   },
 
