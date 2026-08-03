@@ -2356,6 +2356,18 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   only backing data for the Contributors modal's list (see `index.html`'s own entry above) -
   fetched client-side at runtime, not built into the page. Edit this file to add/remove/reorder
   names; no HTML/JS change needed.
+- **`memes/`** (2026-08-03, explicit request) — a folder for the site owner to fill with meme
+  images by hand (drop image files in here directly via git, there's no admin-upload path into
+  this folder). `memes/manifest.txt` is the only thing `index.html` actually reads - one image
+  filename per line, blank lines ignored, same plain-text-manifest convention as
+  `contributors.txt` right above. `flashRandomMeme()` in `index.html` fetches this manifest fresh
+  on every failed admin sign-in (not cached, same "refetching a tiny text file costs nothing"
+  reasoning `loadContributorsList()` already uses) and displays one random entry from it as a
+  brief full-page flash - see that function's own comment, and the Admin access section below, for
+  the full behavior. Starts empty (just the manifest file, so the folder exists in git) - nothing
+  flashes until the owner both adds image files here **and** lists their filenames in
+  `manifest.txt`; a failed fetch or an empty manifest just means no flash, silently, same as
+  `contributors.txt`'s own "no live server" fallback.
 
 ## Environment variables (Netlify)
 
@@ -2399,6 +2411,41 @@ form" by Chrome. `attemptAdminSignIn()` now restores `readonly` on success too, 
 window. Neither fix is a guaranteed 100% stop to this Chrome behavior (there isn't one - sites far
 bigger than this one still hit it occasionally), so if it recurs, layering on another mitigation is
 more promising than assuming these two didn't work at all.
+
+**Wrong-credentials meme flash + a 3-attempt cooldown (2026-08-03, explicit request)** —
+`attemptAdminSignIn()`'s catch block (a real `signInWithEmailAndPassword()` rejection, not the
+"enter both fields" client-side check above it) now does two more things on top of the existing
+"Are you really the admin?" message: (1) `flashRandomMeme()` briefly overlays a random image from
+`memes/` (see that folder's own entry above) on the whole page - purely cosmetic, never blocks or
+delays the error message itself, and silently does nothing if `memes/manifest.txt` is empty or
+unreachable; (2) `recordAdminLoginFailure()` increments a failed-attempt counter, and once it hits
+`ADMIN_LOGIN_MAX_ATTEMPTS` (3), starts a `ADMIN_LOGIN_COOLDOWN_MS` (60s) cooldown that disables the
+email/password fields and the Sign In button, with a live "Try again in Ns." countdown
+(`updateAdminLoginCooldownUI()`, ticking once a second) until it elapses. **Persisted in
+`localStorage`, not a plain JS variable or `sessionStorage`** - this is the explicit part of the
+request ("can't be bypassed even if closing/opening/refreshing the website"): an in-memory
+variable wouldn't survive a refresh, and `sessionStorage` (what the admin's own *signed-in* session
+uses, see `SESSION` persistence above) wouldn't survive closing the tab, so neither would actually
+hold up against either of those. `localStorage` survives both. `attemptAdminSignIn()` itself also
+checks the cooldown first, before even reading the form fields, so a still-running cooldown blocks
+sign-in regardless of whether the disabled inputs/button happen to be bypassed some other way (e.g.
+calling the function directly from devtools). Resets on a successful sign-in
+(`clearAdminLoginCooldown()`) - past failures shouldn't linger once the real admin actually gets
+in. **This is a client-side UX deterrent against fast repeated guesses, not this app's real
+security boundary** - that's still `firestore.rules` (above) plus whatever rate-limiting Firebase
+Auth itself applies server-side to repeated failed sign-ins against the same account. Like the
+first-visit About-modal flag elsewhere in this file, a technical visitor can still clear
+`localStorage` or switch browsers/devices to reset their own cooldown - an inherent limit of any
+purely client-side mechanism on a backend-less static site, not a gap specific to this feature.
+Verified end-to-end via a Playwright + hand-rolled Firestore/Auth stub (same pattern as this file's
+Testing section): three wrong-password attempts in a row disable the form with the countdown
+message and a future `localStorage` timestamp; a **full page reload** (not just re-opening the
+modal) still shows the form disabled with the countdown continuing correctly; and clearing the
+cooldown then signing in with the real (stubbed) credentials closes the modal normally. The flash
+itself was verified separately (a wrong attempt sets `#loginFailFlash`'s `active` class and points
+its `<img>` at one of two synthetic test images, then auto-hides after
+`LOGIN_FAIL_FLASH_DURATION_MS`) - real memes weren't available to test against, same sandbox
+caveat as every other network/asset-dependent feature in this file.
 
 The client-side button-hiding (`auth.onAuthStateChanged` toggling `editButtons`/`separators`) is
 **cosmetic only** — it exists so a random visitor doesn't see admin controls cluttering the page,

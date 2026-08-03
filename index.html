@@ -1162,6 +1162,40 @@
        longer closes it first, so this modal has to actually be reachable
        on top of it instead of rendering invisibly underneath. */
     #editTagsModal { z-index: 15200; }
+
+    /* Wrong-credentials meme flash (2026-08-03) - see flashRandomMeme() in
+       the script and memes/manifest.txt. Sits above every other overlay in
+       the page (the highest previously-used value here is
+       .pool-preview-lightbox's 15250) since it has to be visible over the
+       admin login modal it's triggered from. A plain fixed dim backdrop +
+       centered image, faded in/out via the .active class - not reusing
+       .modal-backdrop, since that's meant for a small centered form/dialog
+       (max-width: 400px) and this is a full-viewport image flash. */
+    .login-fail-flash {
+      position: fixed;
+      inset: 0;
+      z-index: 20500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.8);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.12s ease, visibility 0.12s ease;
+      cursor: pointer;
+    }
+    .login-fail-flash.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .login-fail-flash img {
+      max-width: 82vw;
+      max-height: 82vh;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+    }
     .modal-content {
       background: var(--bg-elevated);
       border: 1px solid var(--border-color);
@@ -3987,6 +4021,16 @@
     </form>
   </div>
 </div>
+<!-- Wrong-credentials meme flash (2026-08-03) - a random image from memes/
+     (see manifest.txt there, same fetch-a-plain-text-manifest pattern as
+     contributors.txt) briefly overlaid on the whole page whenever admin
+     sign-in fails. Kept outside .modal-backdrop entirely - it needs to sit
+     visually *above* the login modal (see its own z-index below), not
+     inside it, and outlives the modal itself if the admin closes the modal
+     while it's still fading out. -->
+<div class="login-fail-flash" id="loginFailFlash">
+  <img id="loginFailFlashImg" src="" alt="">
+</div>
   <!-- Delete Controls -->
   <div class="delete-controls" id="deleteControls">
     <span id="selectedCount">0 selected</span>
@@ -4811,6 +4855,8 @@
     const adminPasswordInput = document.getElementById("adminPasswordInput");
     const adminLoginError = document.getElementById("adminLoginError");
     const adminLoginBtn = document.getElementById("adminLoginBtn");
+    const loginFailFlash = document.getElementById("loginFailFlash");
+    const loginFailFlashImg = document.getElementById("loginFailFlashImg");
 
     // Belt-and-suspenders alongside the <form> wrapper itself: the Sign In
     // button is already `type="button"` so a click can't trigger a native
@@ -4860,13 +4906,159 @@
         adminEmailInput.setAttribute("readonly", "readonly");
         adminPasswordInput.setAttribute("readonly", "readonly");
         adminLoginModal.classList.add("active");
+        // Re-asserts a still-active cooldown (locked fields + countdown)
+        // on every open, including after a page refresh - the whole point
+        // of persisting it in localStorage instead of a JS variable.
+        updateAdminLoginCooldownUI();
       }
     });
 
-    closeAdminLoginModalBtn.addEventListener("click", () => { adminLoginModal.classList.remove("active"); });
-    adminLoginModal.addEventListener("click", (e) => { if (e.target === adminLoginModal) { adminLoginModal.classList.remove("active"); } });
+    closeAdminLoginModalBtn.addEventListener("click", () => {
+      adminLoginModal.classList.remove("active");
+      stopAdminLoginCooldownTicker();
+    });
+    adminLoginModal.addEventListener("click", (e) => {
+      if (e.target === adminLoginModal) {
+        adminLoginModal.classList.remove("active");
+        stopAdminLoginCooldownTicker();
+      }
+    });
+
+    // Wrong-credentials meme flash (2026-08-03, explicit request) - picks a
+    // random image out of memes/manifest.txt (one filename per line, blank
+    // lines ignored - same plain-text-manifest convention as
+    // contributors.txt, so the site owner can drop new memes into memes/
+    // and list them there with no HTML/JS change needed) and briefly
+    // overlays it on the whole page. Refetches the manifest every time
+    // (not cached) so a newly-added meme shows up on the very next wrong
+    // attempt, same reasoning loadContributorsList() already documents for
+    // why refetching a tiny text file every open costs nothing. Never
+    // blocks the normal "Are you really the admin?" error path - an empty
+    // manifest (nothing uploaded yet) or a failed fetch just means no
+    // flash, silently.
+    const LOGIN_FAIL_FLASH_DURATION_MS = 1800;
+    let loginFailFlashHideTimer = null;
+    async function flashRandomMeme() {
+      try {
+        const response = await fetch("memes/manifest.txt", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        const files = text.split("\n").map(line => line.trim()).filter(Boolean);
+        if (files.length === 0) return;
+        const file = files[Math.floor(Math.random() * files.length)];
+        loginFailFlashImg.src = `memes/${file}`;
+        loginFailFlash.classList.add("active");
+        clearTimeout(loginFailFlashHideTimer);
+        loginFailFlashHideTimer = setTimeout(() => loginFailFlash.classList.remove("active"), LOGIN_FAIL_FLASH_DURATION_MS);
+      } catch (e) {
+        console.warn("Could not load a meme to flash:", e);
+      }
+    }
+    // Click-to-dismiss early, same three-way-close pattern every modal in
+    // this file already uses.
+    loginFailFlash.addEventListener("click", () => {
+      clearTimeout(loginFailFlashHideTimer);
+      loginFailFlash.classList.remove("active");
+    });
+
+    // Cooldown after 3 failed sign-in attempts (2026-08-03, explicit
+    // request: "a cooldown that can't be bypassed (even if closing/
+    // opening/refreshing the website)"). Tracked in localStorage rather
+    // than a plain in-memory variable specifically so it survives a tab
+    // close, a browser restart, or a plain page refresh - sessionStorage
+    // (what Firebase Auth's own SESSION persistence uses, see the Admin
+    // access section of CLAUDE.md) would NOT survive a tab close, and an
+    // in-memory JS variable wouldn't even survive a refresh, so neither
+    // would satisfy "can't be bypassed" here. This is a client-side UX
+    // deterrent against fast repeated guesses, not this app's real
+    // security boundary (that's still Firestore's security rules keyed on
+    // the exact admin email, and Firebase Auth's own server-side abuse
+    // protection) - like the first-visit About-modal flag elsewhere in
+    // this file, a technical visitor can still clear localStorage/use a
+    // different browser to reset it, which is an inherent limit of any
+    // purely client-side mechanism on a backend-less static site.
+    const ADMIN_LOGIN_MAX_ATTEMPTS = 3;
+    const ADMIN_LOGIN_COOLDOWN_MS = 60 * 1000;
+    const ADMIN_LOGIN_FAILCOUNT_KEY = "adminLoginFailCount";
+    const ADMIN_LOGIN_COOLDOWN_UNTIL_KEY = "adminLoginCooldownUntil";
+    let adminLoginCooldownInterval = null;
+
+    function stopAdminLoginCooldownTicker() {
+      clearInterval(adminLoginCooldownInterval);
+      adminLoginCooldownInterval = null;
+    }
+
+    function getAdminLoginCooldownRemainingMs() {
+      try {
+        const until = parseInt(localStorage.getItem(ADMIN_LOGIN_COOLDOWN_UNTIL_KEY), 10) || 0;
+        return Math.max(0, until - Date.now());
+      } catch (e) {
+        // localStorage unavailable (private-browsing restrictions, a
+        // sandboxed embed) - fail open rather than lock sign-in out
+        // entirely, same defensive shape as this file's other
+        // try/catch-wrapped localStorage reads.
+        return 0;
+      }
+    }
+
+    function recordAdminLoginFailure() {
+      try {
+        const count = (parseInt(localStorage.getItem(ADMIN_LOGIN_FAILCOUNT_KEY), 10) || 0) + 1;
+        if (count >= ADMIN_LOGIN_MAX_ATTEMPTS) {
+          localStorage.setItem(ADMIN_LOGIN_COOLDOWN_UNTIL_KEY, String(Date.now() + ADMIN_LOGIN_COOLDOWN_MS));
+          localStorage.setItem(ADMIN_LOGIN_FAILCOUNT_KEY, "0");
+        } else {
+          localStorage.setItem(ADMIN_LOGIN_FAILCOUNT_KEY, String(count));
+        }
+      } catch (e) {
+        console.warn("Could not persist admin login failure count:", e);
+      }
+    }
+
+    function clearAdminLoginCooldown() {
+      try {
+        localStorage.removeItem(ADMIN_LOGIN_FAILCOUNT_KEY);
+        localStorage.removeItem(ADMIN_LOGIN_COOLDOWN_UNTIL_KEY);
+      } catch (e) {
+        // Nothing to clean up if localStorage isn't available in the
+        // first place - see getAdminLoginCooldownRemainingMs()'s comment.
+      }
+    }
+
+    // Reflects the current cooldown state into the form (disabling
+    // input/button + a countdown message) and keeps it ticking once a
+    // second until it elapses. Called on every modal open and right after
+    // a failure is recorded, so the lockout takes effect immediately
+    // rather than only on the next attempted submit. Returns whether a
+    // cooldown is currently blocking sign-in, so attemptAdminSignIn() can
+    // use it as a gate.
+    function updateAdminLoginCooldownUI() {
+      const remainingMs = getAdminLoginCooldownRemainingMs();
+      if (remainingMs <= 0) {
+        stopAdminLoginCooldownTicker();
+        adminLoginBtn.disabled = false;
+        adminEmailInput.disabled = false;
+        adminPasswordInput.disabled = false;
+        if (adminLoginError.dataset.cooldown === "true") {
+          adminLoginError.style.display = "none";
+          delete adminLoginError.dataset.cooldown;
+        }
+        return false;
+      }
+      adminLoginBtn.disabled = true;
+      adminEmailInput.disabled = true;
+      adminPasswordInput.disabled = true;
+      adminLoginError.textContent = `Too many failed attempts. Try again in ${Math.ceil(remainingMs / 1000)}s.`;
+      adminLoginError.style.display = "block";
+      adminLoginError.dataset.cooldown = "true";
+      if (!adminLoginCooldownInterval) {
+        adminLoginCooldownInterval = setInterval(updateAdminLoginCooldownUI, 1000);
+      }
+      return true;
+    }
 
     async function attemptAdminSignIn() {
+      if (updateAdminLoginCooldownUI()) return;
       const email = adminEmailInput.value.trim();
       const password = adminPasswordInput.value;
       adminLoginError.style.display = "none";
@@ -4877,6 +5069,8 @@
       }
       try {
         await auth.signInWithEmailAndPassword(email, password);
+        clearAdminLoginCooldown();
+        stopAdminLoginCooldownTicker();
         adminEmailInput.value = "";
         adminPasswordInput.value = "";
         // Restore `readonly` here too, not just when the modal re-opens -
@@ -4894,6 +5088,13 @@
         // real account, just whether these particular credentials worked.
         adminLoginError.textContent = "Are you really the admin?";
         adminLoginError.style.display = "block";
+        flashRandomMeme();
+        recordAdminLoginFailure();
+        // If that failure just crossed the 3-attempt threshold, lock the
+        // form immediately rather than waiting for the next submit - this
+        // also overwrites the "Are you really the admin?" text above with
+        // the more urgent cooldown countdown, which is the right priority.
+        updateAdminLoginCooldownUI();
       }
     }
     adminLoginBtn.addEventListener("click", attemptAdminSignIn);
