@@ -271,14 +271,14 @@ window.SITE_CONFIG = {
   // ADMIN LOGIN — messages, and the failed-attempt cooldown.
   // --------------------------------------------------------------------
   admin: {
-    enterBothFieldsMessage: "Enter both an email and a password.",
+    enterBothFieldsMessage: "Enter username and a password.",
     wrongCredentialsMessage: "Are you really the admin?",
     // {seconds} is replaced with the actual countdown.
-    cooldownMessageTemplate: "Too many failed attempts. Try again in {seconds}s.",
+    cooldownMessageTemplate: "You are punished. Try again in {seconds}s.",
     // How many wrong attempts in a row before the cooldown kicks in.
     maxLoginAttempts: 3,
     // How long the cooldown lasts, in milliseconds (60000 = 1 minute).
-    cooldownDurationMs: 60000,
+    cooldownDurationMs: 100000,
   },
 
   // --------------------------------------------------------------------
@@ -287,10 +287,10 @@ window.SITE_CONFIG = {
   // --------------------------------------------------------------------
   meme: {
     // How long the solid white flash stays on screen, in milliseconds.
-    whiteFlashMs: 200,
+    whiteFlashMs: 150,
     // How long after the white flash clears before the meme image starts
     // fading in, in milliseconds.
-    imageAppearDelayMs: 100,
+    imageAppearDelayMs: 10,
     // Total time the meme stays on screen before auto-hiding, in
     // milliseconds - should comfortably exceed whiteFlashMs +
     // imageAppearDelayMs + the ~2 second fade-in.
