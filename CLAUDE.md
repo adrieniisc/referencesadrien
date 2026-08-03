@@ -1888,6 +1888,51 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
       here - all three verified via the same Playwright + hand-rolled Firestore/Auth stub pattern
       this file's Testing section documents, using real generated PNG fixtures (not data-URI stubs)
       through a local static server - 21 assertions total, zero console errors from app code.
+  - **Dominant-color auto-tagger: up to two color tags instead of always exactly one (2026-08-03,
+    explicit request, with example photos of a two-specimen mineral display, an orange wall behind
+    a green door, and a green cabinet with a yellow/grungy label panel)** — `dominantColorNameFromCanvas()`
+    now returns a comma-joined pair (`"red, green"`) instead of always a single name, when a second
+    hue family is substantial enough to read as a real second subject rather than background noise.
+    No downstream change was needed at any call site: every caller already merges this return value
+    into an image's keywords via `mergeTagStrings()` (or stores it directly when there are nothing
+    else typed yet), and `mergeTagStrings()` already splits its input on commas - a two-name return
+    just becomes two ordinary keywords for free. The single-winner brown/beige/orange/yellow decision
+    (previously inline, only ever run once) was factored out into `classifyHueFamily(name, weight)` so
+    a possible second-place color goes through the *exact* same carve-out the winner does, rather than
+    skipping it. **Threshold tuning, found via the same synthetic-reproduction method this file's whole
+    color-detection saga already established (see the entries above) rather than a live photo**: a
+    ratio against the *winner's own* weight was tried first and rejected - it made the door example
+    fail, since the wall is most of the frame and the door only a modest fraction of it, so the door's
+    weight is well under half the wall's even though it's obviously a real second color to a person
+    looking at the photo. Judging a candidate's weight against the image's *total* vote weight instead
+    (`SECOND_COLOR_MIN_SHARE = 0.15`, i.e. a hue family needs at least 15% of the whole photo's vote
+    weight to count) fits that shape - it only cares whether the second color is a real, non-trivial
+    slice of the photo, regardless of how much bigger the winner is. Also skips 'yellow' as a second
+    color specifically when 'orange' won (`pooledPartner`) - that pixel weight was already pooled into
+    the winner's own brown/beige decision (see the 2026-08-02 entry above), so counting it again as a
+    distinct second color would just be the same already-fixed shadow/highlight-split-vote bug wearing
+    a different hat. Never returns more than two names, even with three or more comparably-large hue
+    families in frame (only the top two are ever considered) - matches "two automatic color tags
+    instead of one," not "however many are detected." **Verified the same way as every prior round of
+    this saga**: extracted the real, shipped `dominantColorNameFromCanvas()`/`nameColorFromRgb()`/
+    `rgbToHsl()` straight out of `index.html` (a small brace-matching parser, not a hand-copy) into a
+    Node harness with a stubbed `document`/canvas reading a synthetic pixel buffer - a 50/50 red+green
+    split (the mineral-display shape) and a 65/35 orange+green split (the wall/door shape) both
+    correctly return two tags; a 90/10 and a 92/8 sliver (an existing regression case from an earlier
+    round, re-run unchanged) both stay single-tag; a same-material lit/shadow yellow split (another
+    existing regression case) still returns plain `"yellow"`, not `"yellow, brown"`; and a three-way
+    even split (red/green/blue) still returns only two names, never three. **Existing images keep
+    whatever single color tag they already have - this only affects newly-detected tags going forward
+    (new uploads, Review Submissions' "Add") and any image an admin re-tags via Re-tag Colors / Re-tag
+    Current Color Filter afterward** - it isn't a backfill and doesn't need to be, since Re-tag Colors
+    already strips every known color word from an image's existing keywords before merging the fresh
+    detection back in, so re-running it against an already-single-tagged image is enough to pick up a
+    second tag if the photo actually has one. Same sandbox caveat as every other round of this saga:
+    no live Cloudinary/Firebase access here, so none of this has been checked against a real uploaded
+    photo end-to-end - if a photo that obviously has two dominant colors still only gets one tag (or
+    vice versa), get its `[color detect]` console line or extend the harness with a case shaped like
+    the failure before retuning `SECOND_COLOR_MIN_SHARE` blind, same standing advice as every pass
+    before this one.
 - **`netlify/functions/upload.js`** — receives multipart uploads (Busboy), pushes the file to
   Cloudinary, pre-generates 1200px/1920px derived sizes (`eager`) so the frontend's
   `cloudinaryDisplayUrl()` requests don't transform on first view. Cloudinary's `public_id` used to
