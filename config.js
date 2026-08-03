@@ -274,7 +274,7 @@ window.SITE_CONFIG = {
     enterBothFieldsMessage: "Enter username and a password.",
     wrongCredentialsMessage: "Are you really the admin?",
     // {seconds} is replaced with the actual countdown.
-    cooldownMessageTemplate: "You are punished. Try again in {seconds}s.",
+    cooldownMessageTemplate: "You are punished. Don't try again in {seconds}s.",
     // How many wrong attempts in a row before the cooldown kicks in.
     maxLoginAttempts: 3,
     // How long the cooldown lasts, in milliseconds (60000 = 1 minute).
