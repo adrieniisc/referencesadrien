@@ -2511,6 +2511,46 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   its correct built-in default text and the gallery still initialized normally. No live Firebase/
   Cloudinary access in this environment, so this hasn't been checked against a real deployed site
   end-to-end - same standing sandbox caveat as everything else in this file.
+- **Cloudinary derivative sprawl cut for internal-only fetches (2026-08-16)** — prompted by the
+  account actually hitting its 25-credit monthly cap (108%, later a real deactivation notice from
+  Cloudinary) with essentially no public visitors. Checking the real usage breakdown in the
+  Cloudinary console showed Transformations (14.92K, ~55% of the credit total) as the single
+  biggest line item, and Images & Videos stored at 15.21K for what's only ~200 real photos - each
+  original was fanning out into a large number of separately-billed derivatives. Three call sites
+  fetch a small crop purely for algorithmic/decorative purposes, never actually shown to a visitor:
+  `detectDominantColorTagFromUrl()` and `computeImageEmbeddingFromUrl()` (both already agreed on
+  `w_200/q_90`) and `buildSidebarFrostStrip()`'s reflection tiles (its own separate `w_200/q_50`,
+  via the now-removed `FROST_TILE_WIDTH`/`FROST_TILE_QUALITY` constants) - and all three left
+  `f_auto` on, which makes Cloudinary generate and store a separate derivative per negotiated
+  browser format (confirmed in the account's own Top Formats breakdown: jpg/webp/jxl all showing
+  real bandwidth share) for a crop nobody ever looks at. `cloudinaryDisplayUrl()` gained an optional
+  `format` param to override `f_auto` with one fixed format, and a new shared
+  `INTERNAL_FETCH_WIDTH`/`INTERNAL_FETCH_QUALITY`/`INTERNAL_FETCH_FORMAT` (200/90/`jpg`) constant
+  set replaces all three call sites' own separately-declared width/quality - so all three now
+  request the exact same URL and share one cached Cloudinary derivative per image instead of up to
+  several. `q_90` (not the frost strip's cheaper old `q_50`) is the value that survived: color
+  detection's own history earlier in this file documents in detail why it specifically needs `q_90`
+  over a cheaper/auto quality, and at 200px wide the extra bytes that costs the frost strip are
+  trivial next to no longer generating (and paying a transformation credit for) a second derivative
+  at all. The real visitor-facing sizes (`w_1200` grid thumbnails, `w_1920` lightbox) were
+  deliberately left on `f_auto` - that's a genuine bandwidth win for actual visitors, unlike the
+  internal fetches this change targets. **This doesn't touch `upload.js`'s eager w_1200/w_1920
+  pregeneration** (not extra spend by itself - see that function's own comment) **or Storage**
+  (5.01GB, ~18% of the credit total) - the 15.21K stored-derivative count looks like an accumulated
+  backlog from the project's own long testing history rather than something this change can shrink
+  retroactively; a one-time cleanup via Cloudinary's own "delete unused derived resources" tool was
+  identified as the way to reclaim that, separately, not attempted here. Also surfaced during this
+  investigation but deliberately not touched: `computeImageEmbeddingFromUrl()`/`loadClipModule()` is
+  a real, live, intentionally-added (2026-08-02) CLIP-based "Suggested tags" feature (see
+  `suggestTagsBtn`/`buildTagSuggestionIndexBtn`) - a nearest-neighbor tag suggestion tool wired into
+  the upload wizard and Review Submissions, not dead code or an accidental AI/ML reintroduction
+  despite this file's older "no AI/ML" note about the removed Cloud Vision/MobileNet tagger; that
+  note predates this feature and doesn't apply to it. Verified with `npm test` (unaffected - only
+  covers `upload.js`) and a Node syntax check of the extracted inline `<script>` block; **no live
+  Cloudinary access in this environment, so the actual credit-count reduction hasn't been measured
+  against the real account** - same standing sandbox caveat as everything else in this file. If this
+  is revisited, checking the Cloudinary console's Transformations count a few weeks after deploy is
+  the way to confirm it actually worked, not re-reasoning from the code alone.
 
 ## Environment variables (Netlify)
 

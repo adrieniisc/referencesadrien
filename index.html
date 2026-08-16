@@ -4688,15 +4688,15 @@
     // gallery's scrollTop), not the flat colored blobs the previous pass
     // used. Those avoided a per-tile network fetch, but "light spilling in
     // from the images" isn't the same thing as seeing the images. The
-    // fetch is made cheap instead (see FROST_TILE_WIDTH below) and each
+    // fetch is made cheap instead - every tile is blurred by 24px before
+    // it's ever seen, so a tiny source crop is plenty - and each
     // tile shows its image's known dominant color immediately underneath,
-    // so nothing ever sits blank waiting on the network.
+    // so nothing ever sits blank waiting on the network. Uses the shared
+    // INTERNAL_FETCH_WIDTH/QUALITY/FORMAT constants (see cloudinaryDisplayUrl()
+    // below) rather than its own, so this reuses the exact same cached
+    // Cloudinary derivative as dominant-color detection/tag embeddings
+    // instead of generating a fourth separately-billed one.
 
-    // Source width for a tile's Cloudinary transform. Deliberately tiny:
-    // every tile is blurred by 24px before it's ever seen, so anything
-    // bigger is bytes spent on detail that is literally filtered out.
-    const FROST_TILE_WIDTH = 200;
-    const FROST_TILE_QUALITY = 50;
     // Tiles are grown slightly past their image's real box, top and bottom,
     // so the gallery's own row gap doesn't show through as a seam in what
     // is meant to read as one continuous surface.
@@ -4877,7 +4877,7 @@
           // has its color stand-in showing in the meantime.
           img.setAttribute("fetchpriority", "low");
           img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
-          img.src = cloudinaryDisplayUrl(container.dataset.url, { width: FROST_TILE_WIDTH, quality: FROST_TILE_QUALITY });
+          img.src = cloudinaryDisplayUrl(container.dataset.url, { width: INTERNAL_FETCH_WIDTH, quality: INTERNAL_FETCH_QUALITY, format: INTERNAL_FETCH_FORMAT });
           tile.appendChild(img);
         }
         tile.style.top = `${top}px`;
@@ -6685,12 +6685,40 @@ contributorsModal.addEventListener("click", (e) => {
     // Cloudinary stores the file in its original format (e.g. HEIC from iPhones),
     // which most browsers can't render in an <img> tag. Insert an f_auto,q_auto
     // transformation so Cloudinary serves a browser-compatible format instead.
-    function cloudinaryDisplayUrl(url, { width, quality } = {}) {
+    // `format` overrides f_auto with one fixed format - for a transform nobody
+    // ever actually looks at (see INTERNAL_FETCH_* below), f_auto's per-browser
+    // format negotiation just multiplies how many separate derivatives
+    // Cloudinary generates and stores for the same crop, with no one around to
+    // benefit from the smaller file size.
+    function cloudinaryDisplayUrl(url, { width, quality, format } = {}) {
       if (typeof url !== 'string' || !url.includes('/upload/')) return url;
       const q = quality ? `q_${quality}` : 'q_auto';
-      const transform = width ? `f_auto,${q},c_limit,w_${width}` : `f_auto,${q}`;
+      const f = format ? `f_${format}` : 'f_auto';
+      const transform = width ? `${f},${q},c_limit,w_${width}` : `${f},${q}`;
       return url.replace('/upload/', `/upload/${transform}/`);
     }
+
+    // Shared by every Cloudinary fetch that's purely internal/algorithmic -
+    // dominant-color detection, tag-suggestion embeddings, and the sidebar
+    // frost-strip reflection (see detectDominantColorTagFromUrl(),
+    // computeImageEmbeddingFromUrl(), and buildSidebarFrostStrip() below) -
+    // nothing here is ever actually looked at by a visitor, unlike the
+    // w_1200/w_1920 sizes real people see. Before this, those three call
+    // sites each built their own transform (color detection and embeddings
+    // already happened to agree on w_200/q_90, but the frost strip used a
+    // separate w_200/q_50, and all three left f_auto's format negotiation on)
+    // - meaning up to several separately-stored, separately-billed Cloudinary
+    // derivatives for what's functionally the same 200px crop of the same
+    // image. One fixed width/quality/format shared by all three collapses
+    // that to a single cached derivative per image. q_90 (not the frost
+    // strip's old, cheaper q_50) is the one kept - color detection's own
+    // history above documents why it specifically needs q_90's higher
+    // fidelity, and at 200px wide the extra bytes q_90 costs the frost strip
+    // are trivial next to no longer generating (and paying transformation
+    // credits for) a second derivative at all.
+    const INTERNAL_FETCH_WIDTH = 200;
+    const INTERNAL_FETCH_QUALITY = 90;
+    const INTERNAL_FETCH_FORMAT = 'jpg';
 
     // Decode a browser-natively-supported image blob (JPEG/PNG/WebP/...) onto
     // a canvas. Throws if the browser can't decode it (e.g. HEIC).
@@ -7103,7 +7131,7 @@ contributorsModal.addEventListener("click", (e) => {
         await new Promise((resolve, reject) => {
           img.onload = resolve;
           img.onerror = reject;
-          img.src = cloudinaryDisplayUrl(url, { width: 200, quality: 90 });
+          img.src = cloudinaryDisplayUrl(url, { width: INTERNAL_FETCH_WIDTH, quality: INTERNAL_FETCH_QUALITY, format: INTERNAL_FETCH_FORMAT });
         });
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
@@ -7265,7 +7293,7 @@ contributorsModal.addEventListener("click", (e) => {
         await new Promise((resolve, reject) => {
           img.onload = resolve;
           img.onerror = reject;
-          img.src = cloudinaryDisplayUrl(url, { width: 200, quality: 90 });
+          img.src = cloudinaryDisplayUrl(url, { width: INTERNAL_FETCH_WIDTH, quality: INTERNAL_FETCH_QUALITY, format: INTERNAL_FETCH_FORMAT });
         });
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
