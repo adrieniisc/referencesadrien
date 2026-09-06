@@ -2511,10 +2511,178 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   its correct built-in default text and the gallery still initialized normally. No live Firebase/
   Cloudinary access in this environment, so this hasn't been checked against a real deployed site
   end-to-end - same standing sandbox caveat as everything else in this file.
+- **Cloudinary derivative sprawl cut for internal-only fetches (2026-08-16)** — prompted by the
+  account actually hitting its 25-credit monthly cap (108%, later a real deactivation notice from
+  Cloudinary) with essentially no public visitors. Checking the real usage breakdown in the
+  Cloudinary console showed Transformations (14.92K, ~55% of the credit total) as the single
+  biggest line item, and Images & Videos stored at 15.21K for what's only ~200 real photos - each
+  original was fanning out into a large number of separately-billed derivatives. Three call sites
+  fetch a small crop purely for algorithmic/decorative purposes, never actually shown to a visitor:
+  `detectDominantColorTagFromUrl()` and `computeImageEmbeddingFromUrl()` (both already agreed on
+  `w_200/q_90`) and `buildSidebarFrostStrip()`'s reflection tiles (its own separate `w_200/q_50`,
+  via the now-removed `FROST_TILE_WIDTH`/`FROST_TILE_QUALITY` constants) - and all three left
+  `f_auto` on, which makes Cloudinary generate and store a separate derivative per negotiated
+  browser format (confirmed in the account's own Top Formats breakdown: jpg/webp/jxl all showing
+  real bandwidth share) for a crop nobody ever looks at. `cloudinaryDisplayUrl()` gained an optional
+  `format` param to override `f_auto` with one fixed format, and a new shared
+  `INTERNAL_FETCH_WIDTH`/`INTERNAL_FETCH_QUALITY`/`INTERNAL_FETCH_FORMAT` (200/90/`jpg`) constant
+  set replaces all three call sites' own separately-declared width/quality - so all three now
+  request the exact same URL and share one cached Cloudinary derivative per image instead of up to
+  several. `q_90` (not the frost strip's cheaper old `q_50`) is the value that survived: color
+  detection's own history earlier in this file documents in detail why it specifically needs `q_90`
+  over a cheaper/auto quality, and at 200px wide the extra bytes that costs the frost strip are
+  trivial next to no longer generating (and paying a transformation credit for) a second derivative
+  at all. The real visitor-facing sizes (`w_1200` grid thumbnails, `w_1920` lightbox) were
+  deliberately left on `f_auto` - that's a genuine bandwidth win for actual visitors, unlike the
+  internal fetches this change targets. **This doesn't touch `upload.js`'s eager w_1200/w_1920
+  pregeneration** (not extra spend by itself - see that function's own comment) **or Storage**
+  (5.01GB, ~18% of the credit total) - the 15.21K stored-derivative count looks like an accumulated
+  backlog from the project's own long testing history rather than something this change can shrink
+  retroactively; a one-time cleanup via Cloudinary's own "delete unused derived resources" tool was
+  identified as the way to reclaim that, separately, not attempted here. Also surfaced during this
+  investigation but deliberately not touched: `computeImageEmbeddingFromUrl()`/`loadClipModule()` is
+  a real, live, intentionally-added (2026-08-02) CLIP-based "Suggested tags" feature (see
+  `suggestTagsBtn`/`buildTagSuggestionIndexBtn`) - a nearest-neighbor tag suggestion tool wired into
+  the upload wizard and Review Submissions, not dead code or an accidental AI/ML reintroduction
+  despite this file's older "no AI/ML" note about the removed Cloud Vision/MobileNet tagger; that
+  note predates this feature and doesn't apply to it. Verified with `npm test` (unaffected - only
+  covers `upload.js`) and a Node syntax check of the extracted inline `<script>` block; **no live
+  Cloudinary access in this environment, so the actual credit-count reduction hasn't been measured
+  against the real account** - same standing sandbox caveat as everything else in this file. If this
+  is revisited, checking the Cloudinary console's Transformations count a few weeks after deploy is
+  the way to confirm it actually worked, not re-reasoning from the code alone.
+- **Second Cloudinary cost-cutting pass, after a real deactivation notice (2026-09-06)** — the
+  account was actually deactivated by Cloudinary over the 108%/114% overage (see the entry above),
+  then reactivated (owner upgraded/resolved it directly with Cloudinary - not something done from a
+  coding session). Asked to "optimize a maximum" so this doesn't recur, on top of the internal-fetch
+  consolidation already landed. Two changes, both aimed at *future* credit accrual (unlike the entry
+  above, which mostly targeted the accumulated derivative-count backlog):
+  - **Gallery-grid thumbnails now request a Cloudinary width bucketed to the active size-selector
+    tier, instead of one flat `w_1200` for every tier** (`thumbnailFetchWidth()`/
+    `THUMBNAIL_WIDTH_BUCKETS`, next to `cloudinaryDisplayUrl()`). At the default "M" tier (240px row
+    height) a typical thumbnail displays around 360px wide (~720px at 2x retina) - a flat 1200px
+    request for every tier meant the common case fetched well over 2x more pixels than could ever
+    be shown, real bandwidth waste on every gallery load by every visitor, not just admin testing.
+    Kept to 3 buckets (500 for XS/S, 800 for M, 1200 unchanged for L/XL) rather than one per tier so
+    this doesn't multiply how many distinct thumbnail derivatives Cloudinary has to generate/store -
+    trading precision for keeping the "few distinct transform variants" principle from the entry
+    above intact. The two larger tiers keep the original 1200 untouched deliberately - a wide
+    panoramic thumbnail at those tiers can genuinely need that many pixels, and there's no
+    bandwidth win worth risking a visibly softer image for. Switching tiers mid-session
+    (`.size-icon` click handler) now also re-points every already-rendered thumbnail's `src` at the
+    new bucket, not just newly-created ones - without this, jumping to a bigger tier would just
+    upscale whatever smaller image was already sitting in the DOM instead of fetching a sharper one.
+    Confirmed safe for images still deferred behind `loading="lazy"`: changing `src` before a lazy
+    image has ever started fetching just repoints what it'll eventually load, verified directly (not
+    assumed) via a Playwright pass against the real, unmodified `index.html` (a stubbed Firestore/
+    Auth harness per this file's Testing section, two fake images) - thumbnails came back at exactly
+    width 800 at the default tier, 1200 after clicking L, 500 after clicking XS, and back to 800
+    after returning to M, with zero console errors from app code. The similar-images panel's
+    fallback thumbnail URL (used when the source container's own `<img>` isn't available) was
+    updated to match the same bucketed width instead of its own hardcoded 1200, so it can't drift
+    onto a different, separately-billed derivative than whatever the grid itself is actually using.
+  - **`upload.js`'s eager pregeneration dropped from `w_1200`+`w_1920` to just `w_800`** (matching
+    the new default-tier bucket above - keep these two in sync if the default tier ever changes).
+    A transformation credit is spent the first time a derivative is generated whether that happens
+    eagerly at upload time or on-demand the first time it's actually requested - eager only
+    guarantees that spend happens for *every* upload regardless of whether the resulting derivative
+    is ever actually requested by anyone. `w_1200`/`w_1920` are now only requested when a visitor
+    deliberately switches to the L/XL size tier or opens a lightbox, respectively - letting those
+    generate on-demand instead means the credit is only spent for images actually viewed that way,
+    at the cost of a slower (cold-transform) first load for that specific image/tier combination.
+    `w_800` stays eager because it's the one size close to a sure thing for every upload, being the
+    default tier's own thumbnail width.
+  - **Deliberately not done this pass, flagged instead of silently implemented**: deleting a gallery
+    image (Delete Images mode, or the lightbox admin quick-delete) only ever removes the Firestore
+    doc - the actual Cloudinary asset (original + its eager derivative) is never cleaned up, so
+    Storage only ever grows from image churn, never shrinks. Fixing this for real needs a new
+    authenticated Netlify function (Cloudinary's destroy API requires the signed API secret, so it
+    can't be called client-side) that verifies the caller is genuinely the signed-in admin before
+    deleting anything - otherwise it's a public delete-any-image-by-URL endpoint, since every image
+    URL is already visible in the page source to any visitor. That verification needs either a
+    Firebase service-account credential (Console-only, owner has to generate it - same category of
+    manual step as enabling Email/Password sign-in or pasting `firestore.rules` in, see "Admin
+    access" below) or hand-rolled Firebase ID-token JWT verification against Google's public keys -
+    security-sensitive code that could not be tested against the real project in this sandbox, so it
+    wasn't shipped speculatively. If revisited, the Cloudinary console's own "delete unused derived
+    resources" tool remains the lower-risk way to reclaim already-orphaned storage in the meantime.
+  Verified with `npm test` (unaffected) and a Node syntax check of the extracted inline `<script>`
+  block, plus the Playwright pass described above. Same standing sandbox caveat as every other entry
+  in this file: no live Cloudinary access here, so the actual credit-accrual-rate reduction hasn't
+  been measured against the real account.
+- **Deleted/dismissed images now actually get removed from Cloudinary (2026-09-06)** — the gap
+  flagged (not fixed) in the entry above. Deleting a gallery image, the lightbox's admin quick-
+  delete, and dismissing a Review Submissions entry all previously only removed the Firestore doc -
+  the real Cloudinary asset (original + its eager derivative) stayed forever, so Storage only ever
+  grew from image churn and never shrank.
+  - **New `netlify/functions/deleteImage.js`** calls Cloudinary's `destroy` API, which needs the
+    account's secret key (same `CLOUDINARY_API_SECRET` already used by `upload.js`) - this can't run
+    client-side, and unlike `upload.js` (merely an abuse-of-resources risk if hit directly), an
+    unauthenticated delete endpoint would be a real content-destruction hole: every image URL is
+    already visible in the page source to any visitor, so anyone could delete any image from the
+    account just by finding this endpoint and replaying a URL they already see.
+  - **Deliberately does NOT use a Firebase service-account credential** (what `firebase-admin` would
+    need) - that's full admin access to the whole Firebase project, and generating one is a manual,
+    Console-only step (same category as enabling Email/Password sign-in or pasting
+    `firestore.rules` in). Verifying a Firebase ID token only needs to check its *signature*, which
+    Firebase's own public signing keys already make possible with no secret at all - the function
+    fetches `https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com`
+    (confirmed via the `jose` library's own maintainer, https://github.com/panva/jose/discussions/626
+    - this is the JWK-*format* endpoint, not the x509-cert one `firebase-admin` itself uses
+    internally and Firebase's own docs point to for other languages, which isn't directly usable
+    with `jose`'s `createRemoteJWKSet`) via the `jose` npm package, checks `iss`/`aud`/`exp`/`alg`,
+    and confirms the token's `email` claim is exactly `isakovicadrien@gmail.com` - the same check
+    `firestore.rules` already does for Firestore writes. **No new Netlify environment variable or
+    manual Firebase Console step was needed for this** - `FIREBASE_PROJECT_ID`/`ADMIN_EMAIL` are
+    hardcoded in the function since both are already public, non-secret values (the project ID is
+    the same one sitting in `index.html`'s own client-side `firebaseConfig`, see this file's
+    "Environment variables" section on why that's fine).
+  - **`jose` pinned to `^5.10.0`, not the current major (6.x)** - v6 dropped its CJS build entirely
+    in favor of relying on Node's native `require(esm)` support, which Node itself handles fine but
+    Jest's module system doesn't, so `jest.requireActual('jose')` (needed for the test approach
+    below) fails to parse with a `SyntaxError: Cannot use import statement outside a module`. v5.x is
+    the last major with a real dual CJS/ESM build. If this is ever revisited to move to v6, that
+    conflict needs solving first (e.g. Jest's ESM mode), not just bumping the version.
+  - **`cleanupCloudinaryAsset(url)`** (index.html, next to `deleteSelectedImages()`) is the one
+    shared frontend call site - fire-and-forget, same shape as `sendSubmissionEmailNotification()`:
+    the Firestore delete is what has to succeed for the delete/dismiss to count, this is only
+    cleanup on top of it, so a failure here is just `console.warn`'d, never surfaced to the admin or
+    allowed to block/undo the Firestore side. Wired into `deleteSelectedImages()`, the lightbox's
+    `enlargeDeleteCurrentImage()`, and Review Submissions' Dismiss handler. The Dismiss case needed
+    its own bookkeeping - a new `addedImageUrls` Set, populated by the existing per-image "Add"
+    button's success path - since a submission's `imageUrls` includes images that *did* get added to
+    the gallery (now real gallery images, must NOT be deleted) alongside ones that never were (safe
+    to clean up); Dismiss only calls `cleanupCloudinaryAsset()` for the ones not in that set.
+  - **Explicitly checked to not cost more Cloudinary usage than it saves** (a direct ask, not an
+    assumption): `cloudinary.uploader.destroy()` is an Admin API management call, not an asset
+    delivery/transformation request - it doesn't touch Bandwidth or Transformation credits at all,
+    only Storage, and only by reducing it. The JWKS fetch goes to `googleapis.com`, unrelated to
+    Cloudinary entirely. Nothing in this feature adds a new Cloudinary derivative/transform request
+    anywhere - `publicIdFromUrl()` is pure string parsing against the already-known URL, no
+    Cloudinary lookup involved. (Cloudinary's Admin API does have its own separate per-hour rate
+    limit, unrelated to the billing-credit pool - a complete non-issue at this app's scale of
+    occasional admin deletes, not something this change could plausibly hit.)
+  - **Tested with real cryptographic signature verification, not a stubbed-out check** -
+    `tests/deleteImage.test.js` generates a real RSA key pair per test run and mocks only
+    `createRemoteJWKSet` (the "fetch keys from Google" part) to resolve to a local JWKS built from
+    that key; `jwtVerify()` itself runs unmocked, so the tests exercise the actual verification logic
+    end to end. Covers: valid admin token → destroy() called with the right `public_id`; wrong
+    email, wrong signing key, expired token, wrong audience, and wrong issuer → all rejected with
+    destroy() never called; malformed/non-Cloudinary URL → 400, destroy() never called; Cloudinary
+    destroy itself failing → 500. The end-to-end frontend wiring (a real Delete Images click
+    resulting in exactly one correctly-shaped call to the new endpoint) was verified via the same
+    Playwright + stubbed-Firestore/Auth pattern this file's Testing section documents.
+  - **Same standing sandbox caveat as everything else in this file**: no live Firebase/Cloudinary
+    access here, so the JWKS URL/claims have been verified against real Firebase documentation and a
+    real cryptographic test (not guessed), but never against an actual live Firebase ID token from
+    this project. **Test this for real after deploying** - sign in as the real admin, delete one
+    throwaway image, and confirm it actually disappears from Cloudinary's Media Library (not just
+    the gallery) - before trusting this broadly.
 
 ## Environment variables (Netlify)
 
-- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — used by `upload.js`.
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — used by `upload.js` and,
+  since 2026-09-06, `deleteImage.js` (same three, no new env vars needed for that function).
   (`CLOUD_VISION_API` is gone along with Cloud Vision itself — see the AI tagging removal note
   above. If it's still set in the Netlify dashboard, it's just unused, not harmful.)
 - Firebase config is a public client-side config object inlined in `index.html` (normal for

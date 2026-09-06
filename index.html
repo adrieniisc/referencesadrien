@@ -4688,15 +4688,15 @@
     // gallery's scrollTop), not the flat colored blobs the previous pass
     // used. Those avoided a per-tile network fetch, but "light spilling in
     // from the images" isn't the same thing as seeing the images. The
-    // fetch is made cheap instead (see FROST_TILE_WIDTH below) and each
+    // fetch is made cheap instead - every tile is blurred by 24px before
+    // it's ever seen, so a tiny source crop is plenty - and each
     // tile shows its image's known dominant color immediately underneath,
-    // so nothing ever sits blank waiting on the network.
+    // so nothing ever sits blank waiting on the network. Uses the shared
+    // INTERNAL_FETCH_WIDTH/QUALITY/FORMAT constants (see cloudinaryDisplayUrl()
+    // below) rather than its own, so this reuses the exact same cached
+    // Cloudinary derivative as dominant-color detection/tag embeddings
+    // instead of generating a fourth separately-billed one.
 
-    // Source width for a tile's Cloudinary transform. Deliberately tiny:
-    // every tile is blurred by 24px before it's ever seen, so anything
-    // bigger is bytes spent on detail that is literally filtered out.
-    const FROST_TILE_WIDTH = 200;
-    const FROST_TILE_QUALITY = 50;
     // Tiles are grown slightly past their image's real box, top and bottom,
     // so the gallery's own row gap doesn't show through as a seam in what
     // is meant to read as one continuous surface.
@@ -4877,7 +4877,7 @@
           // has its color stand-in showing in the meantime.
           img.setAttribute("fetchpriority", "low");
           img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
-          img.src = cloudinaryDisplayUrl(container.dataset.url, { width: FROST_TILE_WIDTH, quality: FROST_TILE_QUALITY });
+          img.src = cloudinaryDisplayUrl(container.dataset.url, { width: INTERNAL_FETCH_WIDTH, quality: INTERNAL_FETCH_QUALITY, format: INTERNAL_FETCH_FORMAT });
           tile.appendChild(img);
         }
         tile.style.top = `${top}px`;
@@ -6685,11 +6685,64 @@ contributorsModal.addEventListener("click", (e) => {
     // Cloudinary stores the file in its original format (e.g. HEIC from iPhones),
     // which most browsers can't render in an <img> tag. Insert an f_auto,q_auto
     // transformation so Cloudinary serves a browser-compatible format instead.
-    function cloudinaryDisplayUrl(url, { width, quality } = {}) {
+    // `format` overrides f_auto with one fixed format - for a transform nobody
+    // ever actually looks at (see INTERNAL_FETCH_* below), f_auto's per-browser
+    // format negotiation just multiplies how many separate derivatives
+    // Cloudinary generates and stores for the same crop, with no one around to
+    // benefit from the smaller file size.
+    function cloudinaryDisplayUrl(url, { width, quality, format } = {}) {
       if (typeof url !== 'string' || !url.includes('/upload/')) return url;
       const q = quality ? `q_${quality}` : 'q_auto';
-      const transform = width ? `f_auto,${q},c_limit,w_${width}` : `f_auto,${q}`;
+      const f = format ? `f_${format}` : 'f_auto';
+      const transform = width ? `${f},${q},c_limit,w_${width}` : `${f},${q}`;
       return url.replace('/upload/', `/upload/${transform}/`);
+    }
+
+    // Shared by every Cloudinary fetch that's purely internal/algorithmic -
+    // dominant-color detection, tag-suggestion embeddings, and the sidebar
+    // frost-strip reflection (see detectDominantColorTagFromUrl(),
+    // computeImageEmbeddingFromUrl(), and buildSidebarFrostStrip() below) -
+    // nothing here is ever actually looked at by a visitor, unlike the
+    // w_1200/w_1920 sizes real people see. Before this, those three call
+    // sites each built their own transform (color detection and embeddings
+    // already happened to agree on w_200/q_90, but the frost strip used a
+    // separate w_200/q_50, and all three left f_auto's format negotiation on)
+    // - meaning up to several separately-stored, separately-billed Cloudinary
+    // derivatives for what's functionally the same 200px crop of the same
+    // image. One fixed width/quality/format shared by all three collapses
+    // that to a single cached derivative per image. q_90 (not the frost
+    // strip's old, cheaper q_50) is the one kept - color detection's own
+    // history above documents why it specifically needs q_90's higher
+    // fidelity, and at 200px wide the extra bytes q_90 costs the frost strip
+    // are trivial next to no longer generating (and paying transformation
+    // credits for) a second derivative at all.
+    const INTERNAL_FETCH_WIDTH = 200;
+    const INTERNAL_FETCH_QUALITY = 90;
+    const INTERNAL_FETCH_FORMAT = 'jpg';
+
+    // Gallery-grid thumbnail width, bucketed to the current size-selector
+    // tier (--row-height, see the .size-icon click handler below) instead of
+    // one flat width for every tier (2026-09-06). At the default M tier
+    // (240px row height) a typical thumbnail displays around 360px wide
+    // (~720px at 2x retina) - requesting a flat 1200px for every tier meant
+    // the common case was fetching well over 2x more pixels than could ever
+    // be shown, real wasted bandwidth on every gallery load. Kept to 3
+    // buckets rather than one per tier so this doesn't multiply how many
+    // distinct thumbnail derivatives Cloudinary has to generate/store - the
+    // two larger tiers (L/XL) keep the original 1200 unchanged, since a wide
+    // panoramic thumbnail at those tiers can genuinely need that many pixels
+    // and there's no visitor-facing win worth risking a softer image for.
+    const THUMBNAIL_WIDTH_BUCKETS = [
+      { maxRowHeight: 180, width: 500 },  // XS/S
+      { maxRowHeight: 240, width: 800 },  // M (default)
+      { maxRowHeight: Infinity, width: 1200 }, // L/XL - unchanged
+    ];
+    function thumbnailFetchWidth(rowHeight) {
+      const bucket = THUMBNAIL_WIDTH_BUCKETS.find(b => rowHeight <= b.maxRowHeight);
+      return bucket ? bucket.width : 1200;
+    }
+    function currentRowHeight() {
+      return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--row-height")) || 240;
     }
 
     // Decode a browser-natively-supported image blob (JPEG/PNG/WebP/...) onto
@@ -7103,7 +7156,7 @@ contributorsModal.addEventListener("click", (e) => {
         await new Promise((resolve, reject) => {
           img.onload = resolve;
           img.onerror = reject;
-          img.src = cloudinaryDisplayUrl(url, { width: 200, quality: 90 });
+          img.src = cloudinaryDisplayUrl(url, { width: INTERNAL_FETCH_WIDTH, quality: INTERNAL_FETCH_QUALITY, format: INTERNAL_FETCH_FORMAT });
         });
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
@@ -7265,7 +7318,7 @@ contributorsModal.addEventListener("click", (e) => {
         await new Promise((resolve, reject) => {
           img.onload = resolve;
           img.onerror = reject;
-          img.src = cloudinaryDisplayUrl(url, { width: 200, quality: 90 });
+          img.src = cloudinaryDisplayUrl(url, { width: INTERNAL_FETCH_WIDTH, quality: INTERNAL_FETCH_QUALITY, format: INTERNAL_FETCH_FORMAT });
         });
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
@@ -7797,9 +7850,10 @@ contributorsModal.addEventListener("click", (e) => {
       // is preferable to janky scrolling.
       img.loading = "lazy";
       img.decoding = "async";
-      // Capped well above the largest thumbnail size (950px) for retina screens,
-      // but still far smaller than a multi-MB original - keeps the gallery snappy.
-      img.src = cloudinaryDisplayUrl(url, { width: 1200 });
+      // Bucketed to the size tier active right now (see thumbnailFetchWidth()
+      // above) rather than one flat width for every tier - still far smaller
+      // than a multi-MB original either way, keeps the gallery snappy.
+      img.src = cloudinaryDisplayUrl(url, { width: thumbnailFetchWidth(currentRowHeight()) });
       img.alt = filename;
       // Exact filename shown as a hover tooltip, admin-only (2026-08-02,
       // explicit request, "for debug") - stashed on the dataset regardless
@@ -8208,6 +8262,27 @@ downloadLink.addEventListener("click", function(e) {
     /********************************************************
      * Delete Image Functions
      ********************************************************/
+    // Best-effort cleanup of the actual Cloudinary asset behind an image
+    // that's no longer referenced from anywhere (a deleted gallery image, or
+    // a Review Submissions image nobody chose to keep) - see
+    // netlify/functions/deleteImage.js's own header comment for why this
+    // needs its own server-side auth check rather than just calling
+    // Cloudinary directly. Fire-and-forget, same shape as
+    // sendSubmissionEmailNotification() above: the Firestore write is what
+    // has to succeed for the actual delete/dismiss to count, this is only
+    // cleanup on top of it, so a failure here is just logged, never
+    // surfaced to the admin or allowed to undo the Firestore side.
+    function cleanupCloudinaryAsset(url) {
+      if (!auth.currentUser || !url) return;
+      auth.currentUser.getIdToken()
+        .then(idToken => fetch('/.netlify/functions/deleteImage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken, url }),
+        }))
+        .catch(err => console.warn(`Could not clean up Cloudinary asset for ${url}:`, err));
+    }
+
     // Same click-and-drag multi-select behavior as the upload wizard's pool
     // grid (see wireSelectPoolTile()/poolDragState) - "same click hold drag
     // behaviour to select images in any admin mode" (2026-08-01), extended
@@ -8334,6 +8409,7 @@ downloadLink.addEventListener("click", function(e) {
             await db.collection('images').doc(imageId).delete();
             imageEmbeddingsById.delete(imageId);
             imageContainersByDocId.delete(imageId);
+            cleanupCloudinaryAsset(container.dataset.url);
             container.remove();
             return true;
           }
@@ -8779,21 +8855,23 @@ downloadLink.addEventListener("click", function(e) {
         const thumb = document.createElement("div");
         thumb.className = "enlarge-similar-thumb";
         const thumbImg = document.createElement("img");
-        // Reuse the gallery grid's own thumbnail URL (width: 1200, same as
-        // addImageToGallery()) instead of requesting a fresh width: 200
-        // transform. Two wins: (1) 1200px is one of upload.js's pre-generated
-        // `eager` sizes, unlike 200px, which Cloudinary has to transform on
-        // the fly the first time anyone requests it - a cold-cache delay on
-        // top of the network round trip; (2) since it's the exact same URL
-        // the grid thumbnail already used, the browser's HTTP cache almost
-        // always already has it from when that image rendered in the main
-        // gallery, so this often costs nothing at all. Falls back to
-        // building the width:1200 URL directly if the other container's own
-        // <img> isn't there for some reason. Also dropped loading="lazy" -
-        // these 9 thumbnails are always already on-screen the instant the
-        // panel shows, so lazy-loading only adds an intersection-check
-        // delay with no scroll-deferral benefit to gain from it.
-        thumbImg.src = sourceImg ? sourceImg.src : cloudinaryDisplayUrl(otherContainer.dataset.url, { width: 1200 });
+        // Reuse the gallery grid's own thumbnail URL (same bucketed width
+        // addImageToGallery() already requested for it - see
+        // thumbnailFetchWidth()) instead of requesting a fresh width: 200
+        // transform. Since it's the exact same URL the grid thumbnail
+        // already used, the browser's HTTP cache almost always already has
+        // it from when that image rendered in the main gallery, so this
+        // often costs nothing at all. Falls back to building that same
+        // bucketed-width URL directly if the other container's own <img>
+        // isn't there for some reason - kept in sync with the grid's own
+        // current tier rather than assuming a fixed width, so the fallback
+        // never drifts onto a different (separately-billed) derivative than
+        // the one the grid itself is actually using right now. Also dropped
+        // loading="lazy" - these 9 thumbnails are always already on-screen
+        // the instant the panel shows, so lazy-loading only adds an
+        // intersection-check delay with no scroll-deferral benefit to gain
+        // from it.
+        thumbImg.src = sourceImg ? sourceImg.src : cloudinaryDisplayUrl(otherContainer.dataset.url, { width: thumbnailFetchWidth(currentRowHeight()) });
         thumbImg.alt = sourceImg ? sourceImg.alt : "";
         thumbImg.decoding = "async";
         thumb.appendChild(thumbImg);
@@ -9404,6 +9482,7 @@ async function enlargeDeleteCurrentImage() {
     const imageId = await getImageDocId(container);
     if (imageId) {
       await db.collection('images').doc(imageId).delete();
+      cleanupCloudinaryAsset(container.dataset.url);
       container.remove();
       updateFolderCounts();
       renderColorFilterDots();
@@ -10406,6 +10485,13 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
         row.appendChild(note);
       }
 
+      // Tracks which of this submission's images actually made it into the
+      // gallery via "Add" below - Dismiss (below) needs this to know which
+      // ones it's safe to also clean up on Cloudinary, since an image that
+      // was added is now a real gallery image and must NOT be deleted just
+      // because the submission itself is being dismissed.
+      const addedImageUrls = new Set();
+
       if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0) {
         const imagesWrap = document.createElement("div");
         imagesWrap.className = "submission-images";
@@ -10495,6 +10581,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
               }
               updateFolderCounts();
               renderColorFilterDots();
+              addedImageUrls.add(url);
               addBtn.textContent = cfg("reviewSubmissions.addedButton", "Added");
               folderSelectEl.disabled = true;
               tagInputEl.disabled = true;
@@ -10521,6 +10608,17 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
         if (!confirm(cfg("reviewSubmissions.confirmDismissMessage", "Dismiss this submission? This can't be undone."))) return;
         try {
           await db.collection("submissions").doc(id).delete();
+          // Any submitted image that was never "Add"ed to the gallery has
+          // nothing in Firestore pointing at it any more the moment this
+          // submission's own doc is gone - clean those up on Cloudinary too,
+          // same as deleting a gallery image does. Images that WERE added
+          // are real gallery images now (addedImageUrls) and must be left
+          // alone here regardless of what happens to the submission doc.
+          if (Array.isArray(data.imageUrls)) {
+            data.imageUrls
+              .filter(url => !addedImageUrls.has(url))
+              .forEach(cleanupCloudinaryAsset);
+          }
           row.remove();
         } catch (error) {
           console.error("Error dismissing submission:", error);
@@ -11001,6 +11099,22 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
         icon.classList.add("selected");
         const newSize = icon.getAttribute("data-size");
         document.documentElement.style.setProperty("--row-height", newSize + "px");
+        // Thumbnails were requested at a Cloudinary width bucketed to
+        // whichever tier was active when each one was created (see
+        // thumbnailFetchWidth() above) - switching tiers mid-session has to
+        // re-point already-rendered thumbnails at the new bucket too, or
+        // jumping to a bigger tier just upscales the smaller image already
+        // sitting in the DOM instead of fetching a sharper one. Harmless for
+        // images still deferred behind loading="lazy": changing src before a
+        // lazy image has ever started fetching just repoints what it'll
+        // eventually load, it doesn't force an early fetch.
+        const newWidth = thumbnailFetchWidth(parseFloat(newSize));
+        document.querySelectorAll(".image-container").forEach(container => {
+          const thumbImg = container.querySelector("img");
+          if (thumbImg && container.dataset.url) {
+            thumbImg.src = cloudinaryDisplayUrl(container.dataset.url, { width: newWidth });
+          }
+        });
         layoutGallery();
       });
     });
