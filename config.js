@@ -34,10 +34,6 @@ window.SITE_CONFIG = {
     submitButton: "Submit",
     contributorsButton: "Contributors",
     mobileSubmitButton: "Submit a Reference",
-    // The Ko-fi button itself is Ko-fi's own official widget (its "Support
-    // me" label comes from the kofiwidget2.init() call in index.html, not
-    // from here) - this only labels its mobile-drawer link equivalent.
-    mobileKofiButton: "Support me on Ko-fi",
   },
 
   // --------------------------------------------------------------------
@@ -96,6 +92,13 @@ window.SITE_CONFIG = {
     successMessage: "Thanks! Your submission was received.",
     // Shown if neither a link nor an image was provided.
     missingContentMessage: "Please add a link or at least one image.",
+    // Rights/license consent checkbox (2026-09-06) - required before Send
+    // works at all. The exact text here is stored on the submission's
+    // Firestore doc alongside consentGiven, so editing this later doesn't
+    // change what past submitters are on record as having agreed to.
+    consentLabel: "I confirm I own these images/this content, or have the right to share them, and I grant this site a free, worldwide license to use them - and let others use them - for any purpose, including commercial, without attribution.",
+    // Shown if Send is clicked without checking the consent box above.
+    missingConsentMessage: "Please confirm you have the rights to share this content.",
     // Shown if something goes wrong - {error} is replaced with the actual
     // error detail.
     errorMessageTemplate: "Something went wrong: {error}",
