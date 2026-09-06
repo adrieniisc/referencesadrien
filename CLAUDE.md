@@ -2551,6 +2551,65 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   against the real account** - same standing sandbox caveat as everything else in this file. If this
   is revisited, checking the Cloudinary console's Transformations count a few weeks after deploy is
   the way to confirm it actually worked, not re-reasoning from the code alone.
+- **Second Cloudinary cost-cutting pass, after a real deactivation notice (2026-09-06)** — the
+  account was actually deactivated by Cloudinary over the 108%/114% overage (see the entry above),
+  then reactivated (owner upgraded/resolved it directly with Cloudinary - not something done from a
+  coding session). Asked to "optimize a maximum" so this doesn't recur, on top of the internal-fetch
+  consolidation already landed. Two changes, both aimed at *future* credit accrual (unlike the entry
+  above, which mostly targeted the accumulated derivative-count backlog):
+  - **Gallery-grid thumbnails now request a Cloudinary width bucketed to the active size-selector
+    tier, instead of one flat `w_1200` for every tier** (`thumbnailFetchWidth()`/
+    `THUMBNAIL_WIDTH_BUCKETS`, next to `cloudinaryDisplayUrl()`). At the default "M" tier (240px row
+    height) a typical thumbnail displays around 360px wide (~720px at 2x retina) - a flat 1200px
+    request for every tier meant the common case fetched well over 2x more pixels than could ever
+    be shown, real bandwidth waste on every gallery load by every visitor, not just admin testing.
+    Kept to 3 buckets (500 for XS/S, 800 for M, 1200 unchanged for L/XL) rather than one per tier so
+    this doesn't multiply how many distinct thumbnail derivatives Cloudinary has to generate/store -
+    trading precision for keeping the "few distinct transform variants" principle from the entry
+    above intact. The two larger tiers keep the original 1200 untouched deliberately - a wide
+    panoramic thumbnail at those tiers can genuinely need that many pixels, and there's no
+    bandwidth win worth risking a visibly softer image for. Switching tiers mid-session
+    (`.size-icon` click handler) now also re-points every already-rendered thumbnail's `src` at the
+    new bucket, not just newly-created ones - without this, jumping to a bigger tier would just
+    upscale whatever smaller image was already sitting in the DOM instead of fetching a sharper one.
+    Confirmed safe for images still deferred behind `loading="lazy"`: changing `src` before a lazy
+    image has ever started fetching just repoints what it'll eventually load, verified directly (not
+    assumed) via a Playwright pass against the real, unmodified `index.html` (a stubbed Firestore/
+    Auth harness per this file's Testing section, two fake images) - thumbnails came back at exactly
+    width 800 at the default tier, 1200 after clicking L, 500 after clicking XS, and back to 800
+    after returning to M, with zero console errors from app code. The similar-images panel's
+    fallback thumbnail URL (used when the source container's own `<img>` isn't available) was
+    updated to match the same bucketed width instead of its own hardcoded 1200, so it can't drift
+    onto a different, separately-billed derivative than whatever the grid itself is actually using.
+  - **`upload.js`'s eager pregeneration dropped from `w_1200`+`w_1920` to just `w_800`** (matching
+    the new default-tier bucket above - keep these two in sync if the default tier ever changes).
+    A transformation credit is spent the first time a derivative is generated whether that happens
+    eagerly at upload time or on-demand the first time it's actually requested - eager only
+    guarantees that spend happens for *every* upload regardless of whether the resulting derivative
+    is ever actually requested by anyone. `w_1200`/`w_1920` are now only requested when a visitor
+    deliberately switches to the L/XL size tier or opens a lightbox, respectively - letting those
+    generate on-demand instead means the credit is only spent for images actually viewed that way,
+    at the cost of a slower (cold-transform) first load for that specific image/tier combination.
+    `w_800` stays eager because it's the one size close to a sure thing for every upload, being the
+    default tier's own thumbnail width.
+  - **Deliberately not done this pass, flagged instead of silently implemented**: deleting a gallery
+    image (Delete Images mode, or the lightbox admin quick-delete) only ever removes the Firestore
+    doc - the actual Cloudinary asset (original + its eager derivative) is never cleaned up, so
+    Storage only ever grows from image churn, never shrinks. Fixing this for real needs a new
+    authenticated Netlify function (Cloudinary's destroy API requires the signed API secret, so it
+    can't be called client-side) that verifies the caller is genuinely the signed-in admin before
+    deleting anything - otherwise it's a public delete-any-image-by-URL endpoint, since every image
+    URL is already visible in the page source to any visitor. That verification needs either a
+    Firebase service-account credential (Console-only, owner has to generate it - same category of
+    manual step as enabling Email/Password sign-in or pasting `firestore.rules` in, see "Admin
+    access" below) or hand-rolled Firebase ID-token JWT verification against Google's public keys -
+    security-sensitive code that could not be tested against the real project in this sandbox, so it
+    wasn't shipped speculatively. If revisited, the Cloudinary console's own "delete unused derived
+    resources" tool remains the lower-risk way to reclaim already-orphaned storage in the meantime.
+  Verified with `npm test` (unaffected) and a Node syntax check of the extracted inline `<script>`
+  block, plus the Playwright pass described above. Same standing sandbox caveat as every other entry
+  in this file: no live Cloudinary access here, so the actual credit-accrual-rate reduction hasn't
+  been measured against the real account.
 
 ## Environment variables (Netlify)
 

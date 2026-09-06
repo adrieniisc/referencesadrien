@@ -68,13 +68,25 @@ const handler = (event, context, callback) => {
       {
         resource_type: 'auto',
         public_id: uniqueFileName,
-        // Pre-generate (in the background) the same derived sizes the
-        // frontend requests for thumbnails and the lightbox, so they're
-        // already cached by the time someone actually views the image
-        // instead of being transformed on demand on first view.
+        // Pre-generate (in the background) just w_800 - the frontend's
+        // thumbnailFetchWidth() (index.html) requests w_800 for the default
+        // "M" gallery size tier, so this is the one size close to a sure
+        // thing to actually get requested for every upload. Keep this in
+        // sync with index.html's default tier if that ever changes.
+        // (2026-09-06: this used to eagerly pre-generate w_1200 and w_1920 -
+        // dropped after the account hit its Cloudinary credit cap. A
+        // transformation credit is spent the first time a derivative is
+        // generated whether that happens eagerly here or on-demand later;
+        // the only real difference eager makes is guaranteeing that spend
+        // happens for every single upload regardless of whether anyone ever
+        // actually requests that size. w_1200/w_1920 are only requested for
+        // a size tier a visitor has to deliberately switch to (L/XL) or a
+        // lightbox someone has to deliberately open - letting those generate
+        // on-demand instead means the credit is only ever spent for images
+        // that actually get viewed that way, at the cost of a slower first
+        // load - a cold Cloudinary transform - for that specific image.)
         eager: [
-          { width: 1200, crop: 'limit', fetch_format: 'auto', quality: 'auto' },
-          { width: 1920, crop: 'limit', fetch_format: 'auto', quality: 'auto' },
+          { width: 800, crop: 'limit', fetch_format: 'auto', quality: 'auto' },
         ],
         eager_async: true,
       },

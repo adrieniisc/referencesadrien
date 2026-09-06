@@ -6720,6 +6720,31 @@ contributorsModal.addEventListener("click", (e) => {
     const INTERNAL_FETCH_QUALITY = 90;
     const INTERNAL_FETCH_FORMAT = 'jpg';
 
+    // Gallery-grid thumbnail width, bucketed to the current size-selector
+    // tier (--row-height, see the .size-icon click handler below) instead of
+    // one flat width for every tier (2026-09-06). At the default M tier
+    // (240px row height) a typical thumbnail displays around 360px wide
+    // (~720px at 2x retina) - requesting a flat 1200px for every tier meant
+    // the common case was fetching well over 2x more pixels than could ever
+    // be shown, real wasted bandwidth on every gallery load. Kept to 3
+    // buckets rather than one per tier so this doesn't multiply how many
+    // distinct thumbnail derivatives Cloudinary has to generate/store - the
+    // two larger tiers (L/XL) keep the original 1200 unchanged, since a wide
+    // panoramic thumbnail at those tiers can genuinely need that many pixels
+    // and there's no visitor-facing win worth risking a softer image for.
+    const THUMBNAIL_WIDTH_BUCKETS = [
+      { maxRowHeight: 180, width: 500 },  // XS/S
+      { maxRowHeight: 240, width: 800 },  // M (default)
+      { maxRowHeight: Infinity, width: 1200 }, // L/XL - unchanged
+    ];
+    function thumbnailFetchWidth(rowHeight) {
+      const bucket = THUMBNAIL_WIDTH_BUCKETS.find(b => rowHeight <= b.maxRowHeight);
+      return bucket ? bucket.width : 1200;
+    }
+    function currentRowHeight() {
+      return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--row-height")) || 240;
+    }
+
     // Decode a browser-natively-supported image blob (JPEG/PNG/WebP/...) onto
     // a canvas. Throws if the browser can't decode it (e.g. HEIC).
     async function decodeToCanvas(blob) {
@@ -7825,9 +7850,10 @@ contributorsModal.addEventListener("click", (e) => {
       // is preferable to janky scrolling.
       img.loading = "lazy";
       img.decoding = "async";
-      // Capped well above the largest thumbnail size (950px) for retina screens,
-      // but still far smaller than a multi-MB original - keeps the gallery snappy.
-      img.src = cloudinaryDisplayUrl(url, { width: 1200 });
+      // Bucketed to the size tier active right now (see thumbnailFetchWidth()
+      // above) rather than one flat width for every tier - still far smaller
+      // than a multi-MB original either way, keeps the gallery snappy.
+      img.src = cloudinaryDisplayUrl(url, { width: thumbnailFetchWidth(currentRowHeight()) });
       img.alt = filename;
       // Exact filename shown as a hover tooltip, admin-only (2026-08-02,
       // explicit request, "for debug") - stashed on the dataset regardless
@@ -8807,21 +8833,23 @@ downloadLink.addEventListener("click", function(e) {
         const thumb = document.createElement("div");
         thumb.className = "enlarge-similar-thumb";
         const thumbImg = document.createElement("img");
-        // Reuse the gallery grid's own thumbnail URL (width: 1200, same as
-        // addImageToGallery()) instead of requesting a fresh width: 200
-        // transform. Two wins: (1) 1200px is one of upload.js's pre-generated
-        // `eager` sizes, unlike 200px, which Cloudinary has to transform on
-        // the fly the first time anyone requests it - a cold-cache delay on
-        // top of the network round trip; (2) since it's the exact same URL
-        // the grid thumbnail already used, the browser's HTTP cache almost
-        // always already has it from when that image rendered in the main
-        // gallery, so this often costs nothing at all. Falls back to
-        // building the width:1200 URL directly if the other container's own
-        // <img> isn't there for some reason. Also dropped loading="lazy" -
-        // these 9 thumbnails are always already on-screen the instant the
-        // panel shows, so lazy-loading only adds an intersection-check
-        // delay with no scroll-deferral benefit to gain from it.
-        thumbImg.src = sourceImg ? sourceImg.src : cloudinaryDisplayUrl(otherContainer.dataset.url, { width: 1200 });
+        // Reuse the gallery grid's own thumbnail URL (same bucketed width
+        // addImageToGallery() already requested for it - see
+        // thumbnailFetchWidth()) instead of requesting a fresh width: 200
+        // transform. Since it's the exact same URL the grid thumbnail
+        // already used, the browser's HTTP cache almost always already has
+        // it from when that image rendered in the main gallery, so this
+        // often costs nothing at all. Falls back to building that same
+        // bucketed-width URL directly if the other container's own <img>
+        // isn't there for some reason - kept in sync with the grid's own
+        // current tier rather than assuming a fixed width, so the fallback
+        // never drifts onto a different (separately-billed) derivative than
+        // the one the grid itself is actually using right now. Also dropped
+        // loading="lazy" - these 9 thumbnails are always already on-screen
+        // the instant the panel shows, so lazy-loading only adds an
+        // intersection-check delay with no scroll-deferral benefit to gain
+        // from it.
+        thumbImg.src = sourceImg ? sourceImg.src : cloudinaryDisplayUrl(otherContainer.dataset.url, { width: thumbnailFetchWidth(currentRowHeight()) });
         thumbImg.alt = sourceImg ? sourceImg.alt : "";
         thumbImg.decoding = "async";
         thumb.appendChild(thumbImg);
@@ -11029,6 +11057,22 @@ async function completeUpload(imageUrl, folderValue, combinedKeywords, fileName,
         icon.classList.add("selected");
         const newSize = icon.getAttribute("data-size");
         document.documentElement.style.setProperty("--row-height", newSize + "px");
+        // Thumbnails were requested at a Cloudinary width bucketed to
+        // whichever tier was active when each one was created (see
+        // thumbnailFetchWidth() above) - switching tiers mid-session has to
+        // re-point already-rendered thumbnails at the new bucket too, or
+        // jumping to a bigger tier just upscales the smaller image already
+        // sitting in the DOM instead of fetching a sharper one. Harmless for
+        // images still deferred behind loading="lazy": changing src before a
+        // lazy image has ever started fetching just repoints what it'll
+        // eventually load, it doesn't force an early fetch.
+        const newWidth = thumbnailFetchWidth(parseFloat(newSize));
+        document.querySelectorAll(".image-container").forEach(container => {
+          const thumbImg = container.querySelector("img");
+          if (thumbImg && container.dataset.url) {
+            thumbImg.src = cloudinaryDisplayUrl(container.dataset.url, { width: newWidth });
+          }
+        });
         layoutGallery();
       });
     });
