@@ -1043,28 +1043,44 @@
        attaches its own fixed-position button to the page (see the
        <script> tags near .sidebar-footer - its DOM location there is
        just for code organization, it has no effect on where the button
-       actually renders). Its real-world default corner is bottom-left,
-       which sits directly on top of the sidebar's own "Admin Log In" /
-       "Not for you" button - confirmed by report, not assumption, once
-       this was actually live. Ko-fi's public API for this widget has no
-       documented position option, so this overrides the widget's own
-       injected inline styles instead - `[id^="kofi-widget-overlay"]`
-       matches its real-world container id pattern (Ko-fi appends a
-       random suffix, e.g. "kofi-widget-overlay-1234", not a fixed one).
+       actually renders). Its default corner is bottom-left, which sits
+       directly on top of the sidebar's own "Admin Log In" / "Not for
+       you" button - confirmed by report, not assumption, once this was
+       actually live.
+       First attempt at this override targeted `[id^="kofi-widget-
+       overlay"]` (a guess from community reports, since there's no live
+       network access to storage.ko-fi.com in this sandboxed session to
+       inspect the real script) and it didn't work - real devtools
+       inspection (courtesy of the site owner, since this sandbox can't
+       reach Ko-fi's CDN to check itself) showed why: that id belongs to
+       an outer wrapper div with no position styling of its own. The
+       actual `position: fixed` element is `.floatingchat-container-wrap`
+       (a real, stable class name, not a randomly-suffixed one) - a
+       sibling of the actual button, which renders inside a same-origin
+       iframe Ko-fi injects (`.floatingchat-container`) that this
+       page's CSS can't reach into anyway, and doesn't need to - only the
+       iframe's own *wrapper* needs repositioning, not anything inside it.
+       `.floatingchat-container-wrap-mobi` is the same thing for Ko-fi's
+       own separate mobile layout.
        Pushed clear of the sidebar entirely, past --sidebar-width (so it
        tracks the sidebar's own responsive width automatically instead of
        a hardcoded pixel value that could drift out of sync) rather than
        moved to the opposite corner - bottom-right is already
        .floating-controls-row's spot (the color/size filter panels), so
        moving it there would just trade one overlap for another.
-       Untested against Ko-fi's real widget in this sandboxed session (no
-       live network to storage.ko-fi.com here) - if this doesn't fully
-       clear the overlap once deployed (e.g. Ko-fi's own container id/
-       class scheme changes), check the real rendered id via browser
-       devtools next, don't re-guess the selector blind. */
-    [id^="kofi-widget-overlay"] {
+       `position: fixed !important` is set explicitly too, in case a
+       future Ko-fi update changes how it's positioned (`absolute`
+       against a different ancestor, say) - forcing `fixed` here removes
+       that ambiguity regardless. Confirmed via real devtools inspection
+       of the live site that this class name is correct - if the overlap
+       returns (e.g. Ko-fi renames this class in a future update), that
+       needs a fresh devtools inspection, not another guess. */
+    .floatingchat-container-wrap,
+    .floatingchat-container-wrap-mobi {
+      position: fixed !important;
       left: calc(var(--sidebar-width) + 16px) !important;
       right: auto !important;
+      top: auto !important;
       bottom: 20px !important;
     }
 
