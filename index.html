@@ -1093,6 +1093,24 @@
       bottom: 90px !important;
     }
 
+    /* Donate/chat popup panel default (2026-09-06) - a fallback for the
+       brief window before positionKofiWidget() (see the script) has run
+       even once; that function takes over immediately once it does,
+       stacking this directly above the button wherever it actually ends
+       up. Without this, Ko-fi's own default popup position is tied to
+       the *viewport*, not to the button above's own real position - see
+       positionKofiWidget()'s own comment for the full story (reported,
+       with a screenshot, as the popup opening underneath/behind the
+       button instead of above it once the button moved). */
+    .floating-chat-kofi-popup-iframe,
+    .floating-chat-kofi-popup-iframe-mobi {
+      position: fixed !important;
+      left: 16px !important;
+      right: auto !important;
+      top: auto !important;
+      bottom: 146px !important;
+    }
+
     .floating-controls-row {
       position: fixed;
       bottom: 18px;
@@ -1360,6 +1378,28 @@
       margin-top: 0.3rem;
       background-color: var(--bg-sunken);
       color: var(--text);
+    }
+    /* Submit form consent checkbox (2026-09-06) - overrides the generic
+       ".modal-content input" block above (width:100%, stacked margins),
+       which is meant for text/url/select fields and would otherwise
+       stretch a checkbox into a full-width bar and misalign it from its
+       own label text. */
+    .consent-checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin: 0.6rem 0 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .consent-checkbox-label input[type="checkbox"] {
+      width: auto;
+      flex-shrink: 0;
+      margin: 0.15rem 0 0;
+      accent-color: var(--accent);
+      cursor: pointer;
     }
     .modal-content button {
       background-color: var(--accent);
@@ -3779,6 +3819,16 @@
       <div id="submitReferenceFileHint" class="modal-hint">No files selected</div>
       <div id="submitReferenceFilePreview" class="file-preview-list"></div>
 
+      <!-- Rights/license consent checkbox (2026-09-06, explicit request) -
+           required before Send is allowed to do anything (see
+           submitReference()'s own check), and the exact text shown here is
+           stored on the submission doc alongside consentGiven, not just a
+           boolean - see that write's own comment for why. -->
+      <label class="consent-checkbox-label" for="submitReferenceConsent">
+        <input type="checkbox" id="submitReferenceConsent">
+        <span id="submitReferenceConsentText">I confirm I own these images/this content, or have the right to share them, and I grant this site a free, worldwide license to use them - and let others use them - for any purpose, including commercial, without attribution.</span>
+      </label>
+
       <div id="submitReferenceStatus" class="modal-hint" style="display:none;"></div>
 
       <div style="margin-top:0.8rem;">
@@ -4414,6 +4464,7 @@
       setPlaceholder("submitReferenceLink", cfg("submitReference.linkPlaceholder", "https://drive.google.com/..."));
       setLabelFor("submitReferenceFiles", cfg("submitReference.imagesLabel", "Images (optional):"));
       setText("submitReferenceFileHint", cfg("submitReference.noFilesSelectedText", "No files selected"));
+      setText("submitReferenceConsentText", cfg("submitReference.consentLabel", document.getElementById("submitReferenceConsentText")?.textContent || ""));
       setText("confirmSubmitReferenceBtn", cfg("submitReference.sendButton", "Send"));
 
       // Generic buttons reused across several modals/bars
@@ -6608,6 +6659,7 @@ contributorsModal.addEventListener("click", (e) => {
     const submitReferenceFileHint = document.getElementById("submitReferenceFileHint");
     const submitReferenceFilePreview = document.getElementById("submitReferenceFilePreview");
     const submitReferenceStatus = document.getElementById("submitReferenceStatus");
+    const submitReferenceConsent = document.getElementById("submitReferenceConsent");
     const confirmSubmitReferenceBtn = document.getElementById("confirmSubmitReferenceBtn");
 
     submitReferenceBtn.addEventListener("click", () => {
@@ -6685,6 +6737,7 @@ contributorsModal.addEventListener("click", (e) => {
       submitReferenceFileHint.textContent = "No files selected";
       submitReferenceStatus.style.display = "none";
       submitReferenceStatus.textContent = "";
+      submitReferenceConsent.checked = false;
     }
 
     // Best-effort email heads-up via FormSubmit's AJAX relay - no backend of
@@ -6724,6 +6777,18 @@ contributorsModal.addEventListener("click", (e) => {
         return;
       }
 
+      // Rights/license consent (2026-09-06, explicit request) - required
+      // before anything is sent, not just a suggestion the submitter can
+      // skip past. The exact text they agreed to is stored on the
+      // Firestore doc below (not just a boolean) specifically so it's
+      // still meaningful evidence even if this wording is edited later -
+      // a bare `consentGiven: true` on an old submission wouldn't say
+      // what it was actually agreeing to at the time.
+      if (!submitReferenceConsent.checked) {
+        showSubmitReferenceStatus(cfg("submitReference.missingConsentMessage", "Please confirm you have the rights to share this content."), true);
+        return;
+      }
+
       confirmSubmitReferenceBtn.disabled = true;
       showSubmitReferenceStatus(cfg("submitReference.sendingMessage", "Sending..."), false);
 
@@ -6746,7 +6811,9 @@ contributorsModal.addEventListener("click", (e) => {
           link: linkValue,
           imageUrls: imageUrls,
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          addTime: Date.now()
+          addTime: Date.now(),
+          consentGiven: true,
+          consentText: document.getElementById("submitReferenceConsentText").textContent
         });
         sendSubmissionEmailNotification({ link: linkValue, imageUrls })
           .catch(error => console.warn('Submission saved, but the email notification failed to send:', error));
@@ -9038,7 +9105,7 @@ downloadLink.addEventListener("click", function(e) {
   // comment for the full story of finding these real, stable class names
   // via devtools (not guessed).
   //
-  // positionKofiWidget() pins the widget in the sidebar's own empty gap,
+  // positionKofiWidget() pins the button in the sidebar's own empty gap,
   // above .sidebar-footer's own top border (the "thin separator line"
   // above the "Not for you" button - not the button itself, which sits
   // another ~19px further down once .sidebar-footer's padding-top and
@@ -9052,21 +9119,52 @@ downloadLink.addEventListener("click", function(e) {
   // "Not for you"'s own width:100% span) using the widget's own actual
   // rendered width, not a fixed left inset - first attempt used a flat
   // `left: 16px`, which only looked centered by coincidence for one
-  // particular rendered widget width. Re-run on resize (viewport height,
-  // or the mobile drawer opening/closing, both change where this and
-  // "Not for you" actually render).
+  // particular rendered widget width.
+  //
+  // It also repositions the donate/chat popup panel
+  // (.floating-chat-kofi-popup-iframe(-mobi)) to sit directly above the
+  // button - by default Ko-fi positions that popup relative to the
+  // *viewport*, not to the button's actual current position, so once the
+  // button moved (above) the popup was left behind at its old default
+  // spot, appearing to open underneath/behind the relocated button
+  // instead of above it (reported, with a screenshot of Ko-fi's own
+  // default "popup sits above the button" look for comparison). That
+  // reference screenshot shows the popup sharing the *same* left edge as
+  // the button, not centered on it - which also happens to be the only
+  // sane choice here anyway, since the popup (328px, confirmed via
+  // devtools) is wider than this sidebar - centering it on the button
+  // would push it left of the viewport's own edge. So this just reuses
+  // the button's own already-computed `left`, not a separate calculation.
+  //
+  // Re-run on resize (viewport height, or the mobile drawer opening/
+  // closing, both change where this and "Not for you" actually render).
   function positionKofiWidget() {
     const sidebarFooter = document.querySelector(".sidebar-footer");
     const wraps = document.querySelectorAll(".floatingchat-container-wrap, .floatingchat-container-wrap-mobi");
+    const popups = document.querySelectorAll(".floating-chat-kofi-popup-iframe, .floating-chat-kofi-popup-iframe-mobi");
     if (!sidebarFooter || wraps.length === 0) return;
     const footerRect = sidebarFooter.getBoundingClientRect();
     const gapAboveSeparator = 16;
     const bottomOffset = Math.round(window.innerHeight - footerRect.top + gapAboveSeparator);
+    let wrapLeft = null;
+    let wrapHeight = 0;
     wraps.forEach((el) => {
-      const wrapWidth = el.getBoundingClientRect().width || el.offsetWidth;
-      const left = Math.round(footerRect.left + (footerRect.width - wrapWidth) / 2);
+      const wrapRect = el.getBoundingClientRect();
+      const wrapWidth = wrapRect.width || el.offsetWidth;
+      const left = Math.max(Math.round(footerRect.left + (footerRect.width - wrapWidth) / 2), 0);
       el.style.setProperty("bottom", `${bottomOffset}px`, "important");
-      el.style.setProperty("left", `${Math.max(left, 0)}px`, "important");
+      el.style.setProperty("left", `${left}px`, "important");
+      wrapLeft = left;
+      wrapHeight = Math.max(wrapHeight, wrapRect.height || el.offsetHeight);
+    });
+    if (wrapLeft === null || popups.length === 0) return;
+    const gapAboveButton = 10;
+    const popupBottom = Math.round(bottomOffset + wrapHeight + gapAboveButton);
+    popups.forEach((popupEl) => {
+      popupEl.style.setProperty("bottom", `${popupBottom}px`, "important");
+      popupEl.style.setProperty("left", `${wrapLeft}px`, "important");
+      popupEl.style.setProperty("right", "auto", "important");
+      popupEl.style.setProperty("top", "auto", "important");
     });
   }
   window.addEventListener("resize", positionKofiWidget);
@@ -9074,11 +9172,18 @@ downloadLink.addEventListener("click", function(e) {
   // script loads, sometime after this page's own script has already run -
   // polls briefly for it to actually exist instead of guessing a fixed
   // delay, then re-runs once more shortly after in case Ko-fi's own
-  // layout settles a frame later than that.
+  // layout settles a frame later than that. Once found, also watches the
+  // popup panel's own inline style for changes (open/close, or resizing
+  // between its "One time"/"Monthly" tabs) so positionKofiWidget() re-runs
+  // with its real rendered size the instant that happens, instead of only
+  // on the next resize.
   (function waitForKofiWidgetThenPosition(attemptsLeft) {
     if (document.querySelector(".floatingchat-container-wrap")) {
       positionKofiWidget();
       setTimeout(positionKofiWidget, 500);
+      const popupObserver = new MutationObserver(positionKofiWidget);
+      document.querySelectorAll(".floating-chat-kofi-popup-iframe, .floating-chat-kofi-popup-iframe-mobi")
+        .forEach((popupEl) => popupObserver.observe(popupEl, { attributes: true, attributeFilter: ["style"] }));
       return;
     }
     if (attemptsLeft <= 0) return;
