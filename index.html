@@ -1767,6 +1767,50 @@
     }
     .pool-tile-magnify:hover { background: rgba(0, 0, 0, 0.85); }
     .pool-tile-magnify svg { width: 13px; height: 13px; }
+    /* Duplicate-filename warning (upload wizard) - a banner above the pool
+       (#poolDuplicateWarningStep1/Step2, toggled by
+       updatePoolDuplicateWarningBanner() in the script) plus a small badge
+       on any tile whose filename collides with either another selected
+       file or an image already published on the site. Comparison is plain
+       filename-string matching only, per the explicit request ("simply
+       compare name") - not a content/hash check, so two different photos
+       that merely share a filename still flag as a duplicate here. */
+    .pool-duplicate-warning {
+      display: none;
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--danger);
+      border-radius: var(--radius-md);
+      background: var(--danger-soft);
+      color: var(--danger);
+      font-size: 0.82rem;
+      line-height: 1.45;
+      margin-bottom: 0.6rem;
+    }
+    /* Bottom-left corner - the one corner .pool-tile-remove (top-right on
+       .file-preview-item), .wizard-pool-tile-check (top-left on
+       .wizard-pool-tile) and .pool-tile-magnify (bottom-right on both)
+       don't already occupy, so this one class works unmodified on both
+       tile types, same reasoning as .pool-tile-magnify's own comment. */
+    .pool-tile-duplicate-badge {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 10px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 600;
+      line-height: 1;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      cursor: default;
+    }
+    .pool-tile-duplicate img { box-shadow: 0 0 0 2px var(--danger); }
     /* Full-size preview opened by .pool-tile-magnify above - a plain image
        overlay, not a real .modal-backdrop, since it needs to render on top
        of the already-open Add Image wizard (.modal-backdrop, z-index 1150)
@@ -4127,6 +4171,7 @@
             <input type="file" id="fileInput" accept="image/*" multiple>
           </label>
           <div id="fileInputHint" class="modal-hint">No images added yet</div>
+          <div id="poolDuplicateWarningStep1" class="pool-duplicate-warning" role="alert"></div>
           <div class="image-modal-preview-label">Images added</div>
           <div id="poolEmptyStep1" class="file-preview-empty">Nothing added yet - use the dropzone above.</div>
           <div id="poolPreviewList" class="file-preview-list"></div>
@@ -4139,6 +4184,7 @@
             <button type="button" id="poolClearSelectionBtn" class="wizard-nav-btn">Clear Selection</button>
           </div>
           <div class="modal-hint">Click an image, or click-and-drag across several, to select them - then pick a folder and tags below and hit Confirm. Repeat until every image is sorted.</div>
+          <div id="poolDuplicateWarningStep2" class="pool-duplicate-warning" role="alert"></div>
           <div id="selectPoolEmpty" class="wizard-pool-empty">Every added image has been sorted - continue to Step 3 to review the queue, or go back to Step 1 to add more.</div>
           <div id="selectPoolGrid" class="wizard-pool-grid"></div>
           <div class="wizard-pool-confirm-bar">
@@ -9941,6 +9987,75 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
     const poolSelectAllBtn = document.getElementById("poolSelectAllBtn");
     const poolClearSelectionBtn = document.getElementById("poolClearSelectionBtn");
     const poolConfirmBtn = document.getElementById("poolConfirmBtn");
+    const poolDuplicateWarningStep1 = document.getElementById("poolDuplicateWarningStep1");
+    const poolDuplicateWarningStep2 = document.getElementById("poolDuplicateWarningStep2");
+
+    // Duplicate-filename detection (explicit request: "warn and indicate if
+    // duplicate detected either in the file selected themselves or simply
+    // between the imported files and the ones in the website, simply
+    // compare name") - a plain, case-insensitive filename comparison, run
+    // fresh on every renderPoolViews() call since the pool/gallery can both
+    // change while this modal is open. Two independent checks per pool
+    // item: does another file in this same batch share its name, and does
+    // an already-published gallery image (img.dataset.filename, the exact
+    // original upload filename - see addImageToGallery()) share it.
+    function getExistingGalleryFilenamesLower() {
+      const names = new Set();
+      document.querySelectorAll(".image-container img[data-filename]").forEach(imgEl => {
+        if (imgEl.dataset.filename) names.add(imgEl.dataset.filename.toLowerCase());
+      });
+      return names;
+    }
+    function computePoolDuplicateStatus() {
+      const nameCounts = new Map();
+      uploadPool.forEach(item => {
+        const key = item.file.name.toLowerCase();
+        nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+      });
+      const existingNames = getExistingGalleryFilenamesLower();
+      const statusById = new Map();
+      let inSelectionCount = 0;
+      let onSiteCount = 0;
+      uploadPool.forEach(item => {
+        const key = item.file.name.toLowerCase();
+        const inSelection = nameCounts.get(key) > 1;
+        const onSite = existingNames.has(key);
+        if (inSelection) inSelectionCount++;
+        if (onSite) onSiteCount++;
+        statusById.set(item.id, { inSelection, onSite });
+      });
+      return { statusById, inSelectionCount, onSiteCount };
+    }
+    function updatePoolDuplicateWarningBanner(inSelectionCount, onSiteCount) {
+      const parts = [];
+      if (inSelectionCount > 0) {
+        parts.push(formatMessage(
+          cfg("modals.addImages.duplicateInSelectionWarningTemplate", "{count} {plural} the same filename as another image in this batch."),
+          { count: inSelectionCount, plural: inSelectionCount === 1 ? "image shares" : "images share" }
+        ));
+      }
+      if (onSiteCount > 0) {
+        parts.push(formatMessage(
+          cfg("modals.addImages.duplicateOnSiteWarningTemplate", "{count} {plural} the same filename as an image already in the gallery."),
+          { count: onSiteCount, plural: onSiteCount === 1 ? "image shares" : "images share" }
+        ));
+      }
+      const message = parts.length ? `⚠ ${parts.join(" ")}` : "";
+      [poolDuplicateWarningStep1, poolDuplicateWarningStep2].forEach(el => {
+        if (!el) return;
+        el.textContent = message;
+        el.style.display = message ? "block" : "none";
+      });
+    }
+    function duplicateBadgeTitle(dupInfo) {
+      if (!dupInfo) return "";
+      if (dupInfo.inSelection && dupInfo.onSite) {
+        return "Same filename as another image in this batch, and as an image already in the gallery";
+      }
+      if (dupInfo.inSelection) return "Same filename as another image in this batch";
+      if (dupInfo.onSite) return "Same filename as an image already in the gallery";
+      return "";
+    }
 
     // Full-size preview overlay for a pool tile's magnifier button
     // (2026-08-03) - always shows item.url (the original, full-resolution
@@ -10123,6 +10238,12 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
       poolEmptyStep1.style.display = uploadPool.length === 0 ? "block" : "none";
       fileInputHint.textContent = uploadPool.length === 0 ? "No images added yet"
         : (uploadPool.length === 1 ? "1 image added" : `${uploadPool.length} images added`);
+      // Duplicate-filename detection - recomputed on every render since
+      // either the pool or the live gallery can have changed since the
+      // last one (see computePoolDuplicateStatus() for what counts as a
+      // duplicate).
+      const { statusById: dupStatusById, inSelectionCount: dupInSelectionCount, onSiteCount: dupOnSiteCount } = computePoolDuplicateStatus();
+      updatePoolDuplicateWarningBanner(dupInSelectionCount, dupOnSiteCount);
       const nextPreviewTiles = new Map();
       const previewFragment = document.createDocumentFragment();
       uploadPool.forEach(item => {
@@ -10156,10 +10277,25 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
           magnifyBtn.title = "Enlarge";
           magnifyBtn.innerHTML = MAGNIFY_ICON_SVG;
           magnifyBtn.addEventListener("click", () => openPoolPreviewEnlarge(item.url));
+          const dupBadge = document.createElement("div");
+          dupBadge.className = "pool-tile-duplicate-badge";
+          dupBadge.textContent = "⚠";
           tile.appendChild(thumb);
           tile.appendChild(removeBtn);
           tile.appendChild(magnifyBtn);
+          tile.appendChild(dupBadge);
           tile.appendChild(label);
+        }
+        // Duplicate badge/outline recomputed unconditionally on every call
+        // (reused or brand-new tile), same as .selected below - the pool or
+        // the live gallery may have changed since the last render.
+        const dupInfo = dupStatusById.get(item.id);
+        const isDup = !!(dupInfo && (dupInfo.inSelection || dupInfo.onSite));
+        tile.classList.toggle("pool-tile-duplicate", isDup);
+        const dupBadgeEl = tile.querySelector(".pool-tile-duplicate-badge");
+        if (dupBadgeEl) {
+          dupBadgeEl.style.display = isDup ? "flex" : "none";
+          dupBadgeEl.title = duplicateBadgeTitle(dupInfo);
         }
         // appendChild on a node already in the document moves it (not a
         // clone), so a reused tile's <img> is never reloaded/redecoded -
@@ -10213,13 +10349,26 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
           // Same drag-select guard as removeBtn above.
           magnifyBtn.addEventListener("mousedown", (e) => e.stopPropagation());
           magnifyBtn.addEventListener("click", (e) => { e.stopPropagation(); openPoolPreviewEnlarge(item.url); });
+          const dupBadge = document.createElement("div");
+          dupBadge.className = "pool-tile-duplicate-badge";
+          dupBadge.textContent = "⚠";
           tile.appendChild(thumb);
           tile.appendChild(check);
           tile.appendChild(removeBtn);
           tile.appendChild(magnifyBtn);
+          tile.appendChild(dupBadge);
           wireSelectPoolTile(tile, item.id);
         }
         tile.classList.toggle("selected", poolSelection.has(item.id));
+        // Same duplicate badge/outline recompute as the step 1 tile above.
+        const dupInfo = dupStatusById.get(item.id);
+        const isDup = !!(dupInfo && (dupInfo.inSelection || dupInfo.onSite));
+        tile.classList.toggle("pool-tile-duplicate", isDup);
+        const dupBadgeEl = tile.querySelector(".pool-tile-duplicate-badge");
+        if (dupBadgeEl) {
+          dupBadgeEl.style.display = isDup ? "flex" : "none";
+          dupBadgeEl.title = duplicateBadgeTitle(dupInfo);
+        }
         nextGridTiles.set(item.id, tile);
         gridFragment.appendChild(tile);
       });
