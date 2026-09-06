@@ -1038,6 +1038,36 @@
        directly above the size panel (the original layout - see the
        color-filter comment below for why that changed).
     -------------------------------------------------- */
+
+    /* Ko-fi floating "Support me" widget (2026-09-06) - overlay-widget.js
+       attaches its own fixed-position button to the page (see the
+       <script> tags near .sidebar-footer - its DOM location there is
+       just for code organization, it has no effect on where the button
+       actually renders). Its real-world default corner is bottom-left,
+       which sits directly on top of the sidebar's own "Admin Log In" /
+       "Not for you" button - confirmed by report, not assumption, once
+       this was actually live. Ko-fi's public API for this widget has no
+       documented position option, so this overrides the widget's own
+       injected inline styles instead - `[id^="kofi-widget-overlay"]`
+       matches its real-world container id pattern (Ko-fi appends a
+       random suffix, e.g. "kofi-widget-overlay-1234", not a fixed one).
+       Pushed clear of the sidebar entirely, past --sidebar-width (so it
+       tracks the sidebar's own responsive width automatically instead of
+       a hardcoded pixel value that could drift out of sync) rather than
+       moved to the opposite corner - bottom-right is already
+       .floating-controls-row's spot (the color/size filter panels), so
+       moving it there would just trade one overlap for another.
+       Untested against Ko-fi's real widget in this sandboxed session (no
+       live network to storage.ko-fi.com here) - if this doesn't fully
+       clear the overlap once deployed (e.g. Ko-fi's own container id/
+       class scheme changes), check the real rendered id via browser
+       devtools next, don't re-guess the selector blind. */
+    [id^="kofi-widget-overlay"] {
+      left: calc(var(--sidebar-width) + 16px) !important;
+      right: auto !important;
+      bottom: 20px !important;
+    }
+
     .floating-controls-row {
       position: fixed;
       bottom: 18px;
