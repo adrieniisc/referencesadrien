@@ -34,6 +34,10 @@ window.SITE_CONFIG = {
     submitButton: "Submit",
     contributorsButton: "Contributors",
     mobileSubmitButton: "Submit a Reference",
+    // The Ko-fi button itself is Ko-fi's own official widget (its "Support
+    // me" label comes from the kofiwidget2.init() call in index.html, not
+    // from here) - this only labels its mobile-drawer link equivalent.
+    mobileKofiButton: "Support me on Ko-fi",
   },
 
   // --------------------------------------------------------------------
