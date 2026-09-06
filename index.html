@@ -1384,17 +1384,31 @@
        which is meant for text/url/select fields and would otherwise
        stretch a checkbox into a full-width bar and misalign it from its
        own label text. */
-    .consent-checkbox-label {
+    /* Scoped under .modal-content (2026-09-06) - a bare ".consent-checkbox-
+       label" (specificity 0,0,1,0) lost the font-size/font-weight/color
+       fight against the generic ".modal-content label" rule above
+       (0,0,1,1, a class + type selector - higher specificity wins
+       regardless of source order), which is why this was actually
+       rendering at that rule's 0.88rem/weight:500 instead of the values
+       below - reported as looking bold, and confirmed by comparing the
+       two rules' specificity rather than guessing. */
+    .modal-content .consent-checkbox-label {
       display: flex;
       align-items: flex-start;
       gap: 0.5rem;
       margin: 0.6rem 0 0.4rem;
-      font-size: 0.82rem;
+      /* ~1/3 of the 0.88rem it was actually rendering at (explicit
+         request: "3x smaller") - genuinely tiny; if this turns out too
+         small to actually read (a real risk for consent text), scale it
+         back up rather than reflexively trusting "smaller is what was
+         asked for" forever. */
+      font-size: 0.29rem;
       font-weight: 400;
       color: var(--text-muted);
+      opacity: 0.9;
       cursor: pointer;
     }
-    .consent-checkbox-label input[type="checkbox"] {
+    .modal-content .consent-checkbox-label input[type="checkbox"] {
       width: auto;
       flex-shrink: 0;
       margin: 0.15rem 0 0;
@@ -9154,8 +9168,21 @@ downloadLink.addEventListener("click", function(e) {
       const left = Math.max(Math.round(footerRect.left + (footerRect.width - wrapWidth) / 2), 0);
       el.style.setProperty("bottom", `${bottomOffset}px`, "important");
       el.style.setProperty("left", `${left}px`, "important");
-      wrapLeft = left;
-      wrapHeight = Math.max(wrapHeight, wrapRect.height || el.offsetHeight);
+      // Only a genuinely visible (non-zero-size) wrap should feed the
+      // popup's own positioning below - .floatingchat-container-wrap and
+      // -wrap-mobi both match this loop, but only one of the two is ever
+      // actually rendered at a given viewport width, and the invisible
+      // one measures 0x0. Unconditionally overwriting wrapLeft/wrapHeight
+      // on every iteration meant whichever one happened to run *last* in
+      // DOM order silently won regardless of visibility - on a desktop
+      // viewport that's the (invisible) -mobi variant, so the popup below
+      // was centering itself against a phantom 0-width element instead of
+      // the real button, landing to the right of it (reported as "the
+      // panel isn't aligned to the left with the button").
+      if (wrapWidth > 0) {
+        wrapLeft = left;
+        wrapHeight = Math.max(wrapHeight, wrapRect.height || el.offsetHeight);
+      }
     });
     if (wrapLeft === null || popups.length === 0) return;
     const gapAboveButton = 10;
