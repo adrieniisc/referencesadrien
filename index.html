@@ -3786,6 +3786,37 @@
           <button id="mobileContributorsBtn">Contributors</button>
           <button id="mobileAboutBtn">About</button>
         </div>
+        <!-- Ko-fi "Support me" widget (2026-09-06, explicit request,
+             replacing an earlier attempt that embedded Ko-fi's Widget_2.js
+             as a regular header button next to About - reverted in favor
+             of this one). This is Ko-fi's *other* official embed,
+             overlay-widget.js's `kofiWidgetOverlay.draw(...)`, which is a
+             fixed-position floating button Ko-fi's own script attaches to
+             the page - unlike Widget_2.js (which document.write()s its
+             button inline exactly where its <script> tags sit), where
+             these two <script> tags live in the DOM has no effect on where
+             the resulting button actually appears on screen. Placed here
+             (visitor-visible, not inside the admin-only controls below)
+             purely to keep it near this part of the sidebar's markup, not
+             because that positions it - Ko-fi's own default for
+             'floating-chat' is a fixed corner of the viewport (typically
+             bottom-right), and there's no documented config option in this
+             widget's public API to change that corner (only the button's
+             text/colors, both already set below). If a specific on-screen
+             position turns out to matter, that needs either a fresh look
+             at Ko-fi's own docs for a newer option, or overriding its
+             injected styles with custom CSS after confirming (via a real
+             browser - no live network to storage.ko-fi.com in this
+             sandboxed session) what selector it actually renders. -->
+        <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
+        <script>
+          kofiWidgetOverlay.draw('adrienisakovic', {
+            'type': 'floating-chat',
+            'floating-chat.donateButton.text': 'Support me',
+            'floating-chat.donateButton.background-color': '#ff5f5f',
+            'floating-chat.donateButton.text-color': '#fff'
+          });
+        </script>
         <!-- SIDEBAR FOOTER: Admin Editing Controls -->
         <div class="sidebar-footer">
           <!-- Review Submissions sits at the top, ahead of everything else,
