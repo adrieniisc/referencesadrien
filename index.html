@@ -1090,7 +1090,7 @@
       left: 16px !important;
       right: auto !important;
       top: auto !important;
-      bottom: 70px !important;
+      bottom: 90px !important;
     }
 
     .floating-controls-row {
@@ -9038,24 +9038,35 @@ downloadLink.addEventListener("click", function(e) {
   // comment for the full story of finding these real, stable class names
   // via devtools (not guessed).
   //
-  // positionKofiWidget() pins the widget just above the sidebar's own
-  // "Not for you" / admin button, in the gap above it - that gap's size
-  // depends on the viewport's height (the admin footer is pinned to the
-  // sidebar's own bottom edge via margin-top: auto, see .sidebar-footer),
-  // so this measures the button's actual rendered position instead of
-  // hardcoding a pixel guess that would drift the moment that layout
-  // changes. Re-run on resize (viewport height, or the mobile drawer
-  // opening/closing, both change where "Not for you" actually renders).
+  // positionKofiWidget() pins the widget in the sidebar's own empty gap,
+  // above .sidebar-footer's own top border (the "thin separator line"
+  // above the "Not for you" button - not the button itself, which sits
+  // another ~19px further down once .sidebar-footer's padding-top and
+  // .sidebar-admin-section's margin-top are accounted for; measuring the
+  // border directly avoids having to reason about that stack-up by hand).
+  // That gap's size depends on the viewport's height (.sidebar-footer is
+  // pinned to the sidebar's own bottom edge via margin-top: auto), so
+  // this measures the real rendered position instead of hardcoding a
+  // pixel guess that would drift the moment that layout changes.
+  // Horizontally centered against .sidebar-footer's own width (matching
+  // "Not for you"'s own width:100% span) using the widget's own actual
+  // rendered width, not a fixed left inset - first attempt used a flat
+  // `left: 16px`, which only looked centered by coincidence for one
+  // particular rendered widget width. Re-run on resize (viewport height,
+  // or the mobile drawer opening/closing, both change where this and
+  // "Not for you" actually render).
   function positionKofiWidget() {
-    const adminBtn = document.getElementById("adminaccessbtn");
+    const sidebarFooter = document.querySelector(".sidebar-footer");
     const wraps = document.querySelectorAll(".floatingchat-container-wrap, .floatingchat-container-wrap-mobi");
-    if (!adminBtn || wraps.length === 0) return;
-    const adminRect = adminBtn.getBoundingClientRect();
-    const gapAboveAdminBtn = 12;
-    const bottomOffset = Math.round(window.innerHeight - adminRect.top + gapAboveAdminBtn);
+    if (!sidebarFooter || wraps.length === 0) return;
+    const footerRect = sidebarFooter.getBoundingClientRect();
+    const gapAboveSeparator = 16;
+    const bottomOffset = Math.round(window.innerHeight - footerRect.top + gapAboveSeparator);
     wraps.forEach((el) => {
+      const wrapWidth = el.getBoundingClientRect().width || el.offsetWidth;
+      const left = Math.round(footerRect.left + (footerRect.width - wrapWidth) / 2);
       el.style.setProperty("bottom", `${bottomOffset}px`, "important");
-      el.style.setProperty("left", "16px", "important");
+      el.style.setProperty("left", `${Math.max(left, 0)}px`, "important");
     });
   }
   window.addEventListener("resize", positionKofiWidget);
