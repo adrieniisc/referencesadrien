@@ -1397,12 +1397,9 @@
       align-items: flex-start;
       gap: 0.5rem;
       margin: 0.6rem 0 0.4rem;
-      /* ~1/3 of the 0.88rem it was actually rendering at (explicit
-         request: "3x smaller") - genuinely tiny; if this turns out too
-         small to actually read (a real risk for consent text), scale it
-         back up rather than reflexively trusting "smaller is what was
-         asked for" forever. */
-      font-size: 0.29rem;
+      /* 0.29rem (~1/3 of the original 0.88rem) doubled per explicit
+         follow-up request, after landing too small to read. */
+      font-size: 0.58rem;
       font-weight: 400;
       color: var(--text-muted);
       opacity: 0.9;
