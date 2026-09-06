@@ -1062,12 +1062,21 @@
        iframe's own *wrapper* needs repositioning, not anything inside it.
        `.floatingchat-container-wrap-mobi` is the same thing for Ko-fi's
        own separate mobile layout.
-       Pushed clear of the sidebar entirely, past --sidebar-width (so it
-       tracks the sidebar's own responsive width automatically instead of
-       a hardcoded pixel value that could drift out of sync) rather than
-       moved to the opposite corner - bottom-right is already
-       .floating-controls-row's spot (the color/size filter panels), so
-       moving it there would just trade one overlap for another.
+       Second attempt pushed it clear of the sidebar entirely (past
+       --sidebar-width, into the gallery area) - explicit follow-up
+       request instead asked for it back *inside* the sidebar's own empty
+       space, directly above the "Not for you" button, not off to the
+       side of it. That gap is dynamic (`.sidebar-footer` is pinned to
+       the sidebar's own bottom edge via `margin-top: auto`, so the gap
+       above it shrinks/grows with viewport height and folder count) -
+       the values below are just a reasonable static default for before
+       any JS has run; `positionKofiWidget()` (see the script, near
+       enlargeImage()) measures the real "Not for you" button's rendered
+       position and sets the precise `bottom` inline (with `!important`,
+       which - same origin, higher specificity than any stylesheet rule
+       regardless of importance - always wins over these defaults once it
+       runs), re-measuring on resize so it stays correct as the sidebar's
+       own layout changes.
        `position: fixed !important` is set explicitly too, in case a
        future Ko-fi update changes how it's positioned (`absolute`
        against a different ancestor, say) - forcing `fixed` here removes
@@ -1078,10 +1087,10 @@
     .floatingchat-container-wrap,
     .floatingchat-container-wrap-mobi {
       position: fixed !important;
-      left: calc(var(--sidebar-width) + 16px) !important;
+      left: 16px !important;
       right: auto !important;
       top: auto !important;
-      bottom: 20px !important;
+      bottom: 70px !important;
     }
 
     .floating-controls-row {
@@ -9024,6 +9033,66 @@ downloadLink.addEventListener("click", function(e) {
     }
   }
 
+  // Ko-fi floating widget positioning + lightbox integration (2026-09-06,
+  // explicit requests) - see .floatingchat-container-wrap's own CSS
+  // comment for the full story of finding these real, stable class names
+  // via devtools (not guessed).
+  //
+  // positionKofiWidget() pins the widget just above the sidebar's own
+  // "Not for you" / admin button, in the gap above it - that gap's size
+  // depends on the viewport's height (the admin footer is pinned to the
+  // sidebar's own bottom edge via margin-top: auto, see .sidebar-footer),
+  // so this measures the button's actual rendered position instead of
+  // hardcoding a pixel guess that would drift the moment that layout
+  // changes. Re-run on resize (viewport height, or the mobile drawer
+  // opening/closing, both change where "Not for you" actually renders).
+  function positionKofiWidget() {
+    const adminBtn = document.getElementById("adminaccessbtn");
+    const wraps = document.querySelectorAll(".floatingchat-container-wrap, .floatingchat-container-wrap-mobi");
+    if (!adminBtn || wraps.length === 0) return;
+    const adminRect = adminBtn.getBoundingClientRect();
+    const gapAboveAdminBtn = 12;
+    const bottomOffset = Math.round(window.innerHeight - adminRect.top + gapAboveAdminBtn);
+    wraps.forEach((el) => {
+      el.style.setProperty("bottom", `${bottomOffset}px`, "important");
+      el.style.setProperty("left", "16px", "important");
+    });
+  }
+  window.addEventListener("resize", positionKofiWidget);
+  // Ko-fi's own script draws the widget asynchronously once its CDN
+  // script loads, sometime after this page's own script has already run -
+  // polls briefly for it to actually exist instead of guessing a fixed
+  // delay, then re-runs once more shortly after in case Ko-fi's own
+  // layout settles a frame later than that.
+  (function waitForKofiWidgetThenPosition(attemptsLeft) {
+    if (document.querySelector(".floatingchat-container-wrap")) {
+      positionKofiWidget();
+      setTimeout(positionKofiWidget, 500);
+      return;
+    }
+    if (attemptsLeft <= 0) return;
+    setTimeout(() => waitForKofiWidgetThenPosition(attemptsLeft - 1), 200);
+  })(25);
+
+  // Hides the widget's own button while the lightbox is open ("when
+  // opening an image, make the button disappear") and, if its donate/chat
+  // panel happens to be open at that moment, actually closes it rather
+  // than just hiding it - clicking Ko-fi's own close element
+  // (.floating-chat-kofi-popup-iframe-closer) so its internal open/closed
+  // state stays consistent, instead of guessing at an internal JS API
+  // Ko-fi doesn't publish one for. Restored (button shown again, popup
+  // left closed - there's no request to reopen it) when the lightbox
+  // closes.
+  function setKofiWidgetHiddenForLightbox(hidden) {
+    document.querySelectorAll(".floatingchat-container-wrap, .floatingchat-container-wrap-mobi")
+      .forEach((el) => { el.style.display = hidden ? "none" : ""; });
+    if (!hidden) return;
+    const popup = document.querySelector(".floating-chat-kofi-popup-iframe, .floating-chat-kofi-popup-iframe-mobi");
+    if (popup && popup.offsetWidth > 0 && popup.offsetHeight > 0) {
+      document.querySelector(".floating-chat-kofi-popup-iframe-closer")?.click();
+    }
+  }
+
   function enlargeImage(url, filename, keywords = "", container = null) {
   currentEnlargedContainer = container;
   const enlargeModal = document.getElementById("enlargeImageModal");
@@ -9331,6 +9400,7 @@ downloadLink.addEventListener("click", function(e) {
   enlargeModal.style.paddingTop = "0";
   enlargeModal.style.paddingBottom = "0";
   enlargeModal.style.display = "flex";
+  setKofiWidgetHiddenForLightbox(true);
 
   // Synonym tags (2026-08-01) are merged into the *displayed* tag list only
   // here - "visible in the list when maxed image but not in edit tags or
@@ -9503,6 +9573,7 @@ function closeEnlargeModal() {
   const adminBar = document.getElementById("enlargeAdminBar");
 
   enlargeModal.style.display = "none";
+  setKofiWidgetHiddenForLightbox(false);
   if (downloadBtn) {
     downloadBtn.style.display = "none";
   }
