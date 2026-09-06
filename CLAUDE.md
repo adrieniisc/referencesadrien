@@ -2678,6 +2678,35 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
     this project. **Test this for real after deploying** - sign in as the real admin, delete one
     throwaway image, and confirm it actually disappears from Cloudinary's Media Library (not just
     the gallery) - before trusting this broadly.
+- **Upload wizard: duplicate-filename warning (2026-09-06, explicit request: "warn and indicate if
+  duplicate detected either in the file selected themselves or simply between the imported files
+  and the ones in the website, simply compare name")** — two independent, plain filename checks
+  (case-insensitive string match only, no content/hash comparison, per "simply compare name"), run
+  fresh on every `renderPoolViews()` call since either the pool or the live gallery can change while
+  the modal is open: (1) does another file already in `uploadPool` share this one's name, and (2)
+  does an already-published gallery image share it, checked against `img.dataset.filename` (the
+  exact original upload filename stashed on every thumbnail — see the 2026-08-02 "admin-only exact
+  filename debug aids" entry above for where that comes from). `computePoolDuplicateStatus()`
+  computes both per pool item; `updatePoolDuplicateWarningBanner()` drives a visible warning banner
+  (`#poolDuplicateWarningStep1`/`#poolDuplicateWarningStep2`, one above the pool in each of step 1
+  and step 2, since the same pool is shown in both) summarizing counts, and each affected tile (both
+  `.file-preview-item` in step 1 and `.wizard-pool-tile` in step 2) gets a small `⚠` badge
+  (`.pool-tile-duplicate-badge`, bottom-left corner — the one corner neither tile type's existing
+  overlays already occupy) plus a red outline, with a title tooltip naming which kind of duplicate it
+  is (in-batch, on-site, or both). This is a warning only, not a hard block — an admin can still
+  publish a flagged image on purpose (e.g. a deliberate re-upload/replacement), matching how "Find
+  Duplicates" elsewhere in this app is also just a cleanup aid, not an enforced constraint. Both
+  warning message templates are `cfg()`-driven from `config.js`
+  (`modals.addImages.duplicateInSelectionWarningTemplate`/`duplicateOnSiteWarningTemplate`), same
+  `{count}`/`{plural}` token convention as `unsortedImagesWarningTemplate` right above them. Verified
+  via the same Playwright + hand-rolled Firestore/Auth stub pattern this file's Testing section
+  documents: seeded one existing gallery image named `photo1.jpg`, then added `photo1.jpg` (on-site
+  duplicate), `photo2.jpg` twice (in-batch duplicate), and `unique.jpg` (no duplicate) to the pool -
+  confirmed the banner text, each tile's badge visibility/title/class, that discarding one of the two
+  `photo2.jpg` tiles correctly drops the in-batch duplicate flag from the remaining one while leaving
+  `photo1.jpg`'s on-site flag untouched, and that step 2's grid tiles/banner agree with step 1's.
+  Same standing sandbox caveat as everything else in this file: no live Firebase access here, so this
+  hasn't been checked against the real gallery's actual filename data end-to-end.
 
 ## Environment variables (Netlify)
 

@@ -174,6 +174,12 @@ window.SITE_CONFIG = {
       // the pool - {count} is replaced with how many are left, {plural}
       // becomes "has"/"have" automatically.
       unsortedImagesWarningTemplate: "{count} {plural} been sorted into a folder yet and won't be published. Continue to Review anyway?",
+      // Duplicate-filename warnings (compares filenames only, not actual
+      // image content) - shown above the pool in steps 1 & 2 whenever any
+      // added image's filename matches another one. {count}/{plural} work
+      // the same way as unsortedImagesWarningTemplate above.
+      duplicateInSelectionWarningTemplate: "{count} {plural} the same filename as another image in this batch.",
+      duplicateOnSiteWarningTemplate: "{count} {plural} the same filename as an image already in the gallery.",
     },
     renameFolder: {
       title: "Rename Folder",
