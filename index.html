@@ -8262,6 +8262,27 @@ downloadLink.addEventListener("click", function(e) {
     /********************************************************
      * Delete Image Functions
      ********************************************************/
+    // Best-effort cleanup of the actual Cloudinary asset behind an image
+    // that's no longer referenced from anywhere (a deleted gallery image, or
+    // a Review Submissions image nobody chose to keep) - see
+    // netlify/functions/deleteImage.js's own header comment for why this
+    // needs its own server-side auth check rather than just calling
+    // Cloudinary directly. Fire-and-forget, same shape as
+    // sendSubmissionEmailNotification() above: the Firestore write is what
+    // has to succeed for the actual delete/dismiss to count, this is only
+    // cleanup on top of it, so a failure here is just logged, never
+    // surfaced to the admin or allowed to undo the Firestore side.
+    function cleanupCloudinaryAsset(url) {
+      if (!auth.currentUser || !url) return;
+      auth.currentUser.getIdToken()
+        .then(idToken => fetch('/.netlify/functions/deleteImage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken, url }),
+        }))
+        .catch(err => console.warn(`Could not clean up Cloudinary asset for ${url}:`, err));
+    }
+
     // Same click-and-drag multi-select behavior as the upload wizard's pool
     // grid (see wireSelectPoolTile()/poolDragState) - "same click hold drag
     // behaviour to select images in any admin mode" (2026-08-01), extended
@@ -8388,6 +8409,7 @@ downloadLink.addEventListener("click", function(e) {
             await db.collection('images').doc(imageId).delete();
             imageEmbeddingsById.delete(imageId);
             imageContainersByDocId.delete(imageId);
+            cleanupCloudinaryAsset(container.dataset.url);
             container.remove();
             return true;
           }
@@ -9460,6 +9482,7 @@ async function enlargeDeleteCurrentImage() {
     const imageId = await getImageDocId(container);
     if (imageId) {
       await db.collection('images').doc(imageId).delete();
+      cleanupCloudinaryAsset(container.dataset.url);
       container.remove();
       updateFolderCounts();
       renderColorFilterDots();
@@ -10462,6 +10485,13 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
         row.appendChild(note);
       }
 
+      // Tracks which of this submission's images actually made it into the
+      // gallery via "Add" below - Dismiss (below) needs this to know which
+      // ones it's safe to also clean up on Cloudinary, since an image that
+      // was added is now a real gallery image and must NOT be deleted just
+      // because the submission itself is being dismissed.
+      const addedImageUrls = new Set();
+
       if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0) {
         const imagesWrap = document.createElement("div");
         imagesWrap.className = "submission-images";
@@ -10551,6 +10581,7 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
               }
               updateFolderCounts();
               renderColorFilterDots();
+              addedImageUrls.add(url);
               addBtn.textContent = cfg("reviewSubmissions.addedButton", "Added");
               folderSelectEl.disabled = true;
               tagInputEl.disabled = true;
@@ -10577,6 +10608,17 @@ document.getElementById("enlargeEditTagsBtn")?.addEventListener("click", functio
         if (!confirm(cfg("reviewSubmissions.confirmDismissMessage", "Dismiss this submission? This can't be undone."))) return;
         try {
           await db.collection("submissions").doc(id).delete();
+          // Any submitted image that was never "Add"ed to the gallery has
+          // nothing in Firestore pointing at it any more the moment this
+          // submission's own doc is gone - clean those up on Cloudinary too,
+          // same as deleting a gallery image does. Images that WERE added
+          // are real gallery images now (addedImageUrls) and must be left
+          // alone here regardless of what happens to the submission doc.
+          if (Array.isArray(data.imageUrls)) {
+            data.imageUrls
+              .filter(url => !addedImageUrls.has(url))
+              .forEach(cleanupCloudinaryAsset);
+          }
           row.remove();
         } catch (error) {
           console.error("Error dismissing submission:", error);

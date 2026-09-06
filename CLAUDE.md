@@ -2610,10 +2610,79 @@ with admin-only upload/tagging/organizing tools. Deployed on Netlify.
   block, plus the Playwright pass described above. Same standing sandbox caveat as every other entry
   in this file: no live Cloudinary access here, so the actual credit-accrual-rate reduction hasn't
   been measured against the real account.
+- **Deleted/dismissed images now actually get removed from Cloudinary (2026-09-06)** — the gap
+  flagged (not fixed) in the entry above. Deleting a gallery image, the lightbox's admin quick-
+  delete, and dismissing a Review Submissions entry all previously only removed the Firestore doc -
+  the real Cloudinary asset (original + its eager derivative) stayed forever, so Storage only ever
+  grew from image churn and never shrank.
+  - **New `netlify/functions/deleteImage.js`** calls Cloudinary's `destroy` API, which needs the
+    account's secret key (same `CLOUDINARY_API_SECRET` already used by `upload.js`) - this can't run
+    client-side, and unlike `upload.js` (merely an abuse-of-resources risk if hit directly), an
+    unauthenticated delete endpoint would be a real content-destruction hole: every image URL is
+    already visible in the page source to any visitor, so anyone could delete any image from the
+    account just by finding this endpoint and replaying a URL they already see.
+  - **Deliberately does NOT use a Firebase service-account credential** (what `firebase-admin` would
+    need) - that's full admin access to the whole Firebase project, and generating one is a manual,
+    Console-only step (same category as enabling Email/Password sign-in or pasting
+    `firestore.rules` in). Verifying a Firebase ID token only needs to check its *signature*, which
+    Firebase's own public signing keys already make possible with no secret at all - the function
+    fetches `https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com`
+    (confirmed via the `jose` library's own maintainer, https://github.com/panva/jose/discussions/626
+    - this is the JWK-*format* endpoint, not the x509-cert one `firebase-admin` itself uses
+    internally and Firebase's own docs point to for other languages, which isn't directly usable
+    with `jose`'s `createRemoteJWKSet`) via the `jose` npm package, checks `iss`/`aud`/`exp`/`alg`,
+    and confirms the token's `email` claim is exactly `isakovicadrien@gmail.com` - the same check
+    `firestore.rules` already does for Firestore writes. **No new Netlify environment variable or
+    manual Firebase Console step was needed for this** - `FIREBASE_PROJECT_ID`/`ADMIN_EMAIL` are
+    hardcoded in the function since both are already public, non-secret values (the project ID is
+    the same one sitting in `index.html`'s own client-side `firebaseConfig`, see this file's
+    "Environment variables" section on why that's fine).
+  - **`jose` pinned to `^5.10.0`, not the current major (6.x)** - v6 dropped its CJS build entirely
+    in favor of relying on Node's native `require(esm)` support, which Node itself handles fine but
+    Jest's module system doesn't, so `jest.requireActual('jose')` (needed for the test approach
+    below) fails to parse with a `SyntaxError: Cannot use import statement outside a module`. v5.x is
+    the last major with a real dual CJS/ESM build. If this is ever revisited to move to v6, that
+    conflict needs solving first (e.g. Jest's ESM mode), not just bumping the version.
+  - **`cleanupCloudinaryAsset(url)`** (index.html, next to `deleteSelectedImages()`) is the one
+    shared frontend call site - fire-and-forget, same shape as `sendSubmissionEmailNotification()`:
+    the Firestore delete is what has to succeed for the delete/dismiss to count, this is only
+    cleanup on top of it, so a failure here is just `console.warn`'d, never surfaced to the admin or
+    allowed to block/undo the Firestore side. Wired into `deleteSelectedImages()`, the lightbox's
+    `enlargeDeleteCurrentImage()`, and Review Submissions' Dismiss handler. The Dismiss case needed
+    its own bookkeeping - a new `addedImageUrls` Set, populated by the existing per-image "Add"
+    button's success path - since a submission's `imageUrls` includes images that *did* get added to
+    the gallery (now real gallery images, must NOT be deleted) alongside ones that never were (safe
+    to clean up); Dismiss only calls `cleanupCloudinaryAsset()` for the ones not in that set.
+  - **Explicitly checked to not cost more Cloudinary usage than it saves** (a direct ask, not an
+    assumption): `cloudinary.uploader.destroy()` is an Admin API management call, not an asset
+    delivery/transformation request - it doesn't touch Bandwidth or Transformation credits at all,
+    only Storage, and only by reducing it. The JWKS fetch goes to `googleapis.com`, unrelated to
+    Cloudinary entirely. Nothing in this feature adds a new Cloudinary derivative/transform request
+    anywhere - `publicIdFromUrl()` is pure string parsing against the already-known URL, no
+    Cloudinary lookup involved. (Cloudinary's Admin API does have its own separate per-hour rate
+    limit, unrelated to the billing-credit pool - a complete non-issue at this app's scale of
+    occasional admin deletes, not something this change could plausibly hit.)
+  - **Tested with real cryptographic signature verification, not a stubbed-out check** -
+    `tests/deleteImage.test.js` generates a real RSA key pair per test run and mocks only
+    `createRemoteJWKSet` (the "fetch keys from Google" part) to resolve to a local JWKS built from
+    that key; `jwtVerify()` itself runs unmocked, so the tests exercise the actual verification logic
+    end to end. Covers: valid admin token → destroy() called with the right `public_id`; wrong
+    email, wrong signing key, expired token, wrong audience, and wrong issuer → all rejected with
+    destroy() never called; malformed/non-Cloudinary URL → 400, destroy() never called; Cloudinary
+    destroy itself failing → 500. The end-to-end frontend wiring (a real Delete Images click
+    resulting in exactly one correctly-shaped call to the new endpoint) was verified via the same
+    Playwright + stubbed-Firestore/Auth pattern this file's Testing section documents.
+  - **Same standing sandbox caveat as everything else in this file**: no live Firebase/Cloudinary
+    access here, so the JWKS URL/claims have been verified against real Firebase documentation and a
+    real cryptographic test (not guessed), but never against an actual live Firebase ID token from
+    this project. **Test this for real after deploying** - sign in as the real admin, delete one
+    throwaway image, and confirm it actually disappears from Cloudinary's Media Library (not just
+    the gallery) - before trusting this broadly.
 
 ## Environment variables (Netlify)
 
-- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — used by `upload.js`.
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — used by `upload.js` and,
+  since 2026-09-06, `deleteImage.js` (same three, no new env vars needed for that function).
   (`CLOUD_VISION_API` is gone along with Cloud Vision itself — see the AI tagging removal note
   above. If it's still set in the Netlify dashboard, it's just unused, not harmful.)
 - Firebase config is a public client-side config object inlined in `index.html` (normal for
